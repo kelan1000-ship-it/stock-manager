@@ -1,0 +1,7 @@
+{
+  "name": "Greenchem Pharmacy Stock Manager",
+  "description": "A comprehensive retail stock management system for multi-branch pharmacies, featuring AI-powered barcode scanning and product info extraction.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
