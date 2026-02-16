@@ -15,10 +15,11 @@ export const HeaderNotificationBar: React.FC<HeaderNotificationBarProps> = ({
     branchData.messages.filter(m => m.sender !== currentBranch && !m.isRead).length
   , [branchData.messages, currentBranch]);
 
-  const pendingTransfers = useMemo(() => 
-    branchData.transfers.filter(t => 
-      (t.targetBranch === currentBranch && t.status === 'pending') || 
-      (t.sourceBranch === currentBranch && t.status === 'confirmed' && t.type === 'request')
+  const pendingTransfers = useMemo(() =>
+    branchData.transfers.filter(t =>
+      !t.resolvedAt &&
+      ((t.targetBranch === currentBranch && t.status === 'pending') ||
+      (t.sourceBranch === currentBranch && t.status === 'confirmed' && t.type === 'request'))
     ).length
   , [branchData.transfers, currentBranch]);
 

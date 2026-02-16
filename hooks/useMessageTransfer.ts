@@ -1,6 +1,7 @@
 
 import React, { useCallback } from 'react';
 import { BranchData, BranchKey, Message, Product, Transfer } from '../types';
+import { saveTransfer } from '../services/firestoreService';
 
 export function useMessageTransfer(
   currentBranch: BranchKey,
@@ -109,6 +110,11 @@ export function useMessageTransfer(
         // (dispatched, awaiting receipt) and must remain in the active list
         resolvedAt: (action === 'completed' || action === 'cancelled') ? now : originalTransfer.resolvedAt,
       } as Transfer;
+
+      // Direct write bypasses the fragile syncToFirestore diff mechanism
+      saveTransfer(updatedTransfer).catch(err =>
+        console.error('DIRECT WRITE FAILED for transfer', transferId, err)
+      );
 
       // Replace the transfer in the list
       const updatedTransfers = prev.transfers.map(t =>

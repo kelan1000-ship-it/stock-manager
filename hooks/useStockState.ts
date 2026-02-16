@@ -195,8 +195,28 @@ export function useStockState() {
       subscribeToMessages((messages) =>
         fromFirestore(prev => ({ ...prev, messages }))
       ),
-      subscribeToTransfers((transfers) =>
-        fromFirestore(prev => ({ ...prev, transfers }))
+      subscribeToTransfers((incomingTransfers) =>
+        fromFirestore(prev => {
+          const TERMINAL = new Set(['completed', 'cancelled']);
+          const localMap = new Map(prev.transfers.map(t => [t.id, t]));
+
+          const merged = incomingTransfers.map(incoming => {
+            const local = localMap.get(incoming.id);
+            if (!local) return incoming;
+            // Never downgrade a terminal status back to non-terminal
+            if (TERMINAL.has(local.status) && !TERMINAL.has(incoming.status)) return local;
+            // Never lose a resolvedAt timestamp
+            if (local.resolvedAt && !incoming.resolvedAt) return local;
+            return incoming;
+          });
+
+          // Preserve local-only transfers whose writes are still in-flight
+          for (const [id, local] of localMap) {
+            if (!incomingTransfers.some(t => t.id === id)) merged.push(local);
+          }
+
+          return { ...prev, transfers: merged };
+        })
       ),
       subscribeToRequests('bywood', (r) =>
         fromFirestore(prev => ({ ...prev, bywoodRequests: r }))
