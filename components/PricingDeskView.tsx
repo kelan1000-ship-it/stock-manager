@@ -206,7 +206,17 @@ export const PricingDeskView: React.FC<PricingDeskViewProps> = ({ branchData, se
                     </td>
                   </tr>
                 ) : labelQueue.map(item => {
-                  const targetP = item.targetPrice !== undefined ? item.targetPrice : item.price;
+                  const hasTarget = item.targetPrice !== undefined;
+                  const newPrice = hasTarget ? item.targetPrice : item.price;
+                  let oldPrice = item.price;
+
+                  if (!hasTarget) {
+                    // Direct update: item.price is ALREADY the new price.
+                    // Fetch old price from history if available.
+                    if (item.priceHistory && item.priceHistory.length >= 2) {
+                      oldPrice = item.priceHistory[item.priceHistory.length - 2].rrp;
+                    }
+                  }
 
                   return (
                     <tr key={`${item.id}-${item.barcode}`} className="transition-colors group hover:bg-white/[0.02]">
@@ -225,9 +235,9 @@ export const PricingDeskView: React.FC<PricingDeskViewProps> = ({ branchData, se
                       <td className="p-8 text-center">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <div className="flex items-center justify-center gap-5">
-                            <span className="text-sm font-bold text-white line-through opacity-40">£{item.price.toFixed(2)}</span>
+                            <span className="text-sm font-bold text-white line-through opacity-40">£{oldPrice.toFixed(2)}</span>
                             <MoveRight size={18} className="text-slate-700" />
-                            <span className="text-xl font-black text-emerald-500">£{targetP.toFixed(2)}</span>
+                            <span className="text-xl font-black text-emerald-500">£{((newPrice || 0).toFixed(2))}</span>
                           </div>
                         </div>
                       </td>
