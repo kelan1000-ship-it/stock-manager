@@ -174,7 +174,10 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
     const activeOrderKey = currentBranch === 'bywood' ? 'bywoodOrders' : 'broomOrders';
     const orders = branchData[activeOrderKey] || [];
     const activeIds = new Set(activeMainInventory.map((p: Product) => p.id));
-    return orders.filter((o: { productId: string }) => activeIds.has(o.productId)).length;
+    return orders.filter((o: { productId: string; status?: string }) =>
+      activeIds.has(o.productId) &&
+      (o.status === 'pending' || o.status === 'ordered' || o.status === 'backorder')
+    ).length;
   }, [branchData, currentBranch, activeMainInventory]);
 
   if (mainView === 'inventory' || mainView === 'archive' || mainView === 'bin') {
@@ -225,13 +228,14 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
         )}
 
         {/* Dashboard Widgets Section */}
-        <DashboardWidgets 
-          activeMainInventory={activeMainInventory} 
-          activeOrdersCount={activeOrdersCount} 
+        <DashboardWidgets
+          activeMainInventory={activeMainInventory}
+          activeOrdersCount={activeOrdersCount}
           logic={logic}
           pricingAlertCount={pricingLogic.alerts.length}
           onOpenReconciliation={onOpenReconciliation}
           onOpenDuplicates={onOpenDuplicates}
+          currentBranch={currentBranch}
         />
 
         {/* Updated Filter Section */}

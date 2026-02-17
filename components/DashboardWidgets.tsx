@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { History, Truck, TrendingUp, Package, Star, AlertCircle, X, RefreshCw, Copy, GripHorizontal } from 'lucide-react';
 import { Product } from '../types';
 import { StockLogicReturn } from '../hooks/useStockLogic';
@@ -14,6 +14,7 @@ interface DashboardWidgetsProps {
   pricingAlertCount: number;
   onOpenReconciliation: () => void;
   onOpenDuplicates: () => void;
+  currentBranch: string;
 }
 
 type WidgetType = 'restock' | 'ordered' | 'slow-movers' | 'expiring' | 'clearance' | 'alerts' | 'reconciliation' | 'duplicates';
@@ -24,7 +25,8 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
   logic,
   pricingAlertCount,
   onOpenReconciliation,
-  onOpenDuplicates
+  onOpenDuplicates,
+  currentBranch
 }) => {
   const { totalSlowMovers } = useSlowMoverInsights(activeMainInventory);
   
@@ -49,9 +51,32 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
   }, [activeMainInventory]);
 
   // State for the 4 grid slots. Null means empty/placeholder.
-  const [activeSlots, setActiveSlots] = useState<(WidgetType | null)[]>([
-    'restock', 'ordered', 'slow-movers', 'expiring'
-  ]);
+  const STORAGE_KEY_PREFIX = 'greenchem-dashboard-slots-';
+  const DEFAULT_SLOTS: (WidgetType | null)[] = ['restock', 'ordered', 'slow-movers', 'expiring'];
+
+  const [activeSlots, setActiveSlots] = useState<(WidgetType | null)[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_PREFIX + currentBranch);
+      return saved ? JSON.parse(saved) : DEFAULT_SLOTS;
+    } catch {
+      return DEFAULT_SLOTS;
+    }
+  });
+
+  // Persist on change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_PREFIX + currentBranch, JSON.stringify(activeSlots));
+  }, [activeSlots, currentBranch]);
+
+  // Re-load when branch changes
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_PREFIX + currentBranch);
+      setActiveSlots(saved ? JSON.parse(saved) : DEFAULT_SLOTS);
+    } catch {
+      setActiveSlots(DEFAULT_SLOTS);
+    }
+  }, [currentBranch]);
   
   const [addingToIndex, setAddingToIndex] = useState<number | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);

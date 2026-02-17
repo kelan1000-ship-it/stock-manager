@@ -75,19 +75,19 @@ export const HeaderGlobalSearch: React.FC<HeaderGlobalSearchProps> = ({
           className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl py-2.5 pl-11 pr-20 text-sm font-bold text-white placeholder-slate-600 outline-none focus:border-emerald-500/50 focus:ring-4 ring-emerald-500/5 transition-all shadow-inner"
         />
         {searchQuery && (
-            <button 
+            <button
                 onClick={() => onSearchChange('')}
-                className="absolute right-10 top-1/2 -translate-y-1/2 p-1.5 rounded-xl text-slate-500 hover:text-white transition-colors"
+                className="absolute right-9 top-1/2 -translate-y-1/2 p-1.5 rounded-xl text-slate-500 hover:text-white transition-colors"
             >
                 <X size={14} />
             </button>
         )}
-        <button 
+        <button
           onClick={onOpenPriceChecker}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-500 hover:text-emerald-400 hover:border-emerald-500/30 transition-all active:scale-95 group/btn"
+          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-emerald-400 transition-colors"
           title="RRP Checker"
         >
-          <span className="font-black text-sm px-1">£</span>
+          <span className="font-semibold text-sm leading-none">£</span>
         </button>
 
         {isFocused && (

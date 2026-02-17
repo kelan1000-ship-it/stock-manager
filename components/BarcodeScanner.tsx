@@ -6,7 +6,9 @@ import { extractBarcodeOnly } from '../services/geminiService';
 export const LiveVisionScanner = ({ theme, onDetected, onClose }: { theme: string; onDetected: (code: string) => void; onClose: () => void }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [manualBarcode, setManualBarcode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [hasNativeSupport, setHasNativeSupport] = useState(false);
@@ -112,8 +114,21 @@ export const LiveVisionScanner = ({ theme, onDetected, onClose }: { theme: strin
     return () => clearInterval(scanInterval);
   }, [isScanning, hasNativeSupport, onDetected, onClose]);
 
+  // Auto-focus the barcode input so scanner gun keystrokes go straight into it
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 300);
+    return () => clearTimeout(t);
+  }, []);
+
   const toggleCamera = () => {
       setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
+  };
+
+  const handleManualSubmit = () => {
+    const code = manualBarcode.trim();
+    if (!code) return;
+    onDetected(code);
+    onClose();
   };
 
   return (
@@ -181,6 +196,28 @@ export const LiveVisionScanner = ({ theme, onDetected, onClose }: { theme: strin
            </>
          )}
          <canvas ref={canvasRef} className="hidden" />
+       </div>
+
+       {/* Barcode Scanner Gun / Manual Input Bar */}
+       <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-auto bg-black/80 backdrop-blur-xl border-t border-white/10 px-4 py-3">
+         <div className="flex items-center gap-2 max-w-lg mx-auto">
+           <input
+             ref={inputRef}
+             type="text"
+             inputMode="numeric"
+             value={manualBarcode}
+             onChange={(e) => setManualBarcode(e.target.value)}
+             onKeyDown={(e) => { if (e.key === 'Enter') handleManualSubmit(); }}
+             placeholder="Scan or type barcode..."
+             className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-white placeholder-white/40 text-sm font-medium focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+           />
+           <button
+             onClick={handleManualSubmit}
+             className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold uppercase tracking-wider rounded-xl transition-all active:scale-95 shrink-0"
+           >
+             Search
+           </button>
+         </div>
        </div>
 
        <style>{`

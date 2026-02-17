@@ -28,6 +28,7 @@ import { HeaderGlobalSearch } from './HeaderGlobalSearch';
 import { HeaderNotificationBar } from './HeaderNotificationBar';
 import { parseInventoryFile, compareInventory, generateTemplate, InventoryComparisonResult } from '../utils/inventoryParser';
 import Logo from '../Logo';
+import { verifyPriceSyncReset } from '../utils/verifyPriceSyncReset';
 import { BranchKey, Product, CustomerRequest, OrderItem, InventorySubFilter } from '../types';
 
 export default function RetailStockManager() {
@@ -195,6 +196,14 @@ export default function RetailStockManager() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Dev mode: expose price sync reset verification on window
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      (window as any).__verifyPriceSyncReset = () => verifyPriceSyncReset(branchData, currentBranch);
+    }
+    return () => { if (import.meta.env.DEV) delete (window as any).__verifyPriceSyncReset; };
+  }, [branchData, currentBranch]);
 
   const baseItems = useMemo(() => {
     const items = rawBranchItems;
@@ -448,9 +457,10 @@ export default function RetailStockManager() {
                 }}
               />
 
-              <HeaderNotificationBar 
+              <HeaderNotificationBar
                 branchData={branchData}
                 currentBranch={currentBranch}
+                syncStatus={logic.syncStatus}
               />
           </div>
 
@@ -469,7 +479,7 @@ export default function RetailStockManager() {
               ).length > 0 && <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 rounded-full border-2 border-slate-900" />}
             </button>
             <button 
-              onClick={() => { logic.markRead(); setIsChatOpen(true); }} 
+              onClick={() => setIsChatOpen(true)}
               className="relative p-1.5 sm:p-2.5 rounded-xl border transition-colors border-indigo-500/30 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 shadow-lg shadow-indigo-900/20"
             >
               <MessageSquare size={18} />

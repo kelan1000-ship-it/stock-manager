@@ -2,6 +2,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { BranchData, BranchKey, Product, JointOrder } from '../types';
 import { StockLogicReturn } from './useStockLogic';
+import { updateSharedValues as updateSharedValuesFunc } from '../utils/updateSharedValues';
 
 export function useSharedStock(
   branchData: BranchData,
@@ -65,94 +66,14 @@ export function useSharedStock(
     }
   }, [logic, orderDrafts]);
 
-  /**
-   * Enhanced updateSharedValues
-   * Implements Pricing Desk Logic:
-   * 1. Triggers label queue for local branch
-   * 2. Logs price history
-   * 3. If Price Sync is ON OR field is Cost Price: Updates other branch + triggers label queue + sets origin
-   * 4. If Price Sync is OFF and field is RRP: Updates only local (triggers 'Gap' alert in Pricing Desk)
-   */
   const updateSharedValues = useCallback((barcode: string, field: 'price' | 'costPrice', value: number) => {
-    const now = new Date().toISOString();
-    const otherBranch = currentBranch === 'bywood' ? 'broom' : 'bywood';
-
     if (logic.setBranchData) {
-      logic.setBranchData((prev: BranchData) => {
-        const updated = { ...prev };
-        const localItem = prev[currentBranch].find(p => p.barcode === barcode && !p.deletedAt);
-        
-        if (!localItem) return prev;
-
-        const isPriceField = field === 'price';
-        const isCostField = field === 'costPrice';
-        const isSynced = !!localItem.isPriceSynced;
-
-        // 1. Update Initiating (Local) Branch
-        updated[currentBranch] = prev[currentBranch].map((p: Product) => {
-          if (p.barcode === barcode && !p.deletedAt) {
-            const newPrice = field === 'price' ? value : p.price;
-            const newCost = field === 'costPrice' ? value : p.costPrice;
-            const hasChanged = Math.abs(p.price - newPrice) > 0.001 || Math.abs(p.costPrice - newCost) > 0.001;
-            
-            return { 
-              ...p, 
-              [field]: value, 
-              lastUpdated: now,
-              labelNeedsUpdate: isPriceField ? true : p.labelNeedsUpdate,
-              priceHistory: hasChanged ? [
-                ...(p.priceHistory || []),
-                { 
-                    date: now, 
-                    rrp: newPrice, 
-                    costPrice: newCost, 
-                    margin: newPrice > 0 ? ((newPrice - newCost) / newPrice * 100) : 0 
-                }
-              ] : p.priceHistory
-            };
-          }
-          return p;
-        });
-
-        // 2. Conditionally update partner branch
-        // Update if Price Sync is active OR if updating Cost Price (which is global)
-        const shouldUpdatePartner = isSynced || isCostField;
-
-        if (shouldUpdatePartner) {
-          updated[otherBranch] = prev[otherBranch].map((p: Product) => {
-            if (p.barcode === barcode && !p.deletedAt) {
-              const newPrice = field === 'price' ? value : p.price;
-              const newCost = field === 'costPrice' ? value : p.costPrice;
-              const hasChanged = Math.abs(p.price - newPrice) > 0.001 || Math.abs(p.costPrice - newCost) > 0.001;
-
-              return { 
-                ...p, 
-                [field]: value, 
-                lastUpdated: now,
-                // Only flag label update if RRP changed
-                labelNeedsUpdate: isPriceField ? true : p.labelNeedsUpdate,
-                priceChangeOrigin: isPriceField ? currentBranch : p.priceChangeOrigin,
-                priceHistory: hasChanged ? [
-                  ...(p.priceHistory || []),
-                  { 
-                    date: now, 
-                    rrp: newPrice, 
-                    costPrice: newCost, 
-                    margin: newPrice > 0 ? ((newPrice - newCost) / newPrice * 100) : 0 
-                  }
-                ] : p.priceHistory
-              };
-            }
-            return p;
-          });
-        }
-        // NOTE: If isSynced is false and it's an RRP change, we don't update other branch. 
-        // This will naturally cause a price gap detected by usePricingDesk.ts.
-
-        return updated;
-      });
+      logic.setBranchData((prev: BranchData) => 
+        updateSharedValuesFunc(prev, currentBranch, barcode, field, value)
+      );
     }
   }, [logic, currentBranch]);
+
 
   const handleUpdateTarget = useCallback((productId: string, branch: BranchKey, val: number) => {
     if (logic.setBranchData) {

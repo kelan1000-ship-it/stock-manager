@@ -38,10 +38,11 @@ export function useInventorySync(
             ...existing,
             ...excelItem, // Apply all spreadsheet fields (name, pip, cost, supplier, location, etc.)
             lastUpdated: now,
-            
+
             // Handle label printing triggers
             pendingPriceUpdate: hasPriceChanged ? true : existing.pendingPriceUpdate,
             labelNeedsUpdate: hasPriceChanged ? true : existing.labelNeedsUpdate,
+            ignoredPriceAlertUntil: hasPriceChanged ? undefined : existing.ignoredPriceAlertUntil,
             
             // Append to price history only if value changed
             priceHistory: hasPriceChanged ? [

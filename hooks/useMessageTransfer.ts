@@ -1,5 +1,5 @@
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import { BranchData, BranchKey, Message, Product, Transfer } from '../types';
 import { saveTransfer } from '../services/firestoreService';
 
@@ -7,6 +7,21 @@ export function useMessageTransfer(
   currentBranch: BranchKey,
   setBranchData: React.Dispatch<React.SetStateAction<BranchData>>
 ) {
+  // Queue for Firestore writes — kept outside the state updater to stay pure
+  const pendingTransferWrites = useRef<Transfer[]>([]);
+
+  // Flush queued writes after React commits the render
+  useEffect(() => {
+    const queue = pendingTransferWrites.current;
+    if (queue.length === 0) return;
+    pendingTransferWrites.current = [];
+    queue.forEach(transfer => {
+      saveTransfer(transfer).catch(err =>
+        console.error('Transfer write failed for', transfer.id, err)
+      );
+    });
+  });
+
   // ─── Messaging ──────────────────────────────────────────────────
 
   const markRead = useCallback(() => {
@@ -23,13 +38,14 @@ export function useMessageTransfer(
     }));
   }, [setBranchData]);
 
-  const sendMessage = useCallback((text: string) => {
+  const sendMessage = useCallback((text: string, file?: { fileName: string; fileSize: number; fileType: string; fileData: string }) => {
     const newMsg: Message = {
       id: `msg_${Date.now()}`,
       sender: currentBranch,
       text,
       timestamp: new Date().toISOString(),
-      isRead: false
+      isRead: false,
+      ...file
     };
     setBranchData(prev => ({ ...prev, messages: [...prev.messages, newMsg] }));
   }, [currentBranch, setBranchData]);
@@ -111,10 +127,8 @@ export function useMessageTransfer(
         resolvedAt: (action === 'completed' || action === 'cancelled') ? now : originalTransfer.resolvedAt,
       } as Transfer;
 
-      // Direct write bypasses the fragile syncToFirestore diff mechanism
-      saveTransfer(updatedTransfer).catch(err =>
-        console.error('DIRECT WRITE FAILED for transfer', transferId, err)
-      );
+      // Queue the write — flushed by useEffect after render commit
+      pendingTransferWrites.current.push(updatedTransfer);
 
       // Replace the transfer in the list
       const updatedTransfers = prev.transfers.map(t =>

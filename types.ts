@@ -25,6 +25,10 @@ export interface Message {
   text: string;
   timestamp: string;
   isRead: boolean;
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
+  fileData?: string;
 }
 
 export interface Transfer {

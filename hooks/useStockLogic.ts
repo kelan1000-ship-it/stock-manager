@@ -158,9 +158,11 @@ export function useStockLogic() {
   // Bulk Operations (Selection based)
   const bulkAdjustPrices = useCallback((ids: Set<string>, adjustment: { type: 'percent' | 'fixed', value: number }) => {
     const now = new Date().toISOString();
-    setBranchData(prev => ({
-      ...prev,
-      [currentBranch]: prev[currentBranch].map(p => {
+    setBranchData(prev => {
+      const otherBranch = currentBranch === 'bywood' ? 'broom' : 'bywood';
+
+      // 1. Update Local
+      const updatedLocal = prev[currentBranch].map(p => {
         if (!ids.has(p.id)) return p;
         let newPrice = p.price;
         if (adjustment.type === 'fixed') newPrice += adjustment.value;
@@ -181,9 +183,55 @@ export function useStockLogic() {
             }
         ];
 
-        return { ...p, price: newPrice, lastUpdated: now, priceHistory: newHistory };
-      })
-    }));
+        const shouldLabel = p.isPriceSynced;
+        return { 
+            ...p, 
+            price: newPrice, 
+            lastUpdated: now, 
+            priceHistory: newHistory, 
+            ignoredPriceAlertUntil: undefined, 
+            labelNeedsUpdate: shouldLabel ? true : p.labelNeedsUpdate 
+        };
+      });
+
+      // 2. Propagate to Partner
+      let updatedPartner = [...prev[otherBranch]];
+      const syncedItems = updatedLocal.filter(p => ids.has(p.id) && p.isPriceSynced && p.barcode);
+      
+      syncedItems.forEach(localItem => {
+          const partnerIndex = updatedPartner.findIndex(op => op.barcode === localItem.barcode && !op.deletedAt);
+          if (partnerIndex !== -1) {
+              const partnerItem = updatedPartner[partnerIndex];
+              const newPrice = localItem.price;
+               
+              if (Math.abs(partnerItem.price - newPrice) > 0.001) {
+                  updatedPartner[partnerIndex] = {
+                      ...partnerItem,
+                      price: newPrice,
+                      pendingPriceUpdate: true,
+                      priceChangeOrigin: currentBranch,
+                      ignoredPriceAlertUntil: undefined,
+                      lastUpdated: now,
+                      priceHistory: [
+                          ...(partnerItem.priceHistory || []),
+                          {
+                              date: now,
+                              rrp: newPrice,
+                              costPrice: partnerItem.costPrice,
+                              margin: newPrice > 0 ? ((newPrice - partnerItem.costPrice) / newPrice * 100) : 0
+                          }
+                      ]
+                  };
+              }
+          }
+      });
+
+      return {
+          ...prev,
+          [currentBranch]: updatedLocal,
+          [otherBranch]: updatedPartner
+      };
+    });
   }, [currentBranch, setBranchData]);
 
   const bulkReceiveStock = useCallback((ids: Set<string>) => {

@@ -1,6 +1,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { BranchData, BranchKey, Product, ProductFormData, RequestFormData, BulkItem, CustomerRequest, OrderItem } from '../types';
+
+export type SyncStatus = 'connected' | 'reconnecting' | 'offline' | 'error';
 import { useAuth } from '../contexts/AuthContext';
 import {
   subscribeToProducts,
@@ -57,6 +59,9 @@ function diffById<T extends { id: string }>(prev: T[], next: T[]): { upserted: T
   }
   return { upserted, removedIds };
 }
+
+// ─── Module-level write failure callback ────────────────────────
+let onWriteFailure: ((count: number) => void) | null = null;
 
 // ─── Write diffs to Firestore in parallel ─────────────────────────
 function syncToFirestore(prev: BranchData, next: BranchData) {
@@ -128,6 +133,7 @@ function syncToFirestore(prev: BranchData, next: BranchData) {
       if (failures.length > 0) {
         console.error(`FIRESTORE: ${failures.length}/${promises.length} writes failed:`,
           failures.map(f => (f as PromiseRejectedResult).reason));
+        onWriteFailure?.(failures.length);
       }
     });
   }
@@ -142,6 +148,9 @@ export function useStockState() {
     bywoodOrders: [], broomOrders: [],
     jointOrders: [], masterInventory: [], planograms: [], floorPlans: [],
   });
+
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('connected');
+  const listenerErrorCount = useRef(0);
 
   // Counter: > 0 means we're inside a Firestore listener callback
   const listenerDepth = useRef(0);
@@ -177,23 +186,42 @@ export function useStockState() {
   useEffect(() => {
     if (!firebaseUser) return;
 
+    // Reset error count on fresh mount
+    listenerErrorCount.current = 0;
+
     const fromFirestore = (updater: (prev: BranchData) => BranchData) => {
       listenerDepth.current++;
       setBranchDataRaw(updater);
+      // Successful snapshot means we're connected
+      listenerErrorCount.current = 0;
+      setSyncStatus('connected');
       Promise.resolve().then(() => {
         listenerDepth.current = Math.max(0, listenerDepth.current - 1);
       });
     };
 
+    const handleListenerError = (error: Error) => {
+      listenerErrorCount.current++;
+      if (listenerErrorCount.current >= 2) {
+        setSyncStatus('error');
+      }
+    };
+
+    // Wire up write failure handler
+    onWriteFailure = () => setSyncStatus('error');
+
     const unsubs = [
       subscribeToProducts('bywood', (products) =>
-        fromFirestore(prev => ({ ...prev, bywood: products }))
+        fromFirestore(prev => ({ ...prev, bywood: products })),
+        handleListenerError
       ),
       subscribeToProducts('broom', (products) =>
-        fromFirestore(prev => ({ ...prev, broom: products }))
+        fromFirestore(prev => ({ ...prev, broom: products })),
+        handleListenerError
       ),
       subscribeToMessages((messages) =>
-        fromFirestore(prev => ({ ...prev, messages }))
+        fromFirestore(prev => ({ ...prev, messages })),
+        handleListenerError
       ),
       subscribeToTransfers((incomingTransfers) =>
         fromFirestore(prev => {
@@ -216,36 +244,71 @@ export function useStockState() {
           }
 
           return { ...prev, transfers: merged };
-        })
+        }),
+        handleListenerError
       ),
       subscribeToRequests('bywood', (r) =>
-        fromFirestore(prev => ({ ...prev, bywoodRequests: r }))
+        fromFirestore(prev => ({ ...prev, bywoodRequests: r })),
+        handleListenerError
       ),
       subscribeToRequests('broom', (r) =>
-        fromFirestore(prev => ({ ...prev, broomRequests: r }))
+        fromFirestore(prev => ({ ...prev, broomRequests: r })),
+        handleListenerError
       ),
       subscribeToOrders('bywood', (o) =>
-        fromFirestore(prev => ({ ...prev, bywoodOrders: o }))
+        fromFirestore(prev => ({ ...prev, bywoodOrders: o })),
+        handleListenerError
       ),
       subscribeToOrders('broom', (o) =>
-        fromFirestore(prev => ({ ...prev, broomOrders: o }))
+        fromFirestore(prev => ({ ...prev, broomOrders: o })),
+        handleListenerError
       ),
       subscribeToJointOrders((o) =>
-        fromFirestore(prev => ({ ...prev, jointOrders: o }))
+        fromFirestore(prev => ({ ...prev, jointOrders: o })),
+        handleListenerError
       ),
       subscribeToMasterInventory((m) =>
-        fromFirestore(prev => ({ ...prev, masterInventory: m }))
+        fromFirestore(prev => ({ ...prev, masterInventory: m })),
+        handleListenerError
       ),
       subscribeToPlanograms((p) =>
-        fromFirestore(prev => ({ ...prev, planograms: p }))
+        fromFirestore(prev => ({ ...prev, planograms: p })),
+        handleListenerError
       ),
       subscribeToFloorPlans((f) =>
-        fromFirestore(prev => ({ ...prev, floorPlans: f }))
+        fromFirestore(prev => ({ ...prev, floorPlans: f })),
+        handleListenerError
       ),
     ];
 
-    return () => unsubs.forEach(fn => fn());
+    return () => {
+      unsubs.forEach(fn => fn());
+      onWriteFailure = null;
+    };
   }, [firebaseUser]);
+
+  // ─── Online / Offline Detection ──────────────────────────────────
+  useEffect(() => {
+    const handleOnline = () => {
+      setSyncStatus('reconnecting');
+    };
+    const handleOffline = () => {
+      setSyncStatus('offline');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Set initial status based on current network state
+    if (!navigator.onLine) {
+      setSyncStatus('offline');
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // ─── UI State ───────────────────────────────────────────────────
   const [mainView, setMainView] = useState<'inventory' | 'requests' | 'performance' | 'archive' | 'bin' | 'planogram' | 'reconciliation' | 'shared-stock'>('inventory');
@@ -308,5 +371,7 @@ export function useStockState() {
     isBulkCameraOpen, setIsBulkCameraOpen,
 
     pendingDuplicate, setPendingDuplicate,
+
+    syncStatus,
   };
 }

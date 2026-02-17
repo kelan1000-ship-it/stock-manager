@@ -41,8 +41,12 @@ export function usePricingDesk(branchData: BranchData, setBranchData: React.Disp
       const refP = match ? (match.price || 0) : localP;
       const hasGap = match ? Math.abs(localP - refP) > 0.001 : false;
       const isPending = !!p.pendingPriceUpdate;
+      const isOriginThisBranch = p.priceChangeOrigin === currentBranch;
 
-      if (isPending || hasGap) {
+      // Show alert if:
+      // 1. A change is pending for this branch (pushed from other branch).
+      // 2. There's a price gap that this branch did NOT originate.
+      if (isPending || (hasGap && !isOriginThisBranch)) {
         // Priority logic for origin: use priceChangeOrigin if set, otherwise try to guess.
         let origin = p.priceChangeOrigin ? (p.priceChangeOrigin === 'bywood' ? 'Bywood' : 'Broom Road') : localSiteName;
         

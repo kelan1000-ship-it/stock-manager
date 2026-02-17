@@ -2,7 +2,7 @@
   "firestore": {
     "database": "(default)",
     "location": "eur3",
-    "rules": "greenchem-stock-manager-1",
+    "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
   "hosting": {

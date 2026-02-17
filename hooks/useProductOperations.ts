@@ -117,7 +117,9 @@ export function useProductOperations(
               stockInHand: parseInt(formData.stockInHand) || 0,
               partPacks: parseInt(formData.partPacks) || 0,
               lastUpdated: now,
-              priceHistory: newHistory
+              priceHistory: newHistory,
+              ignoredPriceAlertUntil: hasPriceChanged ? undefined : p.ignoredPriceAlertUntil,
+              labelNeedsUpdate: (hasPriceChanged && formData.isPriceSynced) ? true : p.labelNeedsUpdate
             };
           }
           return p;
@@ -140,7 +142,7 @@ export function useProductOperations(
                     }
                  ];
 
-                 return { ...p, price: priceValue, lastUpdated: now, priceHistory: groupHistory };
+                 return { ...p, price: priceValue, lastUpdated: now, priceHistory: groupHistory, ignoredPriceAlertUntil: undefined };
               }
               return p;
            });
@@ -166,6 +168,7 @@ export function useProductOperations(
                 partnerUpdates.price = priceValue;
                 partnerUpdates.pendingPriceUpdate = true;
                 partnerUpdates.priceChangeOrigin = currentBranch;
+                partnerUpdates.ignoredPriceAlertUntil = undefined;
                 partnerUpdates.priceHistory = [
                   ...(partnerItem.priceHistory || []), 
                   { 
@@ -211,26 +214,76 @@ export function useProductOperations(
     setBranchData(prev => {
         const targetProduct = prev[currentBranch].find(p => p.id === id);
         const targetGroup = targetProduct?.parentGroup?.trim();
+        const otherBranch = currentBranch === 'bywood' ? 'broom' : 'bywood';
+
+        // 1. Update Local Branch
+        const updatedLocal = prev[currentBranch].map(p => {
+            if (p.id === id || (targetGroup && p.parentGroup?.trim() === targetGroup && !p.deletedAt)) {
+                if (Math.abs(p.price - newPrice) < 0.001) return p;
+
+                const newHistory = [
+                    ...(p.priceHistory || []),
+                    {
+                        date: now,
+                        rrp: newPrice,
+                        costPrice: p.costPrice,
+                        margin: newPrice > 0 ? ((newPrice - p.costPrice) / newPrice * 100) : 0
+                    }
+                ];
+                // If synced, force label update on initiator to skip alert
+                const shouldLabel = p.isPriceSynced;
+                return { 
+                    ...p, 
+                    price: newPrice, 
+                    lastUpdated: now, 
+                    priceHistory: newHistory, 
+                    ignoredPriceAlertUntil: undefined,
+                    labelNeedsUpdate: shouldLabel ? true : p.labelNeedsUpdate
+                };
+            }
+            return p;
+        });
+
+        // 2. Propagate to Partner Branch (if synced)
+        let updatedPartner = [...prev[otherBranch]];
+        
+        // Find all local items that were updated AND are synced
+        const syncedItemsToPropagate = updatedLocal.filter(p => 
+            (p.id === id || (targetGroup && p.parentGroup?.trim() === targetGroup && !p.deletedAt)) &&
+            p.isPriceSynced &&
+            p.barcode
+        );
+
+        syncedItemsToPropagate.forEach(localItem => {
+            const partnerIndex = updatedPartner.findIndex(op => op.barcode === localItem.barcode && !op.deletedAt);
+            if (partnerIndex !== -1) {
+                const partnerItem = updatedPartner[partnerIndex];
+                if (Math.abs(partnerItem.price - newPrice) > 0.001) {
+                    updatedPartner[partnerIndex] = {
+                        ...partnerItem,
+                        price: newPrice,
+                        pendingPriceUpdate: true,
+                        priceChangeOrigin: currentBranch,
+                        ignoredPriceAlertUntil: undefined,
+                        lastUpdated: now,
+                        priceHistory: [
+                            ...(partnerItem.priceHistory || []),
+                            {
+                                date: now,
+                                rrp: newPrice,
+                                costPrice: partnerItem.costPrice,
+                                margin: newPrice > 0 ? ((newPrice - partnerItem.costPrice) / newPrice * 100) : 0
+                            }
+                        ]
+                    };
+                }
+            }
+        });
 
         return {
             ...prev,
-            [currentBranch]: prev[currentBranch].map(p => {
-                if (p.id === id || (targetGroup && p.parentGroup?.trim() === targetGroup && !p.deletedAt)) {
-                    if (Math.abs(p.price - newPrice) < 0.001) return p;
-
-                    const newHistory = [
-                        ...(p.priceHistory || []),
-                        {
-                            date: now,
-                            rrp: newPrice,
-                            costPrice: p.costPrice,
-                            margin: newPrice > 0 ? ((newPrice - p.costPrice) / newPrice * 100) : 0
-                        }
-                    ];
-                    return { ...p, price: newPrice, lastUpdated: now, priceHistory: newHistory };
-                }
-                return p;
-            })
+            [currentBranch]: updatedLocal,
+            [otherBranch]: updatedPartner
         };
     });
   }, [currentBranch, setBranchData]);

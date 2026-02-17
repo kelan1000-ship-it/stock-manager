@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-// Added Check icon to the named imports from lucide-react
-import { MessageSquare, X, Send, Upload, Circle, MailOpen, Mail, Check } from 'lucide-react';
+import { MessageSquare, X, Send, Upload, Circle, MailOpen, Mail, Check, FileDown, FileText } from 'lucide-react';
 import { Message, BranchKey } from '../types';
 
 export const ChatWindow = ({ 
@@ -15,13 +14,15 @@ export const ChatWindow = ({
   isOpen: boolean; 
   onClose: () => void; 
   messages: Message[]; 
-  onSend: (text: string) => void; 
+  onSend: (text: string, file?: { fileName: string; fileSize: number; fileType: string; fileData: string }) => void;
   onToggleReadStatus?: (id: string) => void;
   currentBranch: BranchKey; 
   theme: 'dark' 
 }) => {
   const [inputText, setInputText] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [textPreviewId, setTextPreviewId] = useState<string | null>(null);
+  const dragCounter = useRef(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -46,24 +47,66 @@ export const ChatWindow = ({
     setInputText('');
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
+    dragCounter.current++;
     setIsDragging(true);
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
   const handleDragLeave = () => {
-    setIsDragging(false);
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    dragCounter.current = 0;
     setIsDragging(false);
-    // Fix: Explicitly cast the array to File[] to ensure 'file' properties like 'name' and 'size' are accessible.
     const files = Array.from(e.dataTransfer.files) as File[];
-    if (files.length > 0) {
-      files.forEach(file => {
-        onSend(`📎 Shared file: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
-      });
+    files.forEach(file => {
+      if (file.size > 500 * 1024) {
+        onSend(`📎 Shared file: ${file.name} (${(file.size / 1024).toFixed(1)} KB) — too large to embed`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        onSend(`📎 ${file.name}`, {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          fileData: reader.result as string
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const downloadFile = (msg: Message) => {
+    if (!msg.fileData) return;
+    const a = document.createElement('a');
+    a.href = msg.fileData;
+    a.download = msg.fileName || 'download';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const viewText = (msgId: string) => {
+    setTextPreviewId(prev => prev === msgId ? null : msgId);
+  };
+
+  const decodeFileText = (fileData: string): string => {
+    try {
+      const base64 = fileData.split(',')[1] || '';
+      return atob(base64);
+    } catch {
+      return '[Unable to decode file content]';
     }
   };
 
@@ -79,6 +122,7 @@ export const ChatWindow = ({
       
       <div 
         className="relative w-full max-w-md h-full flex flex-col bg-slate-900 border-l border-slate-800 shadow-[-20px_0_50px_rgba(0,0,0,0.5)] animate-in slide-in-from-right duration-300 overflow-hidden"
+        onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -123,8 +167,37 @@ export const ChatWindow = ({
                   isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 
                   (isUnread ? 'bg-slate-800 text-white rounded-tl-none border border-indigo-500/30 ring-1 ring-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'bg-slate-800 text-slate-300 rounded-tl-none border border-slate-700')
                 }`}>
-                  {msg.text}
-                  
+                  {msg.fileData ? (
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <FileDown size={18} className="shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold truncate">{msg.fileName}</p>
+                          <p className="text-[9px] opacity-60">{((msg.fileSize || 0) / 1024).toFixed(1)} KB</p>
+                        </div>
+                        <button
+                          onClick={() => viewText(msg.id)}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors ${
+                            textPreviewId === msg.id ? 'bg-indigo-500/30 hover:bg-indigo-500/40' : 'bg-white/10 hover:bg-white/20'
+                          }`}
+                        >
+                          Text
+                        </button>
+                        <button
+                          onClick={() => downloadFile(msg)}
+                          className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-[10px] font-black uppercase tracking-wider transition-colors"
+                        >
+                          Download
+                        </button>
+                      </div>
+                      {textPreviewId === msg.id && (
+                        <pre className="mt-3 p-3 rounded-lg bg-slate-950/60 border border-slate-700/50 text-[11px] font-mono text-slate-300 leading-relaxed max-h-60 overflow-auto" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                          {decodeFileText(msg.fileData)}
+                        </pre>
+                      )}
+                    </div>
+                  ) : msg.text}
+
                   {isUnread && (
                     <div className="absolute -top-1 -left-1 w-3 h-3 bg-indigo-500 rounded-full border-2 border-slate-900 shadow-md animate-pulse" title="New Message" />
                   )}
