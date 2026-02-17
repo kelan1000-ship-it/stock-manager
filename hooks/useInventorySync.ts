@@ -12,11 +12,13 @@ export function useInventorySync(
 ) {
   const syncImportedData = useCallback((pendingData: Partial<Product>[]) => {
     const now = new Date().toISOString();
+    const otherBranch = currentBranch === 'bywood' ? 'broom' : 'bywood';
     
     setBranchData(prev => {
       // Create a fresh copy of the whole state to ensure reference change triggers re-render
       const updatedData = { ...prev };
       const currentItems = [...(prev[currentBranch] || [])];
+      const otherItems = [...(prev[otherBranch] || [])];
       
       pendingData.forEach(excelItem => {
         // Robust Matching: Use string comparison for Barcode OR fallback to Name
@@ -34,14 +36,19 @@ export function useInventorySync(
           const hasStockChanged = (excelItem.stockInHand !== undefined && excelItem.stockInHand !== existing.stockInHand) ||
                                 (excelItem.partPacks !== undefined && excelItem.partPacks !== (existing.partPacks || 0));
 
+          // Check sync status (spreadsheet override or existing)
+          const isSynced = excelItem.isPriceSynced !== undefined ? excelItem.isPriceSynced : existing.isPriceSynced;
+
           const updatedProduct: Product = {
             ...existing,
             ...excelItem, // Apply all spreadsheet fields (name, pip, cost, supplier, location, etc.)
             lastUpdated: now,
 
             // Handle label printing triggers
-            pendingPriceUpdate: hasPriceChanged ? true : existing.pendingPriceUpdate,
-            labelNeedsUpdate: hasPriceChanged ? true : existing.labelNeedsUpdate,
+            // If synced, skip local alert (pending=false) and go to label (label=true). 
+            // If not synced, keep existing behavior (or strictly follow change).
+            pendingPriceUpdate: (hasPriceChanged && isSynced) ? false : (hasPriceChanged ? true : existing.pendingPriceUpdate),
+            labelNeedsUpdate: (hasPriceChanged && isSynced) ? true : (hasPriceChanged ? true : existing.labelNeedsUpdate),
             ignoredPriceAlertUntil: hasPriceChanged ? undefined : existing.ignoredPriceAlertUntil,
             
             // Append to price history only if value changed
@@ -69,6 +76,35 @@ export function useInventorySync(
           } as Product;
 
           currentItems[existingIdx] = updatedProduct;
+
+          // Propagate to Partner if Synced
+          if (hasPriceChanged && isSynced && updatedProduct.barcode) {
+             const partnerIdx = otherItems.findIndex(p => p.barcode === updatedProduct.barcode && !p.deletedAt);
+             if (partnerIdx > -1) {
+                const partnerItem = otherItems[partnerIdx];
+                const newPrice = updatedProduct.price;
+                if (Math.abs(partnerItem.price - newPrice) > 0.001) {
+                    otherItems[partnerIdx] = {
+                        ...partnerItem,
+                        price: newPrice,
+                        pendingPriceUpdate: true,
+                        priceChangeOrigin: currentBranch,
+                        ignoredPriceAlertUntil: undefined,
+                        lastUpdated: now,
+                        priceHistory: [
+                            ...(partnerItem.priceHistory || []),
+                            {
+                                date: now,
+                                rrp: newPrice,
+                                costPrice: partnerItem.costPrice,
+                                margin: newPrice > 0 ? ((newPrice - partnerItem.costPrice) / newPrice * 100) : 0
+                            }
+                        ]
+                    };
+                }
+             }
+          }
+
         } else {
           // Create a brand new record for items not found in current inventory
           const newId = `sku_imp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -113,10 +149,15 @@ export function useInventorySync(
           } as Product;
 
           currentItems.unshift(newProduct); // Add new items to the top of the list
+          
+          // Note: We don't auto-create partner items on import unless logic dictates, 
+          // but if we did, we'd add it to 'otherItems' here. 
+          // For now, sync only applies to existing links.
         }
       });
 
       updatedData[currentBranch] = currentItems;
+      updatedData[otherBranch] = otherItems; // Commit partner updates
       return updatedData;
     });
   }, [currentBranch, setBranchData]);
