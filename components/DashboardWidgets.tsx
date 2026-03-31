@@ -83,10 +83,26 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
 
   const stats = useMemo(() => {
     const now = new Date().getTime();
-    
-    const restockCount = activeMainInventory.filter((i: Product) => 
-      (i.enableThresholdAlert && i.stockInHand <= (i.stockToKeep * 0.25)) && !i.isDiscontinued
-    ).length;
+
+    const orderKey = logic.currentBranch === 'bywood' ? 'bywoodOrders' : 'broomOrders';
+    const activeOrders = logic.branchData[orderKey] || [];
+
+    const restockCount = activeMainInventory.filter((i: Product) => {
+      if (i.isDiscontinued) return false;
+
+      const type = i.thresholdType || 'percentage';
+      const val = i.thresholdValue !== undefined ? i.thresholdValue : 25;
+      const isBelowThreshold = type === 'percentage'
+        ? i.stockInHand <= (i.stockToKeep * (val / 100))
+        : i.stockInHand <= val;
+      const hasSmartAlert = !!i.enableThresholdAlert;
+
+      const isPending = activeOrders.some((o: any) => o.productId === i.id && o.status === 'pending');
+      const isOnOrder = activeOrders.some((o: any) => o.productId === i.id && (o.status === 'ordered' || o.status === 'backorder'));
+
+      if (isOnOrder) return false;
+      return isPending || (hasSmartAlert && isBelowThreshold);
+    }).length;
 
     const expiringCount = activeMainInventory.filter(i => {
       if (!i.expiryDate) return false;
@@ -98,8 +114,7 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
     const clearanceCount = activeMainInventory.filter(i => i.isReducedToClear).length;
 
     return { restockCount, expiringCount, clearanceCount };
-  }, [activeMainInventory]);
-
+  }, [activeMainInventory, logic.branchData, logic.currentBranch]);
   // Widget Definitions
   const widgetDefinitions: Record<WidgetType, any> = {
     'restock': {
@@ -267,7 +282,12 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
                                 onClick={() => {
                                     if (widget.filterKey === 'reconciliation') onOpenReconciliation();
                                     else if (widget.filterKey === 'duplicates') onOpenDuplicates();
-                                    else logic.setSubFilter(widget.filterKey);
+                                    else {
+                                        logic.setSubFilter(widget.filterKey);
+                                        if (widget.filterKey === 'ordered') {
+                                            logic.setOrderTab('active');
+                                        }
+                                    }
                                 }}
                                 onRemove={() => handleRemove(index)}
                             />
@@ -282,7 +302,7 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
       {/* Add Widget Modal */}
       {addingToIndex !== null && (
         <div className="fixed inset-0 z-[300] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-           <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl p-8 relative">
+           <div className="w-full max-w-lg bg-slate-950 border border-slate-800 rounded-[2.5rem] shadow-2xl p-8 relative">
               <button 
                 onClick={() => setAddingToIndex(null)}
                 className="absolute top-6 right-6 p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white transition-colors"

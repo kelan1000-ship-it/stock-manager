@@ -55,7 +55,20 @@ export function useDataExchange(
   }, []);
 
   const exportMasterToExcel = useCallback(() => {
-    const ws = XLSX.utils.json_to_sheet(branchData.masterInventory);
+    const dataToExport = branchData.masterInventory.map(item => ({
+      'Product Name': item.name,
+      'Subheader': item.subheader || '',
+      'Product Group': item.parentGroup || '',
+      'Barcode': item.barcode,
+      'PIP': item.productCode || '',
+      'Pack Size': item.packSize,
+      'Price': item.price ?? '',
+      'Cost Price': item.costPrice ?? '',
+      'Supplier': item.supplier || '',
+      'Image URL': item.image || '',
+      'is_deleted': false
+    }));
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Master Catalogue");
     XLSX.writeFile(wb, "Master_Catalogue.xlsx");

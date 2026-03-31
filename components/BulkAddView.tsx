@@ -5,9 +5,11 @@ import {
   Database, Info, Link as LinkIcon, BadgeCheck, Upload, RotateCcw,
   ArrowRight, List, CheckCircle2, Check, AlertTriangle
 } from 'lucide-react';
+import { ProductThumbnail } from './ImageComponents';
 import { MasterProduct, BulkItem, BranchKey } from '../types';
 import { ProductPhotoCapture } from './ProductImageUploader';
 import { researchProductDetails } from '../services/geminiService';
+import { toTitleCase } from '../utils/stringUtils';
 
 const BulkMatchSuggestions = ({ 
   query, 
@@ -39,17 +41,11 @@ const BulkMatchSuggestions = ({
             onClick={(e) => { e.stopPropagation(); onSelect(p); }}
             className="w-full p-4 flex items-center gap-4 hover:bg-indigo-600/10 transition-all text-left border-b border-slate-800/50 last:border-0 group"
           >
-            <div className="w-12 h-12 rounded-xl bg-white overflow-hidden shrink-0 border border-slate-800 shadow-sm flex items-center justify-center">
-              {p.image ? (
-                <img src={p.image} alt="" className="w-full h-full object-contain p-1" />
-              ) : (
-                <Database size={20} className="text-slate-200" />
-              )}
-            </div>
+            <ProductThumbnail src={p.image} alt={p.name} stockType="retail" />
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-black text-white truncate capitalize group-hover:text-indigo-300 transition-colors">{p.name}</p>
               <div className="flex items-center gap-3 mt-1">
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">{p.packSize || 'N/A'}</span>
+                <span className="text-[9px] italic text-slate-500 uppercase tracking-widest bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">{p.packSize || 'N/A'}</span>
                 <div className="flex items-center gap-1">
                   <LinkIcon size={10} className="text-slate-600" />
                   <span className="text-[9px] font-mono font-bold text-indigo-400/80">{p.barcode || p.productCode || 'No Code'}</span>
@@ -57,7 +53,7 @@ const BulkMatchSuggestions = ({
               </div>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-[12px] font-black text-emerald-500">£{p.price?.toFixed(2)}</p>
+              <p className="text-[12px] font-black text-emerald-500">£{(p.price || 0).toFixed(2)}</p>
               <span className="text-[8px] font-black text-slate-600 uppercase tracking-tighter">Master RRP</span>
             </div>
           </button>
@@ -117,8 +113,7 @@ export const BulkAddView = ({
     const item = items.find((i) => i.tempId === tempId);
     if (!item) return;
     
-    // Explicitly cast to any to access potential originalData not in interface
-    const originalData = (item as any).originalData || {
+    const originalData = item.originalData || {
       name: item.name,
       barcode: item.barcode,
       productCode: item.productCode,
@@ -134,39 +129,40 @@ export const BulkAddView = ({
       packSize: p.packSize || '',
       priceStr: p.price ? p.price.toFixed(2) : '0.00',
       costPriceStr: p.costPrice ? p.costPrice.toFixed(2) : '0.00',
-      // Explicitly cast to any to pass originalData
       originalData: originalData
-    } as any);
+    });
     setActiveSuggestionId(null);
   };
 
   const handleUndoMatch = (tempId: string) => {
     const item = items.find((i) => i.tempId === tempId);
-    if (item && (item as any).originalData) {
+    if (item && item.originalData) {
       onUpdateRow(tempId, {
-        ...(item as any).originalData,
+        ...item.originalData,
         originalData: undefined 
-      } as any);
+      });
     }
   };
 
   const handleAIAutoFill = async (tempId: string, name: string) => {
-    onUpdateRow(tempId, { isProcessing: true } as any);
+    onUpdateRow(tempId, { isProcessing: true });
     try {
       const result = await researchProductDetails(name);
       const currentItem = items.find(i => i.tempId === tempId);
       if (!currentItem) return;
 
+      const getVal = (val: any) => Array.isArray(val) ? val[0] : val;
+
       onUpdateRow(tempId, {
-        barcode: currentItem.barcode || result.barcode || '',
-        productCode: currentItem.productCode || result.productCode || '',
-        packSize: currentItem.packSize || result.packSize || '',
-        priceStr: (currentItem.priceStr && parseFloat(currentItem.priceStr) > 0) ? currentItem.priceStr : (result.price ? result.price.toFixed(2) : ''),
+        barcode: currentItem.barcode || getVal(result.barcode) || '',
+        productCode: currentItem.productCode || getVal(result.productCode) || '',
+        packSize: currentItem.packSize || getVal(result.packSize) || '',
+        priceStr: (currentItem.priceStr && parseFloat(currentItem.priceStr) > 0) ? currentItem.priceStr : (result.price ? parseFloat(String(getVal(result.price))).toFixed(2) : ''),
         isProcessing: false
-      } as any);
+      });
     } catch (e) {
       console.error("AI Autofill error", e);
-      onUpdateRow(tempId, { isProcessing: false, isError: true } as any);
+      onUpdateRow(tempId, { isProcessing: false, isError: true });
     }
   };
 
@@ -293,6 +289,7 @@ export const BulkAddView = ({
                 <thead className="sticky top-0 bg-slate-900 z-50 shadow-xl">
                 <tr>
                     <th className="px-4 py-6 w-16 text-[10px] font-black uppercase text-slate-500 tracking-widest border-b border-slate-800 text-center">LINK</th>
+                    <th className="px-4 py-6 w-16 text-[10px] font-black uppercase text-slate-500 tracking-widest border-b border-slate-800 text-center">Image</th>
                     <th className="px-4 py-6 text-[10px] font-black uppercase text-slate-500 tracking-widest border-b border-slate-800">Product Name</th>
                     <th className="px-4 py-6 w-32 text-[10px] font-black uppercase text-slate-500 tracking-widest border-b border-slate-800 text-center">Category</th>
                     <th className="px-4 py-6 w-48 text-[10px] font-black uppercase text-slate-500 tracking-widest border-b border-slate-800">Barcode</th>
@@ -327,10 +324,9 @@ export const BulkAddView = ({
                     </td>
                     </tr>
                 ) : displayedItems.map((item) => {
-                    const query = item.name || item.barcode || item.productCode || '';
+                    const queryParts = [item.name, item.barcode, item.productCode].filter(Boolean);
+                    const query = queryParts.join(' ');
                     const suggestions = onSuggestMaster ? onSuggestMaster(query) : [];
-                    // Explicit casts to access missing properties
-                    const itemAny = item as any;
                     
                     // Match Logic: 1. Barcode, 2. PIP, 3. Name
                     const exactMatch = (() => {
@@ -342,36 +338,45 @@ export const BulkAddView = ({
                             const m = masterInventory.find(m => m.productCode === item.productCode);
                             if (m) return m;
                         }
-                        if (item.name) {
-                            const m = masterInventory.find(m => m.name.toLowerCase() === item.name.toLowerCase());
-                            if (m) return m;
-                        }
-                        return itemAny.originalData;
-                    })();
-                    
-                    const likelyMatch = !exactMatch && suggestions.length > 0 ? suggestions[0] : null;
-
+                                                 if (item.name) {
+                                                     const m = masterInventory.find(m => m.name.toLowerCase() === item.name.toLowerCase());
+                                                     if (m) return m;
+                                                 }
+                                                 return undefined;
+                                             })();
+                        
+                                             const likelyMatch = !exactMatch && suggestions.length > 0 ? suggestions[0] : null;
                     return (
-                    <tr key={item.tempId} className={`group transition-all ${itemAny.isError ? 'bg-rose-500/5' : 'hover:bg-white/[0.02]'} ${exactMatch ? 'bg-indigo-500/[0.01]' : ''}`}>
+                    <tr key={item.tempId} className={`group transition-all ${item.isError ? 'bg-rose-500/5' : 'hover:bg-white/[0.02]'} ${exactMatch ? 'bg-indigo-500/[0.01]' : ''}`}>
                         {/* Table Row Content */}
                         <td className="px-4 py-6">
                         <div className="flex justify-center">
-                            {itemAny.isProcessing ? (
+                            {item.isProcessing ? (
                             <Loader2 className="animate-spin text-emerald-500" size={20} />
-                            ) : itemAny.isError ? (
+                            ) : item.isError ? (
                             <AlertTriangle className="text-rose-500" size={20} />
                             ) : exactMatch ? (
-                            <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.2)]" title="Verified against Corporate Record">
+                            <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.2)]" data-tooltip="Verified against Corporate Record">
                                 <BadgeCheck className="text-emerald-400" size={16}/>
                             </div>
                             ) : suggestions.length > 0 ? (
-                            <div className="w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center animate-pulse" title="Catalogue Matches Available">
+                            <div className="w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center animate-pulse" data-tooltip="Catalogue Matches Available">
                                 <Database className="text-indigo-400" size={14}/>
                             </div>
                             ) : (
                             <div className="w-2 h-2 rounded-full bg-slate-800" />
                             )}
                         </div>
+                        </td>
+                        <td className="px-4 py-6">
+                            <div className="flex justify-center">
+                                <ProductThumbnail 
+                                    src={item.productImage} 
+                                    alt={item.name} 
+                                    stockType={item.stockType as any}
+                                    onClick={() => onStartScanRow(item.tempId)}
+                                />
+                            </div>
                         </td>
                         <td className="px-4 py-6 relative">
                         <div className="relative">
@@ -397,24 +402,18 @@ export const BulkAddView = ({
                             {!exactMatch && item.name && item.name.length > 3 && !activeSuggestionId && (
                                 <button
                                     onClick={() => handleAIAutoFill(item.tempId, item.name)}
-                                    disabled={itemAny.isProcessing}
+                                    disabled={item.isProcessing}
                                     className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:text-indigo-300 transition-all text-[9px] font-black uppercase tracking-widest disabled:opacity-50 group/autofill"
                                 >
-                                    {itemAny.isProcessing ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} className="group-hover/autofill:text-indigo-200" />}
-                                    {itemAny.isProcessing ? 'Researching...' : 'AI Autofill Details'}
+                                    {item.isProcessing ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} className="group-hover/autofill:text-indigo-200" />}
+                                    {item.isProcessing ? 'Researching...' : 'AI Autofill Details'}
                                 </button>
                             )}
 
                             {likelyMatch && !activeSuggestionId && (
                             <div className="mt-2 p-2 rounded-xl bg-indigo-900/20 border border-indigo-500/30 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 group/suggestion">
                                 <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
-                                    <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0 border border-indigo-500/20">
-                                        {likelyMatch.image ? (
-                                        <img src={likelyMatch.image} className="w-full h-full object-contain p-0.5 rounded-lg" alt="" />
-                                        ) : (
-                                        <Database size={14} className="text-indigo-400" />
-                                        )}
-                                    </div>
+                                    <ProductThumbnail src={likelyMatch.image} alt={likelyMatch.name} stockType="retail" />
                                     <div className="flex flex-col min-w-0">
                                         <span className="text-[8px] font-black uppercase text-indigo-400 tracking-widest leading-none mb-0.5">Likely Match Found</span>
                                         <span className="text-[10px] font-bold text-indigo-100 truncate">{likelyMatch.name}</span>
@@ -447,7 +446,7 @@ export const BulkAddView = ({
                                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
                                     <span className="text-[9px] font-black uppercase text-emerald-500 tracking-widest">Master Record Linked</span>
                                 </div>
-                                {itemAny.originalData && (
+                                {item.originalData && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); handleUndoMatch(item.tempId); }}
                                     className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 text-[8px] font-bold text-slate-400 hover:text-white hover:bg-slate-700 transition-all border border-slate-700 opacity-0 group-hover/match:opacity-100"
@@ -464,14 +463,14 @@ export const BulkAddView = ({
                             <button 
                             onClick={() => onUpdateRow(item.tempId, { stockType: 'retail' })}
                             className={`p-2 rounded-lg transition-all ${item.stockType !== 'dispensary' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}
-                            title="Retail Stock"
+                            data-tooltip="Retail Stock"
                             >
                             <ShoppingCart size={16} />
                             </button>
                             <button 
                             onClick={() => onUpdateRow(item.tempId, { stockType: 'dispensary' })}
                             className={`p-2 rounded-lg transition-all ${item.stockType === 'dispensary' ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}
-                            title="Dispensary Stock"
+                            data-tooltip="Dispensary Stock"
                             >
                             <Pill size={16} />
                             </button>
@@ -515,7 +514,11 @@ export const BulkAddView = ({
                             type="text" 
                             value={item.priceStr} 
                             onFocus={(e) => e.target.select()} 
-                            onChange={(e) => onUpdateRow(item.tempId, { priceStr: e.target.value })} 
+                            onChange={(e) => onUpdateRow(item.tempId, { priceStr: e.target.value.replace(/[^0-9.]/g, '') })} 
+                            onBlur={() => {
+                                const val = parseFloat(item.priceStr);
+                                if (!isNaN(val)) onUpdateRow(item.tempId, { priceStr: val.toFixed(2) });
+                            }}
                             className="w-full bg-transparent border-b border-slate-800 focus:border-emerald-500 text-center font-black text-sm text-emerald-500 outline-none p-1.5 transition-all" 
                             placeholder="0.00" 
                         />
@@ -525,7 +528,11 @@ export const BulkAddView = ({
                             type="text" 
                             value={item.costPriceStr} 
                             onFocus={(e) => e.target.select()} 
-                            onChange={(e) => onUpdateRow(item.tempId, { costPriceStr: e.target.value })} 
+                            onChange={(e) => onUpdateRow(item.tempId, { costPriceStr: e.target.value.replace(/[^0-9.]/g, '') })} 
+                            onBlur={() => {
+                                const val = parseFloat(item.costPriceStr);
+                                if (!isNaN(val)) onUpdateRow(item.tempId, { costPriceStr: val.toFixed(2) });
+                            }}
                             className="w-full bg-transparent border-b border-slate-800 focus:border-emerald-500 text-center font-bold text-sm text-slate-400 outline-none p-1.5 transition-all" 
                             placeholder="0.00" 
                         />
@@ -544,8 +551,8 @@ export const BulkAddView = ({
                             type="text" 
                             value={item.location || ''} 
                             onFocus={(e) => e.target.select()} 
-                            onChange={(e) => onUpdateRow(item.tempId, { location: e.target.value })} 
-                            className="w-full bg-transparent border-b border-slate-800 focus:border-emerald-500 font-bold text-xs text-white uppercase outline-none p-1.5 transition-all" 
+                            onChange={(e) => onUpdateRow(item.tempId, { location: toTitleCase(e.target.value) })} 
+                            className="w-full bg-transparent border-b border-slate-800 focus:border-emerald-500 font-bold text-xs text-white outline-none p-1.5 transition-all" 
                             placeholder="Location..." 
                             list="bulk-locations-list"
                         />
@@ -554,12 +561,15 @@ export const BulkAddView = ({
                             <div className="flex items-center justify-end gap-2">
                                 <button 
                                     onClick={() => onToggleStatus(item.tempId)}
+                                    disabled={item.status !== 'ready' && !item.name.trim()}
                                     className={`p-2.5 rounded-xl transition-all shadow-sm ${
                                         item.status === 'ready' 
                                         ? 'bg-rose-600/10 text-rose-500 hover:bg-rose-600 hover:text-white border border-rose-500/20'
-                                        : 'bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white border border-emerald-500/20'
+                                        : !item.name.trim()
+                                            ? 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-50'
+                                            : 'bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white border border-emerald-500/20'
                                     }`}
-                                    title={item.status === 'ready' ? 'Move back to review' : 'Mark ready for import'}
+                                    data-tooltip={item.status === 'ready' ? 'Move back to review' : !item.name.trim() ? 'Name required to mark ready' : 'Mark ready for import'}
                                 >
                                     {item.status === 'ready' ? <RotateCcw size={16} /> : <Check size={16} />}
                                 </button>

@@ -47,7 +47,7 @@ export const ProductBasicInfo: React.FC<ProductBasicInfoProps> = ({
                 onClick={() => onAutoFill(formData.name)}
                 disabled={isAILoading || !formData.name}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-indigo-400"
-                title="AI Auto-Populate Details"
+                data-tooltip="AI Auto-Populate Details"
               >
                 {isAILoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
               </button>
@@ -55,6 +55,16 @@ export const ProductBasicInfo: React.FC<ProductBasicInfoProps> = ({
             <datalist id="name-suggestions">
               {uniqueNames?.map((n: string) => <option key={n} value={n} />)}
             </datalist>
+          </div>
+          <div className="col-span-12">
+            <label className="block text-[8px] font-black uppercase text-slate-500 mb-1 ml-1 tracking-widest">Subheader</label>
+            <input
+              type="text"
+              value={formData.subheader || ''}
+              onChange={e => setFormData({...formData, subheader: e.target.value})}
+              className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs italic text-slate-300 outline-none focus:border-emerald-500 transition-all placeholder-slate-800"
+              placeholder="Optional subtitle shown below name..."
+            />
           </div>
           <div className="col-span-4">
             <label className="block text-[8px] font-black uppercase text-slate-500 mb-1 ml-1 tracking-widest">Pack Size</label>
@@ -84,7 +94,7 @@ export const ProductBasicInfo: React.FC<ProductBasicInfoProps> = ({
               <button 
                 onClick={onScan}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-500 hover:bg-slate-700 transition-colors"
-                title="Scan Barcode"
+                data-tooltip="Scan Barcode"
               >
                 <ScanLine size={14} />
               </button>

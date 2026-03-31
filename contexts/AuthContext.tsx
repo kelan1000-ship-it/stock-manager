@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { User } from 'firebase/auth';
 import { AppUser, BranchId, BRANCH_DISPLAY_NAMES } from '../types/auth';
 import { onAuthChange, getUserProfile, subscribeToUserProfile, logout } from '../services/authService';
+import { hasPermission, Permission } from '../utils/permissions';
 
 interface AuthContextValue {
   firebaseUser: User | null;
@@ -16,6 +17,7 @@ interface AuthContextValue {
   isAdmin: boolean;
   signOut: () => Promise<void>;
   error: string | null;
+  checkPermission: (permission: Permission) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -131,6 +133,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
   }, []);
 
+  const checkPermission = useCallback((permission: Permission) => {
+    if (!appUser) return false;
+    return hasPermission(appUser.role, permission);
+  }, [appUser]);
+
   // ─── DON'T RENDER CHILDREN UNTIL LOADING IS DONE ───────────────
   // This is the key fix: by not rendering children while loading,
   // no component ever sees the default 'bywood' value. They only
@@ -148,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin,
         signOut: handleSignOut,
         error,
+        checkPermission,
       }}
     >
       {children}

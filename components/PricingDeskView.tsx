@@ -65,7 +65,7 @@ export const PricingDeskView: React.FC<PricingDeskViewProps> = ({ branchData, se
           </div>
         </div>
 
-        <div className="flex p-1.5 rounded-2xl border transition-colors bg-slate-900 border-slate-800">
+        <div className="flex p-1.5 rounded-2xl border transition-colors bg-slate-950 border-slate-800">
           <button 
             onClick={() => onTabChange('alerts')}
             className={`flex items-center gap-3 px-6 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
@@ -101,7 +101,7 @@ export const PricingDeskView: React.FC<PricingDeskViewProps> = ({ branchData, se
             ) : alerts.map(alert => {
               const comp = getPriceComparisonData(alert.localPrice, alert.referencePrice, alert.referenceSiteName);
               return (
-                <div key={alert.id} className="p-1 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 shadow-2xl relative overflow-hidden group">
+                <div key={alert.id} className="p-1 rounded-[2.5rem] bg-slate-950 border border-slate-800 shadow-2xl relative overflow-hidden group">
                   <div className="absolute top-8 right-8 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 shadow-sm z-10">
                     <div className="w-5 h-5 rounded-lg bg-indigo-600/20 flex items-center justify-center text-indigo-400">
                       <Landmark size={12} />
@@ -178,8 +178,8 @@ export const PricingDeskView: React.FC<PricingDeskViewProps> = ({ branchData, se
           </div>
         </div>
       ) : (
-        <div className="rounded-[2.5rem] border shadow-2xl overflow-hidden bg-slate-900 border-slate-800">
-          <div className="p-8 border-b flex items-center justify-between border-slate-800/50 bg-slate-900/50">
+        <div className="rounded-[2.5rem] border shadow-2xl overflow-hidden bg-slate-950 border-slate-800">
+          <div className="p-8 border-b flex items-center justify-between border-slate-800/50 bg-slate-950">
             <h3 className="text-xl font-black text-white">Label Printing Queue ({currentBranch.toUpperCase()})</h3>
             <div className="flex items-center gap-3 px-5 py-2.5 rounded-2xl text-xs font-bold transition-colors bg-slate-950 border border-slate-800 text-slate-400 shadow-inner">
               <Printer size={16} className="text-emerald-500" /> {labelQueue.length} Items pending
@@ -210,11 +210,29 @@ export const PricingDeskView: React.FC<PricingDeskViewProps> = ({ branchData, se
                   const newPrice = hasTarget ? item.targetPrice : item.price;
                   let oldPrice = item.price;
 
-                  if (!hasTarget) {
-                    // Direct update: item.price is ALREADY the new price.
-                    // Fetch old price from history if available.
-                    if (item.priceHistory && item.priceHistory.length >= 2) {
-                      oldPrice = item.priceHistory[item.priceHistory.length - 2].rrp;
+                  // Check if this is a synced update where price is ALREADY updated to target
+                  const isSyncedUpdate = hasTarget && Math.abs(item.price - (item.targetPrice || 0)) < 0.001;
+
+                  if (!hasTarget || isSyncedUpdate) {
+                    // It's a direct update OR a synced update where the price is already current.
+                    // We need to find the previous price from history.
+                    if (item.priceHistory && item.priceHistory.length > 0) {
+                      const lastHistory = item.priceHistory[item.priceHistory.length - 1];
+                      const lastHistoryPrice = lastHistory.rrp;
+                      
+                      // Check if the current price is already recorded as the latest history entry
+                      const isCurrentPriceInHistory = Math.abs(lastHistoryPrice - item.price) < 0.001;
+                      
+                      if (isCurrentPriceInHistory) {
+                        // Current price IS in history (as last item). Previous price is the one before it.
+                        if (item.priceHistory.length >= 2) {
+                          oldPrice = item.priceHistory[item.priceHistory.length - 2].rrp;
+                        }
+                      } else {
+                        // Current price is NOT the last item in history.
+                        // So the last item in history is the previous price.
+                        oldPrice = lastHistoryPrice;
+                      }
                     }
                   }
 

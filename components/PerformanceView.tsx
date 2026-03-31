@@ -23,7 +23,7 @@ export const PerformanceView = ({ items }: { items: Product[] }) => {
   const avgMargin = totalRetailValue > 0 ? (potentialProfit / totalCostValue) * 100 : 0; 
   
   const highValueItems = [...activeItems].sort((a, b) => (b.price * b.stockInHand) - (a.price * a.stockInHand)).slice(0, 5);
-  const healthyStock = activeItems.filter(i => i.stockInHand > (i.stockToKeep * 0.25));
+  const healthyStock = activeItems.filter(i => i.stockInHand >= (i.stockToKeep * 0.50));
 
   // Slow Mover Insights Integration
   const { buckets, counts, totalSlowMovers } = useSlowMoverInsights(activeItems);
@@ -45,7 +45,7 @@ export const PerformanceView = ({ items }: { items: Product[] }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="p-8 rounded-[2.5rem] border shadow-xl bg-slate-900/50 border-slate-800">
+        <div className="p-8 rounded-[2.5rem] border shadow-xl bg-slate-950 border-slate-800">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-black flex items-center gap-3">
               <PieChart className="text-blue-500" size={24} /> 
@@ -56,7 +56,7 @@ export const PerformanceView = ({ items }: { items: Product[] }) => {
           <div className="space-y-6">
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-black uppercase tracking-widest text-slate-500">
-                <span>Healthy Stock Level ({'>'}25%)</span>
+                <span>Healthy Stock Level (≥50%)</span>
                 <span>{((healthyStock.length / (activeItems.length || 1)) * 100).toFixed(0)}%</span>
               </div>
               <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
@@ -65,7 +65,7 @@ export const PerformanceView = ({ items }: { items: Product[] }) => {
             </div>
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-black uppercase tracking-widest text-slate-500">
-                <span>Critical / Low Stock (≤25%)</span>
+                <span>Critical / Low Stock (&lt;50%)</span>
                 <span>{(((activeItems.length - healthyStock.length) / (activeItems.length || 1)) * 100).toFixed(0)}%</span>
               </div>
               <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
@@ -85,7 +85,7 @@ export const PerformanceView = ({ items }: { items: Product[] }) => {
           </div>
         </div>
 
-        <div className="p-8 rounded-[2.5rem] border shadow-xl bg-slate-900/50 border-slate-800">
+        <div className="p-8 rounded-[2.5rem] border shadow-xl bg-slate-950 border-slate-800">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-black flex items-center gap-3">
               <LineChart className="text-blue-500" size={24} /> 
@@ -100,7 +100,7 @@ export const PerformanceView = ({ items }: { items: Product[] }) => {
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-slate-500 border bg-slate-900 border-slate-800 shrink-0">{idx + 1}</div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-black text-white capitalize leading-tight break-words">{item.name}</p>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase">{item.packSize} • Qty {item.stockInHand} {item.isArchived && '(Archived)'}</p>
+                    <p className="text-[10px] italic text-slate-500 uppercase">{item.packSize} • Qty {item.stockInHand} {item.isArchived && '(Archived)'}</p>
                   </div>
                 </div>
                 <p className="font-black text-blue-400 shrink-0 ml-2">£{(item.price * item.stockInHand).toFixed(2)}</p>
@@ -111,7 +111,7 @@ export const PerformanceView = ({ items }: { items: Product[] }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 p-8 rounded-[2.5rem] border shadow-xl bg-slate-900/50 border-slate-800">
+        <div className="lg:col-span-1 p-8 rounded-[2.5rem] border shadow-xl bg-slate-950 border-slate-800">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-black flex items-center gap-3">
               <Timer className="text-amber-500" size={24} /> 
@@ -158,7 +158,7 @@ export const PerformanceView = ({ items }: { items: Product[] }) => {
           </div>
         </div>
 
-        <div className="lg:col-span-2 p-8 rounded-[2.5rem] border shadow-xl bg-slate-900/50 border-slate-800">
+        <div className="lg:col-span-2 p-8 rounded-[2.5rem] border shadow-xl bg-slate-950 border-slate-800">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-black flex items-center gap-3">
               <AlertTriangle className="text-rose-500" size={24} /> 
@@ -194,7 +194,7 @@ export const PerformanceView = ({ items }: { items: Product[] }) => {
                           {insight.product.name}
                           {insight.product.isArchived && <span className="ml-2 text-[9px] text-amber-500 border border-amber-500/30 px-1 rounded">ARCHIVED</span>}
                         </p>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase">{insight.product.packSize} • {insight.product.barcode}</p>
+                        <p className="text-[10px] italic text-slate-500 uppercase">{insight.product.packSize} • {insight.product.barcode}</p>
                       </td>
                       <td className="py-4 text-center">
                         <span className="text-sm font-black text-rose-400">£{(insight.product.price * insight.product.stockInHand).toFixed(2)}</span>

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   ProductFormPanel, RequestFormPanel, ChatWindow, TransferInbox, BulkAddView,
-  DuplicateMatchModal, MasterInventoryCatalogue, ProductPreviewModal, LiveVisionScanner
+  DuplicateMatchModal, MasterInventoryCatalogue, ProductPreviewModal, LiveVisionScanner,
+  MissingAttributesModal
 } from './ManagerComponents';
 import { StockTransferForm } from './StockTransferForm';
 import { HistoryView } from './HistoryView';
@@ -22,6 +23,7 @@ interface ModalManagerProps {
   setIsTransferInboxOpen: (v: boolean) => void;
   isTransferFormOpen: boolean;
   setIsTransferFormOpen: (v: boolean) => void;
+  transferFormDefaultTab?: 'send' | 'request';
   selectedTransferProduct: Product | null;
   isHistoryOpen: boolean;
   setIsHistoryOpen: (v: boolean) => void;
@@ -34,6 +36,9 @@ interface ModalManagerProps {
   updateTagSettings: (tag: string, settings: Partial<TagStyle>) => void;
   allUniqueTags: string[];
   onScanDetected: (code: string) => void;
+  messageTone: string;
+  setMessageTone: (tone: any) => void;
+  playNotification: (tone: any) => void;
 }
 
 export const ModalManager: React.FC<ModalManagerProps> = ({
@@ -48,6 +53,7 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
   setIsTransferInboxOpen,
   isTransferFormOpen,
   setIsTransferFormOpen,
+  transferFormDefaultTab,
   selectedTransferProduct,
   isHistoryOpen,
   setIsHistoryOpen,
@@ -59,8 +65,40 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
   tagSettings,
   updateTagSettings,
   allUniqueTags,
-  onScanDetected
+  onScanDetected,
+  messageTone,
+  setMessageTone,
+  playNotification
 }) => {
+  // Clear manual unread overrides when the chat window is specifically opened
+  useEffect(() => {
+    if (isChatOpen) {
+      localStorage.removeItem('manualUnreadMessages');
+    }
+  }, [isChatOpen]);
+
+  useEffect(() => {
+    if (isChatOpen) {
+      let overrides: string[] = [];
+      try {
+        const stored = localStorage.getItem('manualUnreadMessages');
+        overrides = JSON.parse(stored || '[]');
+        if (!Array.isArray(overrides)) overrides = [];
+      } catch (e) {
+        overrides = [];
+      }
+
+      const unreadIds = branchData.messages
+        .filter(m => m.sender !== currentBranch && !m.isRead)
+        .filter(m => !overrides.includes(m.id)) // Respect manual overrides for this session
+        .map(m => m.id);
+      
+      if (unreadIds.length > 0) {
+        logic.updateMessageReadStatus(unreadIds);
+      }
+    }
+  }, [isChatOpen, branchData.messages, currentBranch, logic.updateMessageReadStatus]);
+
   return (
     <>
       <ProductFormPanel 
@@ -109,20 +147,31 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
         onClose={() => setIsChatOpen(false)} 
         messages={branchData.messages} 
         onSend={logic.sendMessage} 
+        onSendNudge={logic.sendNudge}
         onToggleReadStatus={logic.toggleMessageReadStatus}
+        onDeleteMessage={logic.deleteMessage}
+        onClearAllMessages={logic.clearAllMessages}
+        onToggleReaction={logic.toggleReaction}
         currentBranch={currentBranch} 
-        theme={theme} 
+        theme={theme}
+        messageTone={messageTone}
+        setMessageTone={setMessageTone}
+        playNotification={playNotification}
+        tasks={branchData.tasks}
+        onAddTask={logic.addTask}
+        onUpdateTask={logic.updateTask}
+        onDeleteTask={logic.deleteTask}
       />
 
-      <TransferInbox 
-        isOpen={isTransferInboxOpen} 
-        onClose={() => setIsTransferInboxOpen(false)} 
-        transfers={branchData.transfers} 
-        onProcess={logic.processTransfer} 
-        currentBranch={currentBranch} 
-        theme={theme} 
+      <TransferInbox
+        isOpen={isTransferInboxOpen}
+        onClose={() => setIsTransferInboxOpen(false)}
+        transfers={branchData.transfers}
+        onProcess={logic.processTransfer}
+        onClearHistory={logic.clearHistoricTransfers}
+        currentBranch={currentBranch}
+        theme={theme}
       />
-
       {logic.isBulkOpen && (
         <BulkAddView 
            items={logic.bulkItems} 
@@ -154,6 +203,7 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
           masterInventory={branchData.masterInventory} 
           onAddProduct={logic.addMasterProduct}
           onBulkAddMaster={logic.addBulkMasterProducts}
+          upsertBulkMasterProducts={logic.upsertBulkMasterProducts}
           updateMasterProduct={logic.updateMasterProduct}
           onDeleteProduct={logic.deleteMasterProduct}
           onDeleteBulk={logic.deleteBulkMasterProducts}
@@ -170,6 +220,7 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
         onCompleteInternal={logic.handleTransfer} 
         theme={theme}
         branchData={branchData} 
+        defaultTab={transferFormDefaultTab}
       />
 
       <HistoryView 
@@ -201,14 +252,13 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
       )}
       
       {previewImage && (
-        <ProductPreviewModal 
-          src={previewImage.src} 
-          isOpen={!!previewImage} 
-          onClose={() => setPreviewImage(null)} 
+        <ProductPreviewModal
+          src={previewImage.src}
+          isOpen={!!previewImage}
+          onClose={() => setPreviewImage(null)}
           title={previewImage.title}
         />
       )}
-
       {isReconciliationOpen && (
         <ReconciliationView 
           isOpen={isReconciliationOpen} 
@@ -217,6 +267,16 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
           setBranchData={setBranchData} 
           currentBranch={currentBranch} 
           theme={theme} 
+        />
+      )}
+
+      {logic.isMissingAttributesOpen && (
+        <MissingAttributesModal
+          isOpen={logic.isMissingAttributesOpen}
+          onClose={() => logic.setIsMissingAttributesOpen(false)}
+          inventory={branchData[currentBranch] || []}
+          onUpdateProducts={logic.bulkUpdateProducts}
+          theme={theme}
         />
       )}
     </>

@@ -1,8 +1,8 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle, AlertCircle, CheckCircle2, Link2, Link2Off, XCircle, Handshake, Ban, Store, ShieldAlert,
-  Clock, Printer, Hash, MapPin, CheckSquare, Square, ArrowRightLeft, History as HistoryIcon, Barcode, CornerDownRight
+  Clock, Printer, Hash, MapPin, CheckSquare, Square, ArrowRightLeft, History as HistoryIcon, Barcode, CornerDownRight, Copy, Check
 } from 'lucide-react';
 import { Product, ColumnVisibility } from '../types';
 import { useMultiKeyLookup } from '../hooks/useMultiKeyLookup';
@@ -17,6 +17,8 @@ import { OrderCell } from './OrderCell';
 import { StockLogicReturn } from '../hooks/useStockLogic';
 import { PricingDeskReturn, PricingAlert } from '../hooks/usePricingDesk';
 import { TagStyle } from '../hooks/useInventoryTags';
+import { getProductStatus } from '../utils/statusUtils';
+import { useAuth } from '../contexts/AuthContext';
 
 export const InventoryRow: React.FC<{
   item: Product;
@@ -39,9 +41,16 @@ export const InventoryRow: React.FC<{
 }> = ({
   item, logic, pricingLogic, tagSettings, onOpenEdit, onOpenTransfer, onOpenHistory, isSelected, onToggleSelection, manualQty, onManualQtyChange, onPreviewImage, isNoteExpanded, onToggleNote, isGroupChild, columns
 }) => {
+  const [nameCopied, setNameCopied] = useState(false);
+  const { checkPermission } = useAuth();
+  const canEdit = checkPermission('inventory.edit');
+  const canDelete = checkPermission('inventory.delete');
+  const canOrder = checkPermission('orders.create');
+  const canTransfer = checkPermission('transfers.create');
+
   const margin = item.price > 0 ? ((item.price - item.costPrice) / item.price * 100) : 0;
   
-  const isCriticalReorder = !item.isDiscontinued && item.stockInHand <= (item.stockToKeep * 0.1);
+  const isCriticalReorder = !item.isDiscontinued && item.stockInHand < (item.stockToKeep * 0.35);
   const defaultRestock = Math.max(0, item.stockToKeep - item.stockInHand);
   const currentRestockQty = manualQty !== undefined ? manualQty : defaultRestock;
 
@@ -79,28 +88,24 @@ export const InventoryRow: React.FC<{
     return {
       isShortExpiry: diffDays <= 90 && diffDays > 0,
       isCriticalExpiry: diffDays <= 30 && diffDays > 0
-    };
-  }, [item.expiryDate]);
+          };
+      }, [item.expiryDate]);
 
-  let statusText = 'Healthy';
-  let statusColor = 'emerald';
-  
-  if (item.isDiscontinued) { statusText = 'Unavailable'; statusColor = 'rose'; }
-  else if (item.isUnavailable) { statusText = 'Backorder'; statusColor = 'amber'; }
-  else if (item.stockInHand === 0) { statusText = 'Out of Stock'; statusColor = 'rose'; }
-  else if (item.stockInHand <= (item.stockToKeep * 0.1)) { statusText = 'Critical Reorder'; statusColor = 'rose'; }
-  else if (item.stockInHand <= (item.stockToKeep * 0.25)) { statusText = 'Low Stock'; statusColor = 'amber'; }
+  const { isRecent, hoursLeft } = useMemo(() => {
+    if (!item.createdAt) return { isRecent: false, hoursLeft: 0 };
+    const now = new Date();
+    const created = new Date(item.createdAt);
+    const diffHours = (now.getTime() - created.getTime()) / (1000 * 3600);
+    return {
+      isRecent: diffHours <= 48 && diffHours >= 0,
+      hoursLeft: Math.max(0, 48 - diffHours)
+    };
+  }, [item.createdAt]);
+    
+  const { text: statusText, color: statusColor } = getProductStatus(item, logic.mainView);
 
   const isBinView = logic.mainView === 'bin';
   const isArchiveView = logic.mainView === 'archive';
-
-  if (isBinView && item.deletedAt) {
-    const diffDays = Math.ceil((new Date(new Date(item.deletedAt).getTime() + (30 * 24 * 60 * 60 * 1000)).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-    statusText = `${Math.max(0, diffDays)} DAYS LEFT`;
-    statusColor = diffDays <= 5 ? 'rose' : 'amber';
-  } else if (isArchiveView) {
-    statusText = 'ARCHIVED'; statusColor = 'amber';
-  }
 
   const alert = pricingLogic.alerts.find((a: PricingAlert) => a.barcode === item.barcode);
   const orderKey = logic.currentBranch === 'bywood' ? 'bywoodOrders' : 'broomOrders';
@@ -119,7 +124,7 @@ export const InventoryRow: React.FC<{
            <div className="flex items-center justify-center gap-6"><div className="text-center"><p className="text-[8px] font-black uppercase text-slate-500 mb-1 text-center">Local Price</p><p className="font-black text-sm text-slate-400">£{alert.localPrice.toFixed(2)}</p></div><div className="text-center"><p className="text-[8px] font-black uppercase text-slate-500 mb-1 text-center">{alert.referenceSiteName} RRP</p><p className="font-black text-sm text-emerald-500">£{alert.referencePrice.toFixed(2)}</p></div></div>
         </td>
         <td className="p-4 text-right" colSpan={3}>
-           <div className="flex justify-end gap-2"><button onClick={() => pricingLogic.handleMatch(item.barcode)} className="px-4 py-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 font-black text-[10px] uppercase tracking-widest hover:bg-blue-500/20 transition-all flex items-center justify-center gap-2"><CheckCircle2 size={14} /> Match RRP</button><button onClick={() => pricingLogic.toggleSync(item.barcode)} className={`px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${alert.isPriceSynced ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-900/20' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>{alert.isPriceSynced ? <Link2 size={14} /> : <Link2Off size={14} />} {alert.isPriceSynced ? 'Stop Sync' : 'Price Sync'}</button><button onClick={() => pricingLogic.handleIgnore(item.barcode)} className="px-4 py-2.5 rounded-xl bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500/20 hover:text-yellow-400 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2" title="Ignore Price Gap"><XCircle size={14} /> Ignore Difference</button></div>
+           <div className="flex justify-end gap-2"><button onClick={() => pricingLogic.handleMatch(item.barcode)} className="px-4 py-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 font-black text-[10px] uppercase tracking-widest hover:bg-blue-500/20 transition-all flex items-center justify-center gap-2"><CheckCircle2 size={14} /> Match RRP</button><button onClick={() => pricingLogic.toggleSync(item.barcode)} className={`px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${alert.isPriceSynced ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-900/20' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>{alert.isPriceSynced ? <Link2 size={14} /> : <Link2Off size={14} />} {alert.isPriceSynced ? 'Stop Sync' : 'Price Sync'}</button><button onClick={() => pricingLogic.handleIgnore(item.barcode)} className="px-4 py-2.5 rounded-xl bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500/20 hover:text-yellow-400 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2" data-tooltip="Ignore Price Gap"><XCircle size={14} /> Ignore Difference</button></div>
         </td>
       </tr>
     );
@@ -140,21 +145,39 @@ export const InventoryRow: React.FC<{
              </div>
           )}
           <div className="flex flex-col gap-2 shrink-0 group-hover:scale-105 transition-transform duration-300">
-            <ProductThumbnail src={item.productImage} alt={item.name} onClick={() => item.productImage && onPreviewImage(item.productImage, item.name)} />
+            <ProductThumbnail 
+              src={item.productImage} 
+              alt={item.name} 
+              stockType={item.stockType}
+              onClick={() => item.productImage && onPreviewImage(item.productImage, item.name)} 
+            />
             <ProductNoteWidget id={item.id} notes={item.notes} isExpanded={isNoteExpanded} onToggle={onToggleNote} stockType={item.stockType} />
           </div>
           <div className="flex flex-col gap-1.5 flex-1 min-w-0">
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <button onClick={() => onOpenEdit(item)} className="font-bold text-sm hover:text-emerald-500 transition-colors truncate text-left tracking-tight text-white capitalize">{item.name}</button>
+                <button 
+                    onClick={() => canEdit && onOpenEdit(item)} 
+                    className={`font-bold text-sm transition-colors truncate text-left tracking-tight text-white capitalize ${canEdit ? 'hover:text-emerald-500 cursor-pointer' : 'cursor-default'}`}
+                >
+                    {item.name}
+                </button>
                 <div className="flex shrink-0 gap-1.5 items-center opacity-70 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(item.name); setNameCopied(true); setTimeout(() => setNameCopied(false), 2000); }}
+                    className="hover:text-emerald-400 transition-colors cursor-pointer"
+                    data-tooltip="Copy name"
+                  >
+                    {nameCopied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} className="text-slate-400" />}
+                  </button>
                   {item.isShared && <div className="relative" {...sharedHandlers}><Handshake size={13} className="text-blue-500" /><Tooltip x={sharedCoords.x} y={sharedCoords.y} isVisible={isSharedVisible}>Cross-Site Shared Inventory</Tooltip></div>}
                   {item.isPriceSynced && <div className="relative" {...syncedHandlers}><Link2 size={13} className="text-indigo-400" /><Tooltip x={syncedCoords.x} y={syncedCoords.y} isVisible={isSyncedVisible}>Real-time Price Synchronization</Tooltip></div>}
                   {item.enableThresholdAlert && <div className="relative" {...alertHandlers}><AlertCircle size={13} className="text-amber-500" /><Tooltip x={alertCoords.x} y={alertCoords.y} isVisible={isAlertVisible}>Low stock threshold reached</Tooltip></div>}
                   {item.isDiscontinued && <div className="relative" {...banHandlers}><Ban size={13} className="text-rose-500" /><Tooltip x={banCoords.x} y={banCoords.y} isVisible={isBanVisible}>Product Unavailable</Tooltip></div>}
                 </div>
               </div>
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mt-1">{item.packSize}</span>
+              {item.subheader && <span className="text-xs italic text-slate-400 truncate">{item.subheader}</span>}
+              <span className="text-[10px] italic text-slate-400 uppercase tracking-widest leading-none mt-1">{item.packSize}</span>
             </div>
             <div className="flex flex-wrap items-center gap-1.5 min-h-[18px]">
               {primaryMatch && (
@@ -162,6 +185,12 @@ export const InventoryRow: React.FC<{
               )}
               {isLocalDuplicate && <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[8px] font-black uppercase tracking-tighter flex items-center gap-0.5 animate-pulse"><AlertTriangle size={10}/> DUPLICATE</span>}
               
+              {isRecent && (
+                <span className="px-1.5 py-0.5 rounded border text-[8px] font-black uppercase tracking-tighter flex items-center gap-0.5 bg-violet-600/20 border-violet-600/30 text-violet-400">
+                  <Clock size={10}/> NEW ({Math.ceil(hoursLeft)}h)
+                </span>
+              )}
+
               {(isShortExpiry || isCriticalExpiry) && (
                 <div className="relative" {...expiryHandlers}>
                   {isCriticalExpiry ? (
@@ -174,7 +203,7 @@ export const InventoryRow: React.FC<{
                     </span>
                   )}
                   <Tooltip x={expiryCoords.x} y={expiryCoords.y} isVisible={isExpiryVisible}>
-                    Expires: {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : 'N/A'}
+                    Expires: {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString('en-GB') : 'N/A'}
                   </Tooltip>
                 </div>
               )}
@@ -196,7 +225,7 @@ export const InventoryRow: React.FC<{
       </td>
       
       {columns.rrp && (
-        <PriceCell item={item} alert={alert} onUpdatePrice={logic.updateProductPrice} onUpdateItem={logic.updateProductItem} />
+        <PriceCell item={item} alert={alert} onUpdatePrice={logic.updateProductPrice} onUpdateItem={logic.updateProductItem} readOnly={!canEdit} />
       )}
       
       {columns.margin && (
@@ -206,11 +235,18 @@ export const InventoryRow: React.FC<{
       )}
       
       {columns.stock && (
-        <StockCell item={item} onUpdateStockInHand={logic.updateProductStockInHand} onUpdateStockToKeep={logic.updateProductStockToKeep} onUpdatePartPacks={logic.updateProductPartPacks} />
+        <StockCell 
+          item={item} 
+          onUpdateStockInHand={logic.updateProductStockInHand} 
+          onUpdateStockToKeep={logic.updateProductStockToKeep} 
+          onUpdateLooseStockToKeep={logic.updateProductLooseStockToKeep}
+          onUpdatePartPacks={logic.updateProductPartPacks} 
+          readOnly={!canEdit} 
+        />
       )}
       
       {columns.order && (
-        <OrderCell item={item} activeOrder={activeOrder} statusColor={statusColor} manualQty={currentRestockQty} onManualQtyChange={onManualQtyChange} onSendToOrder={logic.sendToOrder} onReceiveOrder={logic.receiveOrder} onRemoveOrder={logic.removeOrder} onViewShared={() => { logic.setSearchQuery(item.barcode || item.name); logic.setMainView('shared-stock'); }} />
+        <OrderCell item={item} activeOrder={activeOrder} statusColor={statusColor} manualQty={currentRestockQty} onManualQtyChange={onManualQtyChange} onSendToOrder={logic.sendToOrder} onUpdateOrderQuantity={logic.updateOrderQuantity} onConfirmOrder={logic.confirmOrder} onReceiveOrder={logic.receiveOrder} onRemoveOrder={logic.removeOrder} onMarkAsBackorder={logic.markAsBackorder} onMarkAsActiveOrder={logic.markAsActiveOrder} onViewShared={() => { logic.setSearchQuery(item.barcode || item.name); logic.setMainView('shared-stock'); }} readOnly={!canOrder} />
       )}
       
       {columns.status && (
@@ -225,9 +261,9 @@ export const InventoryRow: React.FC<{
       
       <td className="p-4 text-right align-top pt-5">
         <div className="flex justify-end gap-1.5 mt-6 transition-all duration-300">
-          <TooltipIconButton onClick={() => onOpenTransfer(item)} tooltip="Internal Stock Transfer" icon={ArrowRightLeft} className="w-9 h-9 rounded-lg flex items-center justify-center border transition-all bg-slate-800 border-slate-700 text-amber-500 hover:bg-amber-600 hover:text-white hover:border-amber-500 shadow-sm hover:shadow-md" />
+          {canTransfer && <TooltipIconButton onClick={() => onOpenTransfer(item)} tooltip="Internal Stock Transfer" icon={ArrowRightLeft} className="w-9 h-9 rounded-lg flex items-center justify-center border transition-all bg-slate-800 border-slate-700 text-amber-500 hover:bg-amber-600 hover:text-white hover:border-amber-500 shadow-sm hover:shadow-md" />}
           <TooltipIconButton onClick={() => onOpenHistory(item)} tooltip="Audit & History" icon={HistoryIcon} className="w-9 h-9 rounded-lg flex items-center justify-center border transition-all bg-slate-800 border-slate-700 text-blue-400 hover:bg-blue-600 hover:text-white hover:border-blue-500 shadow-sm hover:shadow-md" />
-          <ProductActionsDropdown isArchived={item.isArchived} deletedAt={item.deletedAt} onRestore={() => logic.restoreProduct(item.id)} onArchive={() => logic.toggleArchive(item.id)} onDelete={() => logic.handleDeleteProduct(item.id, !!item.deletedAt)} theme="dark" />
+          {canEdit && <ProductActionsDropdown isArchived={item.isArchived} deletedAt={item.deletedAt} onRestore={() => logic.restoreProduct(item.id)} onArchive={() => logic.toggleArchive(item.id)} onDelete={() => logic.handleDeleteProduct(item.id, !!item.deletedAt)} theme="dark" />}
         </div>
       </td>
     </tr>

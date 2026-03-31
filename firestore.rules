@@ -1,13 +1,24 @@
 rules_version = '2';
+// Force redeploy v2
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAuth() { return request.auth != null; }
-    function getUserData() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
-    function isAdmin() { return isAuth() && getUserData().role == 'admin'; }
+    
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    function userDoc() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+    
+    function isAdmin() {
+      return isAuth() && exists(userDoc()) && get(userDoc()).data.role == 'admin';
+    }
 
     // User profiles
     match /users/{userId} {
       allow read: if isAuth();
+      allow create: if isAuth() && request.auth.uid == userId;
       allow write: if isAdmin();
       allow update: if isAuth() && request.auth.uid == userId
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastLogin']);
@@ -18,19 +29,57 @@ service cloud.firestore {
       allow read, write: if isAuth();
     }
 
-    // All shared data (messages, transfers, requests, orders, etc.)
-    // The {path=**} wildcard matches any depth of subcollections
+    // Branch-specific data (Requests, Planograms, Floor Plans)
+    match /branches/{branchId}/requests/{docId} {
+      allow read, write: if isAuth();
+    }
+
+    match /branches/{branchId}/planograms/{docId} {
+      allow read, write: if isAuth();
+    }
+
+    match /branches/{branchId}/floorPlans/{docId} {
+      allow read, write: if isAuth();
+    }
+
+    match /branches/{branchId}/eposTransactions/{docId} {
+      allow read, write: if isAuth();
+    }
+
+    match /branches/{branchId}/eposQuickButtons/{docId} {
+      allow read, write: if isAuth();
+    }
+
+    match /branches/{branchId}/eposZReads/{docId} {
+      allow read, write: if isAuth();
+    }
+
+    match /branches/{branchId}/staffMembers/{docId} {
+      allow read, write: if isAuth();
+    }
+
+    match /branches/{branchId}/staffShifts/{docId} {
+      allow read, write: if isAuth();
+    }
+
+    match /branches/{branchId}/staffHolidays/{docId} {
+      allow read, write: if isAuth();
+    }
+
+    match /branches/{branchId}/shiftPresets/{docId} {
+      allow read, write: if isAuth();
+    }
+
+    match /branches/{branchId}/config/{docId} {
+      allow read, write: if isAuth();
+    }
+
+    match /branches/{branchId}/dayOverrides/{docId} {
+      allow read, write: if isAuth();
+    }
+
+    // All shared data (messages, transfers, orders, etc.)
     match /shared/{document=**} {
-      allow read, write: if isAuth();
-    }
-
-    // Planograms
-    match /planograms/{docId} {
-      allow read, write: if isAuth();
-    }
-
-    // Floor Plans
-    match /floorPlans/{docId} {
       allow read, write: if isAuth();
     }
   }

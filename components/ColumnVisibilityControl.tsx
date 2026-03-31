@@ -44,7 +44,7 @@ export const ColumnVisibilityControl: React.FC<ColumnVisibilityControlProps> = (
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className={buttonClass}
-        title="Configure Columns"
+        data-tooltip="Configure Columns"
       >
         <Columns size={20} />
       </button>

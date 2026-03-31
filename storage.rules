@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Branch Communications: Authenticated users can read/write
+    match /branch_communications/{branchId}/{imageId=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Task Manager: Authenticated users can read/write
+    match /task_manager/{taskId}/{imageId=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Planogram: Authenticated users can read/write
+    match /planogram/{planogramId}/{imageId=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Default deny for all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

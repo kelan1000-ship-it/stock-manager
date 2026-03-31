@@ -1,17 +1,31 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { PlanogramLayout, PlanogramSlot, BranchKey, BranchData, Product, ShopFloor, ShopFloorItem, PlanogramFace } from '../types';
+import { PlanogramLayout, PlanogramSlot, BranchKey, BranchData, Product, ShopFloor, ShopFloorItem, PlanogramFace, SavedPlanogramConfiguration } from '../types';
 
 export function usePlanogram(branchData: BranchData, setBranchData: React.Dispatch<React.SetStateAction<BranchData>>, currentBranch: BranchKey) {
   const [activePlanogramId, setActivePlanogramId] = useState<string | null>(null);
 
+  const branchPlanogramsKey = currentBranch === 'bywood' ? 'bywoodPlanograms' : 'broomPlanograms' as keyof BranchData;
+  const branchFloorPlansKey = currentBranch === 'bywood' ? 'bywoodFloorPlans' : 'broomFloorPlans' as keyof BranchData;
+
+  const currentPlanograms = (branchData[branchPlanogramsKey] || []) as PlanogramLayout[];
+  const currentFloorPlans = (branchData[branchFloorPlansKey] || []) as ShopFloor[];
+
+  // Reset active planogram when branch changes so the new branch's planogram is selected
+  useEffect(() => {
+    setActivePlanogramId(null);
+  }, [currentBranch]);
+
   // Initialize planograms and floor plans if they don't exist
   useEffect(() => {
+    // Wait until planograms are loaded from Firestore (they start as undefined)
+    if (branchData[branchPlanogramsKey] === undefined) return;
+    
     let updates: Partial<BranchData> = {};
     
-    if (!branchData.planograms || branchData.planograms.length === 0) {
+    if (currentPlanograms.length === 0) {
       const defaultLayout: PlanogramLayout = {
-        id: 'default-main-shelf',
+        id: `default-main-shelf-${currentBranch}`,
         name: 'Main Retail Shelf',
         branch: currentBranch,
         cols: 4,
@@ -22,42 +36,43 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
         realShelfImage: null,
         aiVisualisation: null
       };
-      updates.planograms = [defaultLayout];
+      updates[branchPlanogramsKey] = [defaultLayout] as any;
       setActivePlanogramId(defaultLayout.id);
     } else if (!activePlanogramId) {
-      setActivePlanogramId(branchData.planograms[0]?.id || null);
+      setActivePlanogramId(currentPlanograms[0]?.id || null);
     }
 
-    if (!branchData.floorPlans || branchData.floorPlans.length === 0) {
+    // Wait until floorPlans are loaded
+    if (branchData[branchFloorPlansKey] !== undefined && currentFloorPlans.length === 0) {
       const defaultFloor: ShopFloor = {
         id: `fp_${currentBranch}`,
         branch: currentBranch,
         items: []
       };
-      updates.floorPlans = [defaultFloor];
+      updates[branchFloorPlansKey] = [defaultFloor] as any;
     }
 
     if (Object.keys(updates).length > 0) {
       setBranchData(prev => ({ ...prev, ...updates }));
     }
-  }, [branchData.planograms, branchData.floorPlans, currentBranch, setBranchData, activePlanogramId]);
+  }, [branchData[branchPlanogramsKey], branchData[branchFloorPlansKey], currentBranch, setBranchData, activePlanogramId]);
 
   const activePlanogram = useMemo(() => {
-    return branchData.planograms?.find(p => p.id === activePlanogramId) || null;
-  }, [branchData.planograms, activePlanogramId]);
+    return currentPlanograms.find(p => p.id === activePlanogramId) || null;
+  }, [currentPlanograms, activePlanogramId]);
 
   const activeFloorPlan = useMemo(() => {
-    return branchData.floorPlans?.find(f => f.branch === currentBranch) || null;
-  }, [branchData.floorPlans, currentBranch]);
+    return currentFloorPlans.find(f => f.branch === currentBranch) || null;
+  }, [currentFloorPlans, currentBranch]);
 
   const updateSlot = useCallback((slotId: number, productId: string | null, faceId?: string) => {
     if (!activePlanogramId) return;
 
     setBranchData(prev => {
-      if (!prev.planograms) return prev;
+      const planograms = (prev[branchPlanogramsKey] || []) as PlanogramLayout[];
       return {
         ...prev,
-        planograms: prev.planograms.map(p => {
+        [branchPlanogramsKey]: planograms.map(p => {
           if (p.id !== activePlanogramId) return p;
           
           if (faceId && p.faces) {
@@ -78,36 +93,100 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
         })
       };
     });
-  }, [activePlanogramId, setBranchData]);
+  }, [activePlanogramId, setBranchData, branchPlanogramsKey]);
 
-  const updatePlanogramImage = useCallback((imageUrl: string | null) => {
+  const updateSlotPurpose = useCallback((slotId: number, purpose: 'product' | 'gap' | 'shelf_end' | undefined, faceId?: string) => {
     if (!activePlanogramId) return;
-    setBranchData(prev => ({
-      ...prev,
-      planograms: prev.planograms?.map(p => 
-        p.id === activePlanogramId ? { ...p, realShelfImage: imageUrl } : p
-      )
-    }));
-  }, [activePlanogramId, setBranchData]);
 
-  const updateAiVisualisation = useCallback((imageUrl: string | null) => {
+    setBranchData(prev => {
+      const planograms = (prev[branchPlanogramsKey] || []) as PlanogramLayout[];
+      return {
+        ...prev,
+        [branchPlanogramsKey]: planograms.map(p => {
+          if (p.id !== activePlanogramId) return p;
+
+          const applyPurpose = (slots: PlanogramSlot[], rows: number, cols: number) => {
+             if (purpose !== 'shelf_end') {
+                 return slots.map(s => s.id === slotId ? { ...s, productId: purpose === 'gap' ? null : s.productId, purpose } : s);
+             }
+             
+             // Shelf End logic: fill to the right
+             const row = Math.floor(slotId / cols);
+             const col = slotId % cols;
+             return slots.map(s => {
+                const sRow = Math.floor(s.id / cols);
+                const sCol = s.id % cols;
+                if (sRow === row && sCol >= col) {
+                   return { ...s, productId: null, purpose: 'shelf_end' };
+                }
+                return s;
+             });
+          };
+
+          if (faceId && p.faces) {
+            const newFaces = p.faces.map(f => {
+              if (f.id === faceId) {
+                return { ...f, slots: applyPurpose(f.slots, f.rows, f.cols) };
+              }
+              return f;
+            });
+            return { ...p, faces: newFaces };
+          } else {
+            return { ...p, slots: applyPurpose(p.slots, p.rows, p.cols) };
+          }
+        })
+      };
+    });
+  }, [activePlanogramId, setBranchData, branchPlanogramsKey]);
+
+  const updatePlanogramImage = useCallback((imageUrl: string | null, faceId?: string) => {
     if (!activePlanogramId) return;
-    setBranchData(prev => ({
-      ...prev,
-      planograms: prev.planograms?.map(p => 
-        p.id === activePlanogramId ? { ...p, aiVisualisation: imageUrl } : p
-      )
-    }));
-  }, [activePlanogramId, setBranchData]);
+    setBranchData(prev => {
+      const planograms = (prev[branchPlanogramsKey] || []) as PlanogramLayout[];
+      return {
+        ...prev,
+        [branchPlanogramsKey]: planograms.map(p => {
+          if (p.id !== activePlanogramId) return p;
+          if (faceId && p.faces) {
+            return {
+              ...p,
+              faces: p.faces.map(f => f.id === faceId ? { ...f, realShelfImage: imageUrl } : f)
+            };
+          }
+          return { ...p, realShelfImage: imageUrl };
+        })
+      };
+    });
+  }, [activePlanogramId, setBranchData, branchPlanogramsKey]);
+
+  const updateAiVisualisation = useCallback((imageUrl: string | null, faceId?: string) => {
+    if (!activePlanogramId) return;
+    setBranchData(prev => {
+      const planograms = (prev[branchPlanogramsKey] || []) as PlanogramLayout[];
+      return {
+        ...prev,
+        [branchPlanogramsKey]: planograms.map(p => {
+          if (p.id !== activePlanogramId) return p;
+          if (faceId && p.faces) {
+            return {
+              ...p,
+              faces: p.faces.map(f => f.id === faceId ? { ...f, aiVisualisation: imageUrl } : f)
+            };
+          }
+          return { ...p, aiVisualisation: imageUrl };
+        })
+      };
+    });
+  }, [activePlanogramId, setBranchData, branchPlanogramsKey]);
 
   const swapSlots = useCallback((sourceId: number, targetId: number, sourceFaceId?: string, targetFaceId?: string) => {
     if (!activePlanogramId) return;
 
     setBranchData(prev => {
-      if (!prev.planograms) return prev;
+      const planograms = (prev[branchPlanogramsKey] || []) as PlanogramLayout[];
       return {
         ...prev,
-        planograms: prev.planograms.map(p => {
+        [branchPlanogramsKey]: planograms.map(p => {
           if (p.id !== activePlanogramId) return p;
 
           // Helper to get slot
@@ -163,7 +242,7 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
         })
       };
     });
-  }, [activePlanogramId, setBranchData]);
+  }, [activePlanogramId, setBranchData, branchPlanogramsKey]);
 
   const addPlanogram = useCallback((name: string, rows: number, cols: number, location?: string, description?: string) => {
     const newP: PlanogramLayout = {
@@ -175,35 +254,31 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
       location,
       description,
       slots: Array.from({ length: rows * cols }, (_, i) => ({ id: i, productId: null })),
-      faces: [], // Start with empty faces, relying on main slots as "Face 1" effectively, or migrate immediately?
+      faces: [], 
       realShelfImage: null,
       aiVisualisation: null
     };
-    setBranchData(prev => ({
-      ...prev,
-      planograms: [...(prev.planograms || []), newP]
-    }));
+    setBranchData(prev => {
+      const planograms = (prev[branchPlanogramsKey] || []) as PlanogramLayout[];
+      return {
+        ...prev,
+        [branchPlanogramsKey]: [...planograms, newP]
+      };
+    });
     setActivePlanogramId(newP.id);
-  }, [currentBranch, setBranchData]);
+  }, [currentBranch, setBranchData, branchPlanogramsKey]);
 
   const addFaceToPlanogram = useCallback((planogramId: string, name: string, rows: number, cols: number) => {
     setBranchData(prev => {
-        if (!prev.planograms) return prev;
+        const planograms = (prev[branchPlanogramsKey] || []) as PlanogramLayout[];
         return {
             ...prev,
-            planograms: prev.planograms.map(p => {
+            [branchPlanogramsKey]: planograms.map(p => {
                 if (p.id !== planogramId) return p;
-                
-                // If it's the first additional face, we might want to migrate the "main" slots to be the first face?
-                // For simplicity, let's keep "slots" as the default/primary face, and "faces" as additional.
-                // OR: We define that if `faces` has length, we strictly use faces. 
-                // Let's adopt: `faces` stores additional sides. Main slots is always the "Primary" or "Side A".
-                // BUT the user wants "3 or 4 sides".
-                // Best approach: If we add a face, we create a new face object.
                 
                 const newFace: PlanogramFace = {
                     id: `face_${Date.now()}`,
-                    name: name || `Side ${ (p.faces?.length || 0) + 2 }`, // +2 because main is 1
+                    name: name || `Side ${ (p.faces?.length || 0) + 2 }`, 
                     rows,
                     cols,
                     slots: Array.from({ length: rows * cols }, (_, i) => ({ id: i, productId: null }))
@@ -213,27 +288,27 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
             })
         };
     });
-  }, [setBranchData]);
+  }, [setBranchData, branchPlanogramsKey]);
 
   const removeFace = useCallback((planogramId: string, faceId: string) => {
       setBranchData(prev => {
-          if (!prev.planograms) return prev;
+          const planograms = (prev[branchPlanogramsKey] || []) as PlanogramLayout[];
           return {
               ...prev,
-              planograms: prev.planograms.map(p => {
+              [branchPlanogramsKey]: planograms.map(p => {
                   if (p.id !== planogramId) return p;
                   return { ...p, faces: (p.faces || []).filter(f => f.id !== faceId) };
               })
           };
       });
-  }, [setBranchData]);
+  }, [setBranchData, branchPlanogramsKey]);
 
   const updatePlanogramDetails = useCallback((id: string, updates: { name: string; rows: number; cols: number }, faceId?: string) => {
     setBranchData(prev => {
-      if (!prev.planograms) return prev;
+      const planograms = (prev[branchPlanogramsKey] || []) as PlanogramLayout[];
       return {
         ...prev,
-        planograms: prev.planograms.map(p => {
+        [branchPlanogramsKey]: planograms.map(p => {
           if (p.id !== id) return p;
           
           const updateGrid = (currentSlots: PlanogramSlot[], oldRows: number, oldCols: number) => {
@@ -248,12 +323,15 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
              }));
 
              currentSlots.forEach(slot => {
-                if (slot.productId) {
+                if (slot.productId || slot.purpose === 'gap') {
                    const r = Math.floor(slot.id / oldCols);
                    const c = slot.id % oldCols;
                    if (r < newRows && c < newCols) {
                       const newIndex = r * newCols + c;
-                      if (newSlots[newIndex]) newSlots[newIndex].productId = slot.productId;
+                      if (newSlots[newIndex]) {
+                        newSlots[newIndex].productId = slot.productId;
+                        if (slot.purpose) newSlots[newIndex].purpose = slot.purpose;
+                      }
                    }
                 }
              });
@@ -261,7 +339,6 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
           };
 
           if (faceId && p.faces) {
-             // Updating a specific face
              const newFaces = p.faces.map(f => {
                  if (f.id === faceId) {
                      return { 
@@ -276,7 +353,6 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
              });
              return { ...p, faces: newFaces };
           } else {
-             // Updating main/primary face
              return { 
                  ...p, 
                  name: updates.name, 
@@ -288,14 +364,14 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
         })
       };
     });
-  }, [setBranchData]);
+  }, [setBranchData, branchPlanogramsKey]);
 
   const addShelfToFloor = useCallback((planogramId: string, x: number = 50, y: number = 50) => {
     setBranchData(prev => {
-      const floorPlans = prev.floorPlans || [];
+      const floorPlans = (prev[branchFloorPlansKey] || []) as ShopFloor[];
       return {
         ...prev,
-        floorPlans: floorPlans.map(fp => {
+        [branchFloorPlansKey]: floorPlans.map(fp => {
           if (fp.branch !== currentBranch) return fp;
           const newItem: ShopFloorItem = {
             id: `item_${Date.now()}`,
@@ -310,14 +386,14 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
         })
       };
     });
-  }, [currentBranch, setBranchData]);
+  }, [currentBranch, setBranchData, branchFloorPlansKey]);
 
   const updateFloorItem = useCallback((itemId: string, updates: Partial<ShopFloorItem>) => {
     setBranchData(prev => {
-      const floorPlans = prev.floorPlans || [];
+      const floorPlans = (prev[branchFloorPlansKey] || []) as ShopFloor[];
       return {
         ...prev,
-        floorPlans: floorPlans.map(fp => {
+        [branchFloorPlansKey]: floorPlans.map(fp => {
           if (fp.branch !== currentBranch) return fp;
           return {
             ...fp,
@@ -326,14 +402,14 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
         })
       };
     });
-  }, [currentBranch, setBranchData]);
+  }, [currentBranch, setBranchData, branchFloorPlansKey]);
 
   const removeFloorItem = useCallback((itemId: string) => {
     setBranchData(prev => {
-      const floorPlans = prev.floorPlans || [];
+      const floorPlans = (prev[branchFloorPlansKey] || []) as ShopFloor[];
       return {
         ...prev,
-        floorPlans: floorPlans.map(fp => {
+        [branchFloorPlansKey]: floorPlans.map(fp => {
           if (fp.branch !== currentBranch) return fp;
           return {
             ...fp,
@@ -342,14 +418,105 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
         })
       };
     });
-  }, [currentBranch, setBranchData]);
+  }, [currentBranch, setBranchData, branchFloorPlansKey]);
+
+  const deletePlanogram = useCallback((planogramId: string) => {
+    setBranchData(prev => {
+      const planograms = (prev[branchPlanogramsKey] || []) as PlanogramLayout[];
+      return {
+        ...prev,
+        [branchPlanogramsKey]: planograms.filter(p => p.id !== planogramId)
+      };
+    });
+    if (activePlanogramId === planogramId) {
+       setActivePlanogramId(null);
+    }
+  }, [setBranchData, branchPlanogramsKey, activePlanogramId]);
+
+  const saveConfiguration = useCallback((planogramId: string, name: string) => {
+    setBranchData(prev => {
+      const planograms = (prev[branchPlanogramsKey] || []) as PlanogramLayout[];
+      return {
+        ...prev,
+        [branchPlanogramsKey]: planograms.map(p => {
+          if (p.id !== planogramId) return p;
+          const newConfig: SavedPlanogramConfiguration = {
+            id: `config_${Date.now()}`,
+            name,
+            timestamp: new Date().toISOString(),
+            slots: [...p.slots],
+            cols: p.cols,
+            rows: p.rows,
+            faces: p.faces ? p.faces.map(f => ({...f, slots: [...f.slots]})) : undefined
+          };
+          return { ...p, savedConfigurations: [...(p.savedConfigurations || []), newConfig] };
+        })
+      };
+    });
+  }, [setBranchData, branchPlanogramsKey]);
+
+  const loadConfiguration = useCallback((planogramId: string, configId: string) => {
+    setBranchData(prev => {
+      const planograms = (prev[branchPlanogramsKey] || []) as PlanogramLayout[];
+      return {
+        ...prev,
+        [branchPlanogramsKey]: planograms.map(p => {
+          if (p.id !== planogramId) return p;
+          const config = p.savedConfigurations?.find(c => c.id === configId);
+          if (!config) return p;
+          return {
+             ...p,
+             slots: [...config.slots],
+             cols: config.cols,
+             rows: config.rows,
+             faces: config.faces ? config.faces.map(f => ({...f, slots: [...f.slots]})) : undefined
+          };
+        })
+      };
+    });
+  }, [setBranchData, branchPlanogramsKey]);
+
+  const deleteConfiguration = useCallback((planogramId: string, configId: string) => {
+    setBranchData(prev => {
+      const planograms = (prev[branchPlanogramsKey] || []) as PlanogramLayout[];
+      return {
+        ...prev,
+        [branchPlanogramsKey]: planograms.map(p => {
+          if (p.id !== planogramId) return p;
+          return {
+             ...p,
+             savedConfigurations: (p.savedConfigurations || []).filter(c => c.id !== configId)
+          };
+        })
+      };
+    });
+  }, [setBranchData, branchPlanogramsKey]);
+
+  const renameConfiguration = useCallback((planogramId: string, configId: string, newName: string) => {
+    setBranchData(prev => {
+      const planograms = (prev[branchPlanogramsKey] || []) as PlanogramLayout[];
+      return {
+        ...prev,
+        [branchPlanogramsKey]: planograms.map(p => {
+          if (p.id !== planogramId) return p;
+          return {
+            ...p,
+            savedConfigurations: (p.savedConfigurations || []).map(c =>
+              c.id === configId ? { ...c, name: newName } : c
+            )
+          };
+        })
+      };
+    });
+  }, [setBranchData, branchPlanogramsKey]);
 
   return {
     activePlanogram,
     activeFloorPlan,
-    planograms: branchData.planograms || [],
+    planograms: currentPlanograms,
     setActivePlanogramId,
     updateSlot,
+    updateSlotPurpose,
     swapSlots,
     addPlanogram,
     addFaceToPlanogram,
@@ -359,7 +526,12 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
     updateAiVisualisation,
     addShelfToFloor,
     updateFloorItem,
-    removeFloorItem
+    removeFloorItem,
+    deletePlanogram,
+    saveConfiguration,
+    loadConfiguration,
+    deleteConfiguration,
+    renameConfiguration
   };
 }
 

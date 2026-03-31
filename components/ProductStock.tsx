@@ -39,15 +39,27 @@ export const ProductStock: React.FC<ProductStockProps> = ({ formData, setFormDat
       </div>
 
       {formData.stockType === 'dispensary' && (
-        <div className="col-span-3 animate-in slide-in-from-top-2 duration-300 border-t border-white/5 pt-4">
-          <label className="block text-[9px] font-bold uppercase text-indigo-400 mb-1 ml-1 tracking-widest">Loose Units (Part Packs)</label>
-          <input 
-            type="number" 
-            value={formData.partPacks} 
-            onChange={e => setFormData({...formData, partPacks: e.target.value})} 
-            className="w-full p-3 rounded-xl bg-indigo-500/5 border border-indigo-500/20 text-xs font-black text-indigo-400 focus:border-indigo-500 outline-none transition-all" 
-            placeholder="0" 
-          />
+        <div className="col-span-3 animate-in slide-in-from-top-2 duration-300 border-t border-white/5 pt-4 grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[9px] font-bold uppercase text-indigo-400 mb-1 ml-1 tracking-widest">Loose Units (Part Packs)</label>
+            <input 
+              type="number" 
+              value={formData.partPacks} 
+              onChange={e => setFormData({...formData, partPacks: e.target.value})} 
+              className="w-full p-3 rounded-xl bg-indigo-500/5 border border-indigo-500/20 text-xs font-black text-indigo-400 focus:border-indigo-500 outline-none transition-all" 
+              placeholder="0" 
+            />
+          </div>
+          <div>
+            <label className="block text-[9px] font-bold uppercase text-orange-400 mb-1 ml-1 tracking-widest">Loose Target</label>
+            <input 
+              type="number" 
+              value={formData.looseStockToKeep} 
+              onChange={e => setFormData({...formData, looseStockToKeep: e.target.value})} 
+              className="w-full p-3 rounded-xl bg-orange-500/5 border border-orange-500/20 text-xs font-black text-orange-400 focus:border-orange-500 outline-none transition-all" 
+              placeholder="0" 
+            />
+          </div>
         </div>
       )}
     </div>

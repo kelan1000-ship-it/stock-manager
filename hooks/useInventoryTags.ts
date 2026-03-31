@@ -1,4 +1,3 @@
-
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Product } from '../types';
 
@@ -9,10 +8,12 @@ export interface TagStyle {
 
 /**
  * useInventoryTags - Modular hook for categorical tagging and filtering.
- * Now includes support for custom colors and flashing animations.
+ * Now includes support for custom colors and flashing animations,
+ * and multi-select show/hide filter modes.
  */
 export function useInventoryTags(data: Product[], onUpdateItem?: (itemId: string, updates: Partial<Product>) => void) {
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  const [tagFilterMode, setTagFilterMode] = useState<'show' | 'hide'>('show');
   
   // Persistent storage for tag visual settings (color/flashing)
   const [tagSettings, setTagSettings] = useState<Record<string, TagStyle>>(() => {
@@ -44,6 +45,10 @@ export function useInventoryTags(data: Product[], onUpdateItem?: (itemId: string
   // Clear all tag filters
   const clearFilters = useCallback(() => {
     setActiveFilters([]);
+  }, []);
+
+  const toggleTagFilterMode = useCallback(() => {
+    setTagFilterMode(prev => (prev === 'show' ? 'hide' : 'show'));
   }, []);
 
   // Add a tag to a specific item
@@ -101,14 +106,25 @@ export function useInventoryTags(data: Product[], onUpdateItem?: (itemId: string
   // Provide filtered data based on activeFilters
   const filteredData = useMemo(() => {
     if (activeFilters.length === 0) return data;
-    return data.filter(item => 
-      activeFilters.every(filterTag => item.tags?.includes(filterTag))
-    );
-  }, [data, activeFilters]);
+    
+    if (tagFilterMode === 'show') {
+        // Must contain ALL selected tags (inclusive/intersection)
+        return data.filter(item => 
+          activeFilters.every(filterTag => item.tags?.includes(filterTag))
+        );
+    } else {
+        // Exclude items that contain ANY of the selected tags (exclusive)
+        return data.filter(item => 
+          !activeFilters.some(filterTag => item.tags?.includes(filterTag))
+        );
+    }
+  }, [data, activeFilters, tagFilterMode]);
 
   return {
     activeFilters,
+    tagFilterMode,
     toggleFilter,
+    toggleTagFilterMode,
     clearFilters,
     addTag,
     removeTag,

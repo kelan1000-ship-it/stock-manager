@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { MessageSquare, ArrowRightLeft, Sparkles, WifiOff, RefreshCw, AlertTriangle } from 'lucide-react';
 import { BranchData, BranchKey } from '../types';
 import { SyncStatus } from '../hooks/useStockState';
@@ -25,6 +25,94 @@ export const HeaderNotificationBar: React.FC<HeaderNotificationBarProps> = ({
       (t.sourceBranch === currentBranch && t.status === 'confirmed' && t.type === 'request'))
     ).length
   , [branchData.transfers, currentBranch]);
+
+  useEffect(() => {
+    const totalNotifications = unreadMessages + pendingTransfers;
+
+    if (totalNotifications > 0) {
+      document.title = `(${totalNotifications}) Stock Manager`;
+    } else {
+      document.title = 'Stock Manager';
+    }
+
+    const updateFavicon = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 32;
+      canvas.height = 32;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = "https://i.postimg.cc/9F0JcWHq/Greenchem-Logo-Official.png";
+
+      img.onload = () => {
+        ctx.clearRect(0, 0, 32, 32);
+        
+        // Draw the logo (scaled to fit)
+        const scale = Math.min(32 / img.width, 32 / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        const x = (32 - w) / 2;
+        const y = (32 - h) / 2;
+        ctx.drawImage(img, x, y, w, h);
+
+        if (totalNotifications > 0) {
+          // Draw badge background
+          ctx.beginPath();
+          ctx.arc(24, 8, 8, 0, 2 * Math.PI);
+          ctx.fillStyle = '#ef4444'; // red-500
+          ctx.fill();
+
+          // Draw badge text
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 10px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const text = totalNotifications > 9 ? '9+' : totalNotifications.toString();
+          ctx.fillText(text, 24, 8);
+        }
+
+        let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = 'icon';
+          document.head.appendChild(link);
+        }
+        link.href = canvas.toDataURL('image/png');
+      };
+
+      img.onerror = () => {
+        ctx.clearRect(0, 0, 32, 32);
+        
+        if (totalNotifications > 0) {
+          ctx.beginPath();
+          ctx.arc(16, 16, 12, 0, 2 * Math.PI);
+          ctx.fillStyle = '#ef4444';
+          ctx.fill();
+          
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 14px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const text = totalNotifications > 9 ? '9+' : totalNotifications.toString();
+          ctx.fillText(text, 16, 16);
+        }
+
+        let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = 'icon';
+          document.head.appendChild(link);
+        }
+        // Use empty favicon if no image and no notifications, or just badge
+        link.href = canvas.toDataURL('image/png');
+      };
+    };
+
+    updateFavicon();
+
+  }, [unreadMessages, pendingTransfers]);
 
   const syncPill = syncStatus && syncStatus !== 'connected' ? (
     <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${

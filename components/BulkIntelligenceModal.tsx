@@ -1,23 +1,29 @@
 
 import React, { useState } from 'react';
-import { X, Check, Handshake, Link2, AlertCircle, Zap } from 'lucide-react';
+import { X, Check, Handshake, Link2, AlertCircle, Zap, Boxes } from 'lucide-react';
 import { TriState } from '../types';
 
 interface BulkIntelligenceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (updates: { isShared: TriState, isPriceSynced: TriState, enableThresholdAlert: TriState }) => void;
+  onConfirm: (updates: { 
+    isShared: TriState, 
+    isPriceSynced: TriState, 
+    enableThresholdAlert: TriState,
+    isExcessStock: TriState 
+  }) => void;
 }
 
 export const BulkIntelligenceModal: React.FC<BulkIntelligenceModalProps> = ({ isOpen, onClose, onConfirm }) => {
   const [isShared, setIsShared] = useState<TriState>('keep');
   const [isPriceSynced, setIsPriceSynced] = useState<TriState>('keep');
   const [enableThresholdAlert, setEnableThresholdAlert] = useState<TriState>('keep');
+  const [isExcessStock, setIsExcessStock] = useState<TriState>('keep');
 
   if (!isOpen) return null;
 
   const handleApply = () => {
-    onConfirm({ isShared, isPriceSynced, enableThresholdAlert });
+    onConfirm({ isShared, isPriceSynced, enableThresholdAlert, isExcessStock });
   };
 
   const TriStateButton = ({ 
@@ -79,6 +85,7 @@ export const BulkIntelligenceModal: React.FC<BulkIntelligenceModalProps> = ({ is
         <TriStateButton label="Shared Stock" value={isShared} onChange={setIsShared} icon={Handshake} />
         <TriStateButton label="Price Sync" value={isPriceSynced} onChange={setIsPriceSynced} icon={Link2} />
         <TriStateButton label="Threshold Alert" value={enableThresholdAlert} onChange={setEnableThresholdAlert} icon={AlertCircle} />
+        <TriStateButton label="Excess Stock" value={isExcessStock} onChange={setIsExcessStock} icon={Boxes} />
       </div>
 
       <button 

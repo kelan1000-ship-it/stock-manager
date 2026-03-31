@@ -152,7 +152,7 @@ export const ImportVerificationModal: React.FC<ImportVerificationModalProps> = (
                             ? 'bg-emerald-600/20 text-emerald-500 border-emerald-500/30 hover:bg-emerald-600/40' 
                             : 'bg-rose-500/20 text-rose-500 border-rose-500/30 hover:bg-rose-500/40'
                         }`}
-                        title={isIgnored ? "Include Update" : "Ignore Update"}
+                        data-tooltip={isIgnored ? "Include Update" : "Ignore Update"}
                       >
                         {!isIgnored ? <Check size={18} strokeWidth={3} /> : <X size={18} strokeWidth={3} />}
                       </button>

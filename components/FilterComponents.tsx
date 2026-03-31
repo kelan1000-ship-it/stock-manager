@@ -43,7 +43,7 @@ interface DepartmentToggleProps {
 }
 
 export const DepartmentToggle: React.FC<DepartmentToggleProps> = ({ activeFilter, onChange }) => (
-  <div className="p-1 flex rounded-2xl border transition-colors bg-slate-900 border-slate-800">
+  <div className="p-1 flex rounded-2xl border transition-colors bg-slate-950 border-slate-800">
     {[
       { id: 'all', label: 'All', icon: LayoutGrid, activeColor: 'bg-black' },
       { id: 'retail', label: 'Retail', icon: ShoppingBag, activeColor: 'bg-emerald-600 shadow-emerald-900/20' },

@@ -1,6 +1,7 @@
 
 import React, { useCallback } from 'react';
 import { BranchData, BranchKey, Product, ProductFormData } from '../types';
+import { toTitleCase } from '../utils/stringUtils';
 
 export function useProductOperations(
   currentBranch: BranchKey,
@@ -55,17 +56,20 @@ export function useProductOperations(
       const createProduct = (id: string): Product => ({
         id,
         name: formData.name,
+        subheader: formData.subheader || '',
         barcode: formData.barcode,
         productCode: formData.productCode,
         packSize: formData.packSize,
         price: priceValue,
         costPrice: parseFloat(formData.costPrice) || 0,
         stockToKeep: parseInt(formData.stockToKeep) || 0,
+        looseStockToKeep: parseInt(formData.looseStockToKeep) || 0,
         stockInHand: parseInt(formData.stockInHand) || 0,
         partPacks: parseInt(formData.partPacks) || 0,
+        ...(formData.looseUnitPrice ? { looseUnitPrice: parseFloat(formData.looseUnitPrice) } : {}),
         isOrdered: false,
         supplier: formData.supplier,
-        location: formData.location,
+        location: toTitleCase(formData.location),
         parentGroup: formData.parentGroup,
         productImage: formData.productImage,
         sourceUrls: formData.sourceUrls,
@@ -79,16 +83,20 @@ export function useProductOperations(
         stockHistory: [{ date: now, type: 'manual', change: parseInt(formData.stockInHand) || 0, newBalance: parseInt(formData.stockInHand) || 0, note: 'Initial creation' }],
         lastOrderedDate: null,
         lastUpdated: now,
+        createdAt: now,
         pendingPriceUpdate: false,
         isShared: formData.isShared,
         enableThresholdAlert: formData.enableThresholdAlert,
+        thresholdType: formData.thresholdType || 'percentage',
+        thresholdValue: formData.thresholdValue !== undefined ? formData.thresholdValue : 25,
         isDiscontinued: formData.isDiscontinued,
         isPriceSynced: formData.isPriceSynced,
         isReducedToClear: formData.isReducedToClear,
         expiryDate: formData.expiryDate,
         stockType: formData.stockType,
         notes: formData.notes,
-        tags: formData.tags
+        tags: formData.tags,
+        noVat: formData.noVat
       });
 
       if (editingId) {
@@ -96,9 +104,11 @@ export function useProductOperations(
         updated[currentBranch] = prev[currentBranch].map(p => {
           if (p.id === editingId) {
             const newCost = parseFloat(formData.costPrice) || 0;
-            const hasPriceChanged = Math.abs(p.price - priceValue) > 0.001 || Math.abs(p.costPrice - newCost) > 0.001;
+            const hasRRPChanged = Math.abs(p.price - priceValue) > 0.001;
+            const hasCostChanged = Math.abs(p.costPrice - newCost) > 0.001;
+            const hasFinancialsChanged = hasRRPChanged || hasCostChanged;
             
-            const newHistory = hasPriceChanged ? [
+            const newHistory = hasFinancialsChanged ? [
                 ...(p.priceHistory || []),
                 {
                     date: now,
@@ -108,18 +118,45 @@ export function useProductOperations(
                 }
             ] : (p.priceHistory || []);
 
+            const newStockInHand = parseInt(formData.stockInHand) || 0;
+            const newPartPacks = parseInt(formData.partPacks) || 0;
+            let newStockHistory = p.stockHistory || [];
+            
+            if (newStockInHand !== p.stockInHand) {
+               newStockHistory = [...newStockHistory, {
+                  date: now,
+                  type: 'manual',
+                  change: newStockInHand - p.stockInHand,
+                  newBalance: newStockInHand,
+                  note: 'Manual stock adjustment (Edit Product)'
+               }];
+            }
+            if (newPartPacks !== (p.partPacks || 0)) {
+               newStockHistory = [...newStockHistory, {
+                  date: now,
+                  type: 'manual',
+                  change: newPartPacks - (p.partPacks || 0),
+                  newBalance: newStockInHand,
+                  note: `Manual loose stock adjustment (New Parts: ${newPartPacks})`
+               }];
+            }
+
             return {
               ...p,
               ...formData,
+              location: toTitleCase(formData.location),
               price: priceValue,
               costPrice: newCost,
               stockToKeep: parseInt(formData.stockToKeep) || 0,
-              stockInHand: parseInt(formData.stockInHand) || 0,
-              partPacks: parseInt(formData.partPacks) || 0,
+              looseStockToKeep: parseInt(formData.looseStockToKeep) || 0,
+              stockInHand: newStockInHand,
+              partPacks: newPartPacks,
+              looseUnitPrice: formData.looseUnitPrice ? parseFloat(formData.looseUnitPrice) : undefined,
               lastUpdated: now,
               priceHistory: newHistory,
-              ignoredPriceAlertUntil: hasPriceChanged ? undefined : p.ignoredPriceAlertUntil,
-              labelNeedsUpdate: (hasPriceChanged && formData.isPriceSynced) ? true : p.labelNeedsUpdate
+              stockHistory: newStockHistory,
+              ignoredPriceAlertUntil: hasRRPChanged ? undefined : p.ignoredPriceAlertUntil,
+              labelNeedsUpdate: hasRRPChanged ? true : p.labelNeedsUpdate
             };
           }
           return p;
@@ -205,7 +242,39 @@ export function useProductOperations(
   const updateProductItem = useCallback((id: string, updates: Partial<Product>) => {
     setBranchData(prev => ({
       ...prev,
-      [currentBranch]: prev[currentBranch].map(p => p.id === id ? { ...p, ...updates, lastUpdated: new Date().toISOString() } : p)
+      [currentBranch]: prev[currentBranch].map(p => {
+        if (p.id !== id) return p;
+
+        let newStockHistory = p.stockHistory || [];
+        const now = new Date().toISOString();
+
+        if (updates.stockInHand !== undefined && updates.stockInHand !== p.stockInHand) {
+           newStockHistory = [...newStockHistory, {
+              date: now,
+              type: 'manual',
+              change: updates.stockInHand - p.stockInHand,
+              newBalance: updates.stockInHand,
+              note: 'Manual stock adjustment'
+           }];
+        }
+
+        if (updates.partPacks !== undefined && updates.partPacks !== (p.partPacks || 0)) {
+           newStockHistory = [...newStockHistory, {
+              date: now,
+              type: 'manual',
+              change: updates.partPacks - (p.partPacks || 0),
+              newBalance: updates.stockInHand !== undefined ? updates.stockInHand : p.stockInHand,
+              note: `Manual loose stock adjustment (New Parts: ${updates.partPacks})`
+           }];
+        }
+
+        return { 
+          ...p, 
+          ...updates, 
+          ...(newStockHistory.length > (p.stockHistory?.length || 0) ? { stockHistory: newStockHistory } : {}),
+          lastUpdated: now 
+        };
+      })
     }));
   }, [currentBranch, setBranchData]);
 
@@ -230,15 +299,13 @@ export function useProductOperations(
                         margin: newPrice > 0 ? ((newPrice - p.costPrice) / newPrice * 100) : 0
                     }
                 ];
-                // If synced, force label update on initiator to skip alert
-                const shouldLabel = p.isPriceSynced;
-                return { 
-                    ...p, 
-                    price: newPrice, 
-                    lastUpdated: now, 
-                    priceHistory: newHistory, 
+                return {
+                    ...p,
+                    price: newPrice,
+                    lastUpdated: now,
+                    priceHistory: newHistory,
                     ignoredPriceAlertUntil: undefined,
-                    labelNeedsUpdate: shouldLabel ? true : p.labelNeedsUpdate
+                    labelNeedsUpdate: true
                 };
             }
             return p;
@@ -296,6 +363,10 @@ export function useProductOperations(
     updateProductItem(id, { stockToKeep: newTarget });
   }, [updateProductItem]);
 
+  const updateProductLooseStockToKeep = useCallback((id: string, newTarget: number) => {
+    updateProductItem(id, { looseStockToKeep: newTarget });
+  }, [updateProductItem]);
+
   const updateProductPartPacks = useCallback((id: string, newParts: number) => {
     updateProductItem(id, { partPacks: newParts });
   }, [updateProductItem]);
@@ -325,6 +396,31 @@ export function useProductOperations(
     }));
   }, [currentBranch, setBranchData]);
 
+  const bulkUpdateProducts = useCallback((updates: { id: string; updates: Partial<Product> }[]) => {
+    const now = new Date().toISOString();
+    const updateMap = new Map(updates.map(u => [u.id, u.updates]));
+
+    setBranchData(prev => ({
+      ...prev,
+      [currentBranch]: prev[currentBranch].map(p => {
+        const itemUpdates = updateMap.get(p.id);
+        if (!itemUpdates) return p;
+
+        // Perform Title Case on location if it's being updated
+        const finalUpdates = { ...itemUpdates };
+        if (finalUpdates.location) {
+          finalUpdates.location = toTitleCase(finalUpdates.location);
+        }
+
+        return {
+          ...p,
+          ...finalUpdates,
+          lastUpdated: now
+        };
+      })
+    }));
+  }, [currentBranch, setBranchData]);
+
   return {
     resetForm,
     handleSaveProduct,
@@ -332,9 +428,11 @@ export function useProductOperations(
     updateProductPrice,
     updateProductStockInHand,
     updateProductStockToKeep,
+    updateProductLooseStockToKeep,
     updateProductPartPacks,
     toggleArchive,
     restoreProduct,
-    handleDeleteProduct
+    handleDeleteProduct,
+    bulkUpdateProducts
   };
 }

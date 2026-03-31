@@ -58,20 +58,22 @@ export const ProductPhotoCapture = ({ onCaptured, onClose }: { onCaptured: (base
     img.onload = () => {
       const canvas = document.createElement('canvas');
       const side = Math.min(img.width, img.height);
-      canvas.width = 600; 
-      canvas.height = 600;
+      canvas.width = 1920; 
+      canvas.height = 1920;
       const ctx = canvas.getContext('2d');
       if (ctx) {
         const sourceSize = side / zoom;
         const sourceX = (img.width - sourceSize) * (position.x / 100);
         const sourceY = (img.height - sourceSize) * (position.y / 100);
 
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(
           img,
           sourceX, sourceY, sourceSize, sourceSize,
-          0, 0, 600, 600
+          0, 0, 1920, 1920
         );
-        onCaptured(canvas.toDataURL('image/jpeg'));
+        onCaptured(canvas.toDataURL('image/webp', 0.95));
         onClose();
       }
     };
@@ -211,8 +213,6 @@ const ProductImageUploader: React.FC<ProductImageUploaderProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const browseInputRef = useRef<HTMLInputElement>(null);
 
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwQqSLc-UcXHGv5pGX6iLpfmkDwexPLBPkrXaT18zqWknl-U_cdQ5YoM7R4ptLpgNry8Q/exec';
-
   useEffect(() => {
     setPreview(currentImageUrl || null);
   }, [currentImageUrl]);
@@ -226,7 +226,7 @@ const ProductImageUploader: React.FC<ProductImageUploaderProps> = ({
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_SIZE = 1200;
+          const MAX_SIZE = 1920;
           let width = img.width;
           let height = img.height;
 
@@ -254,7 +254,7 @@ const ProductImageUploader: React.FC<ProductImageUploaderProps> = ({
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, width, height);
           
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          const dataUrl = canvas.toDataURL('image/webp', 0.95);
           resolve(dataUrl);
         };
         img.onerror = (err) => reject(err);
@@ -316,31 +316,13 @@ const ProductImageUploader: React.FC<ProductImageUploaderProps> = ({
   };
 
   const uploadImage = async (base64OrUrl: string) => {
+    setIsUploading(true);
     setStatusMessage('Pushing to Corporate Drive...');
     setStatusType(null);
     
     try {
-      const isDirectUrl = !base64OrUrl.includes('base64,') && base64OrUrl.startsWith('http');
-      // If it's a URL, send the whole URL string. If it's base64, send just the data part.
-      const dataToSend = isDirectUrl ? base64OrUrl : base64OrUrl.split(',')[1];
-
-      const response = await fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ 
-          base64: dataToSend, 
-          productName: productName,
-          isUrl: isDirectUrl
-        })
-      });
-
-      const result = await response.json();
-      if (result.Error) throw new Error(result.Error);
-
-      // Construct the high-performance direct link requested by user: lh3.googleusercontent.com/d/FILE_ID
-      const finalUrl = result.fileId 
-        ? `https://lh3.googleusercontent.com/d/${result.fileId}`
-        : result.driveUrl || base64OrUrl;
+      const { uploadToGoogleDrive } = await import('../services/googleDriveService');
+      const finalUrl = await uploadToGoogleDrive(base64OrUrl, productName);
 
       // Safe update: Only update master DB if we have a real product ID (not creating new or editing pending)
       if (productId && productId !== 'new_mode' && productId !== 'edit_mode') {

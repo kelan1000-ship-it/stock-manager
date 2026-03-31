@@ -218,7 +218,7 @@ export const FloorPlanView: React.FC<FloorPlanViewProps> = ({
                                       gridTemplateColumns: `repeat(${p.cols}, 1fr)`, 
                                       gridTemplateRows: `repeat(${p.rows}, 1fr)` 
                                   }}>
-                                      {p.slots.map(slot => {
+                                      {p.slots.filter(Boolean).map(slot => {
                                           const product = slot.productId ? inventory.find(i => i.id === slot.productId) : null;
                                           return (
                                               <div key={slot.id} className="w-full h-full bg-black/20 flex items-center justify-center overflow-hidden">

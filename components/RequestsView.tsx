@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Trash2, Notebook, RotateCw, X } from 'lucide-react';
+import { Trash2, Notebook, RotateCw, X, Archive, ArchiveRestore } from 'lucide-react';
 import { CustomerRequest } from '../types';
 import { useTooltip } from '../hooks/useTooltip';
 import { SortHeader, Tooltip } from './ManagerComponents';
@@ -32,7 +32,7 @@ const RequestNotesIcon = ({ notes }: { notes?: string }) => {
             ? 'bg-yellow-400 border-yellow-600 text-slate-950' 
             : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/20'
         }`}
-        title="View Inquiry Notes"
+        data-tooltip="View Inquiry Notes"
       >
         <Notebook size={14} />
       </button>
@@ -65,21 +65,23 @@ const RequestNotesIcon = ({ notes }: { notes?: string }) => {
 interface RequestsViewProps {
   requests: CustomerRequest[];
   onEdit: (r: CustomerRequest) => void;
+  onUpdate: (id: string, updates: Partial<CustomerRequest>) => void;
   onDelete: (id: string, permanent?: boolean) => void;
   onRestore: (id: string) => void;
-  sortConfig: { key: string | null; direction: 'asc' | 'desc' };
-  onSort: (key: string) => void;
-  isBinView: boolean;
+  sortConfig: { key: string; direction: 'asc' | 'desc' }[];
+  onSort: (key: string, multi: boolean) => void;
+  requestTab: 'active' | 'archive' | 'bin';
 }
 
 export const RequestsView: React.FC<RequestsViewProps> = ({ 
   requests, 
   onEdit, 
+  onUpdate,
   onDelete,
   onRestore,
   sortConfig,
   onSort,
-  isBinView
+  requestTab
 }) => {
   const urgencyColors = {
     low: 'text-slate-500 bg-slate-500/10 border-slate-500/20',
@@ -95,10 +97,10 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
   };
 
   return (
-    <div className="rounded-[2.5rem] border shadow-2xl overflow-visible animate-in fade-in slide-in-from-bottom-4 duration-500 bg-slate-900/50 border-slate-800">
+    <div className="rounded-[2.5rem] border shadow-2xl overflow-visible animate-in fade-in slide-in-from-bottom-4 duration-500 bg-slate-950 border-slate-800">
       <div className="overflow-x-auto overflow-y-visible">
         <table className="w-full text-left">
-          <thead className="border-b bg-slate-900 border-slate-800">
+          <thead className="border-b bg-slate-950 border-slate-800">
             <tr>
               <SortHeader label="Customer / Contact" sortKey="customerName" config={sortConfig} onSort={onSort} />
               <SortHeader label="Item Details" sortKey="itemName" config={sortConfig} onSort={onSort} />
@@ -154,42 +156,80 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
                     </div>
                   </td>
                   <td className="p-6 text-center">
-                    <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${urgencyColors[req.urgency]}`}>
-                      {req.urgency}
-                    </span>
+                    <select
+                      value={req.urgency}
+                      onChange={(e) => onUpdate(req.id, { urgency: e.target.value as any })}
+                      className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border outline-none cursor-pointer appearance-none text-center ${urgencyColors[req.urgency]}`}
+                      disabled={requestTab !== 'active'}
+                    >
+                      <option value="low" className="bg-slate-900 text-slate-300">Low</option>
+                      <option value="medium" className="bg-slate-900 text-amber-500">Medium</option>
+                      <option value="high" className="bg-slate-900 text-rose-500">High</option>
+                    </select>
                   </td>
                   <td className="p-6 text-center">
-                    <span className={`px-2 py-1 rounded-lg font-black text-[10px] uppercase tracking-widest ${statusColors[req.status]}`}>
-                      {req.status}
-                    </span>
+                    <select
+                      value={req.status}
+                      onChange={(e) => onUpdate(req.id, { status: e.target.value as any })}
+                      className={`px-2 py-1 rounded-lg font-black text-[10px] uppercase tracking-widest outline-none cursor-pointer appearance-none text-center ${statusColors[req.status]}`}
+                      disabled={requestTab !== 'active'}
+                    >
+                      <option value="pending" className="bg-slate-900 text-amber-500">Pending</option>
+                      <option value="ordered" className="bg-slate-900 text-indigo-500">Ordered</option>
+                      <option value="ready" className="bg-slate-900 text-emerald-500">Ready</option>
+                      <option value="completed" className="bg-slate-900 text-slate-500">Completed</option>
+                    </select>
                   </td>
                   <td className="p-6 text-right">
                     <div className="flex justify-end items-center gap-2">
-                      {isBinView ? (
+                      {requestTab === 'bin' ? (
                         <>
                           <button 
                             onClick={() => onRestore(req.id)} 
                             className="p-2.5 rounded-xl transition-all bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white"
-                            title="Restore Request"
+                            data-tooltip="Restore Request"
                           >
                             <RotateCw size={18}/>
                           </button>
                           <button 
                             onClick={() => onDelete(req.id, true)} 
                             className="p-2.5 rounded-xl transition-all bg-slate-800 text-slate-400 hover:text-rose-500"
-                            title="Delete Permanently"
+                            data-tooltip="Delete Permanently"
                           >
                             <Trash2 size={18}/>
                           </button>
                         </>
-                      ) : (
+                      ) : requestTab === 'archive' ? (
                         <button 
-                          onClick={() => onDelete(req.id, false)} 
-                          className="p-2.5 rounded-xl transition-all bg-slate-800 text-slate-400 hover:text-rose-500"
-                          title="Move to Bin"
+                          onClick={() => onUpdate(req.id, { isArchived: false })} 
+                          className="p-2.5 rounded-xl transition-all bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white"
+                          data-tooltip="Restore to Active"
                         >
-                          <Trash2 size={18}/>
+                          <ArchiveRestore size={18}/>
                         </button>
+                      ) : (
+                        <>
+                          {isCompleted && (
+                            <button 
+                              onClick={() => onUpdate(req.id, { isArchived: true })} 
+                              className="p-2.5 rounded-xl transition-all bg-amber-600/10 text-amber-500 hover:bg-amber-600 hover:text-white"
+                              data-tooltip="Archive Completed Order"
+                            >
+                              <Archive size={18}/>
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to move this request to the bin?')) {
+                                onDelete(req.id, false);
+                              }
+                            }} 
+                            className="p-2.5 rounded-xl transition-all bg-slate-800 text-slate-400 hover:text-rose-500"
+                            data-tooltip="Move to Bin"
+                          >
+                            <Trash2 size={18}/>
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>

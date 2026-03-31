@@ -1,6 +1,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Product, MasterProduct, ProductFormData } from '../types';
+import { compressImage } from '../utils/imageUtils';
 
 interface UseProductFormProps {
   formData: ProductFormData;
@@ -80,13 +81,19 @@ export function useProductForm({
     isSelectingFromMaster.current = true;
     setFormData((prev) => ({
       ...prev,
+      // name: always take from master — this is an explicit user selection
       name: p.name,
-      barcode: p.barcode || prev.barcode,
-      productCode: p.productCode || prev.productCode,
-      packSize: p.packSize || prev.packSize,
-      price: p.price ? p.price.toFixed(2) : prev.price,
-      costPrice: p.costPrice ? p.costPrice.toFixed(2) : prev.costPrice,
-      productImage: p.image || prev.productImage,
+      // All other fields: protect existing values, only fill if currently empty
+      barcode:      prev.barcode      || p.barcode      || prev.barcode,
+      productCode:  prev.productCode  || p.productCode  || prev.productCode,
+      packSize:     prev.packSize     || p.packSize      || prev.packSize,
+      price:        (prev.price && prev.price !== '0.00')
+                      ? prev.price
+                      : (p.price ? p.price.toFixed(2) : prev.price),
+      costPrice:    (prev.costPrice && prev.costPrice !== '0.00')
+                      ? prev.costPrice
+                      : (p.costPrice ? p.costPrice.toFixed(2) : prev.costPrice),
+      productImage: prev.productImage || p.image || prev.productImage,
     }));
     setMasterQuery('');
     setIsMasterSearchActive(false);
@@ -105,15 +112,20 @@ export function useProductForm({
     }
   }, [masterMatch, setFormData]);
 
-  const handleSmartScan = useCallback((e: React.ChangeEvent<HTMLInputElement>, onFullScan: (b64: string, type: string) => void) => {
+  const handleSmartScan = useCallback(async (e: React.ChangeEvent<HTMLInputElement>, onFullScan: (b64: string, type: string) => void) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = (reader.result as string).split(',')[1];
-        onFullScan(base64, file.type);
-      };
-      reader.readAsDataURL(file);
+      console.log(`[handleSmartScan] File selected: ${file.name}`);
+      try {
+        const compressedDataUrl = await compressImage(file);
+        console.log(`[handleSmartScan] Compression complete. Sending to onFullScan...`);
+        const base64 = compressedDataUrl.split(',')[1];
+        onFullScan(base64, 'image/jpeg');
+      } catch (err) {
+        console.error("Smart Scan processing failed", err);
+      }
+    } else {
+        console.warn("[handleSmartScan] No file selected");
     }
   }, []);
 

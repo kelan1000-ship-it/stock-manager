@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Barcode, Hash, History as HistoryIcon, Lock, Send, Check, X, Ban
+import {
+  Barcode, Hash, History as HistoryIcon, Send, Check, X, Ban, Copy, CheckSquare, Square, ArrowRight
 } from 'lucide-react';
-import { BranchKey, Product } from '../types';
+import { BranchKey, Product, OrderItem } from '../types';
 import { ProductThumbnail, CopyableText, Tooltip } from './ManagerComponents';
 import { ProductNoteWidget } from './ProductNoteWidget';
 import { useTooltip } from '../hooks/useTooltip';
+import { getProductMatchKey } from '../utils/productMatching';
 
 interface SharedInventoryRowProps {
   item: Product;
@@ -14,18 +15,24 @@ interface SharedInventoryRowProps {
   otherBranch: BranchKey;
   draft: { bywood: number; broom: number };
   confirmations: { bywood: boolean; broom: boolean };
-  onUpdateSharedValues: (barcode: string, field: 'price' | 'costPrice', value: number) => void;
+  onUpdateSharedValues: (barcode: string, field: 'price' | 'costPrice', value: number, productCode?: string) => void;
   onUpdateTarget: (productId: string, branch: BranchKey, value: number) => void;
+  onUpdateLooseTarget: (productId: string, branch: BranchKey, value: number) => void;
   onUpdateStock: (productId: string, branch: BranchKey, value: number) => void;
-  onOrderDraftChange: (id: string, branch: 'bywood' | 'broom', val: string) => void;
-  onToggleConfirmation: (id: string, branch: 'bywood' | 'broom') => void;
+  onOrderDraftChange: (productId: string, branch: 'bywood' | 'broom', val: string) => void;
+  onSaveDraftOnBlur: (productId: string) => void;
+  onToggleConfirmation: (productId: string, branch: 'bywood' | 'broom') => void;
   onPlaceJointOrder: (item: Product) => void;
   onOpenEdit?: (product: Product) => void;
   onOpenHistory?: (product: Product) => void;
   onPreviewImage?: (src: string, title: string) => void;
+  jointOrders: any[];
+  branchOrders: OrderItem[];
   tagSettings: Record<string, any>;
   isNoteExpanded: boolean;
   onToggleNote: () => void;
+  isSelected?: boolean;
+  onToggleSelection?: (id: string) => void;
 }
 
 export const SharedInventoryRow: React.FC<SharedInventoryRowProps> = ({ 
@@ -37,22 +44,32 @@ export const SharedInventoryRow: React.FC<SharedInventoryRowProps> = ({
   confirmations, 
   onUpdateSharedValues, 
   onUpdateTarget, 
+  onUpdateLooseTarget,
   onUpdateStock,
-  onOrderDraftChange, 
-  onToggleConfirmation, 
-  onPlaceJointOrder, 
-  onOpenEdit, 
-  onOpenHistory, 
-  onPreviewImage, 
+  onOrderDraftChange,
+  onSaveDraftOnBlur,
+  onToggleConfirmation,
+  onPlaceJointOrder,
+  onOpenEdit,
+  onOpenHistory,
+  onPreviewImage,
+  jointOrders,
+  branchOrders,
   tagSettings,
   isNoteExpanded,
-  onToggleNote
+  onToggleNote,
+  isSelected = false,
+  onToggleSelection
 }) => {
+  const [nameCopied, setNameCopied] = useState(false);
+
   // State for inputs to prevent jitter
   const [priceInput, setPriceInput] = useState(item.price.toFixed(2));
   const [costInput, setCostInput] = useState(item.costPrice.toFixed(2));
   const [localTarget, setLocalTarget] = useState(item.stockToKeep.toString());
   const [remoteTarget, setRemoteTarget] = useState(match ? match.stockToKeep.toString() : '');
+  const [localLooseTarget, setLocalLooseTarget] = useState(item.looseStockToKeep?.toString() || '0');
+  const [remoteLooseTarget, setRemoteLooseTarget] = useState(match?.looseStockToKeep?.toString() || '0');
   const [localStockInput, setLocalStockInput] = useState(item.stockInHand.toString());
   const [remoteStockInput, setRemoteStockInput] = useState(match ? match.stockInHand.toString() : '');
 
@@ -60,19 +77,21 @@ export const SharedInventoryRow: React.FC<SharedInventoryRowProps> = ({
   useEffect(() => { setPriceInput(item.price.toFixed(2)); }, [item.price]);
   useEffect(() => { setCostInput(item.costPrice.toFixed(2)); }, [item.costPrice]);
   useEffect(() => { setLocalTarget(item.stockToKeep.toString()); }, [item.stockToKeep]);
+  useEffect(() => { setLocalLooseTarget(item.looseStockToKeep?.toString() || '0'); }, [item.looseStockToKeep]);
   useEffect(() => { setLocalStockInput(item.stockInHand.toString()); }, [item.stockInHand]);
   useEffect(() => { if (match) setRemoteTarget(match.stockToKeep.toString()); }, [match?.stockToKeep]);
+  useEffect(() => { if (match) setRemoteLooseTarget(match?.looseStockToKeep?.toString() || '0'); }, [match?.looseStockToKeep]);
   useEffect(() => { if (match) setRemoteStockInput(match.stockInHand.toString()); }, [match?.stockInHand]);
 
   // Handlers
   const handlePriceBlur = () => {
     const val = parseFloat(priceInput);
-    if (!isNaN(val) && Math.abs(val - item.price) > 0.001) onUpdateSharedValues(item.barcode, 'price', val);
+    if (!isNaN(val) && Math.abs(val - item.price) > 0.001) onUpdateSharedValues(item.barcode, 'price', val, item.productCode);
     else setPriceInput(item.price.toFixed(2));
   };
   const handleCostBlur = () => {
     const val = parseFloat(costInput);
-    if (!isNaN(val) && Math.abs(val - item.costPrice) > 0.001) onUpdateSharedValues(item.barcode, 'costPrice', val);
+    if (!isNaN(val) && Math.abs(val - item.costPrice) > 0.001) onUpdateSharedValues(item.barcode, 'costPrice', val, item.productCode);
     else setCostInput(item.costPrice.toFixed(2));
   };
   const handleLocalTargetBlur = () => {
@@ -85,6 +104,17 @@ export const SharedInventoryRow: React.FC<SharedInventoryRowProps> = ({
     const val = parseInt(remoteTarget);
     if (!isNaN(val) && val !== match.stockToKeep) onUpdateTarget(match.id, otherBranch, val);
     else setRemoteTarget(match.stockToKeep.toString());
+  };
+  const handleLocalLooseTargetBlur = () => {
+    const val = parseInt(localLooseTarget);
+    if (!isNaN(val) && val !== item.looseStockToKeep) onUpdateLooseTarget(item.id, currentBranch, val);
+    else setLocalLooseTarget(item.looseStockToKeep?.toString() || '0');
+  };
+  const handleRemoteLooseTargetBlur = () => {
+    if (!match) return;
+    const val = parseInt(remoteLooseTarget);
+    if (!isNaN(val) && val !== match.looseStockToKeep) onUpdateLooseTarget(match.id, otherBranch, val);
+    else setRemoteLooseTarget(match.looseStockToKeep?.toString() || '0');
   };
   const handleLocalStockBlur = () => {
     const val = parseInt(localStockInput);
@@ -108,31 +138,56 @@ export const SharedInventoryRow: React.FC<SharedInventoryRowProps> = ({
   const totalStock = item.stockInHand + (match ? match.stockInHand : 0);
   const totalTarget = item.stockToKeep + (match ? match.stockToKeep : 0);
   const healthPercent = totalTarget > 0 ? (totalStock / totalTarget) * 100 : 0;
-  const totalOrder = (draft.bywood || 0) + (draft.broom || 0);
-  const isReady = confirmations.bywood && confirmations.broom;
+  const totalOrder = draft[localBranchKey] || 0;
+  const isReady = confirmations[localBranchKey];
 
   return (
-    <tr className="group hover:bg-slate-800/30 transition-colors border-b border-slate-800/30 last:border-0">
-      {/* Product Detail */}
-      <td className="p-6 align-top">
+    <tr className={`group hover:bg-slate-800/30 transition-colors border-b border-slate-800/30 last:border-0 ${isSelected ? 'bg-emerald-900/10' : ''}`}>
+      <td className="p-4 align-top pt-6">
+          {onToggleSelection && (
+              <button onClick={() => onToggleSelection(item.id)} className={`transition-colors ${isSelected ? 'text-emerald-500' : 'text-slate-700 hover:text-slate-500'}`}>
+                  {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
+              </button>
+          )}
+      </td>      {/* Product Detail */}
+      <td className="py-6 pr-6 align-top">
         <div className="flex items-start gap-4">
             <div className="flex flex-col gap-2 shrink-0">
                 <ProductThumbnail 
                     src={item.productImage} 
                     alt={item.name} 
+                    stockType={item.stockType}
                     onClick={() => item.productImage && onPreviewImage && onPreviewImage(item.productImage, item.name)} 
                 />
-                <ProductNoteWidget id={item.id} notes={item.notes} isExpanded={isNoteExpanded} onToggle={onToggleNote} stockType={item.stockType} />
+                <ProductNoteWidget
+                    id={item.id}
+                    notes={item.notes}
+                    partnerNotes={match?.notes}
+                    branchLabels={{ local: currentBranch === 'bywood' ? 'Bywood' : 'Broom', partner: currentBranch === 'bywood' ? 'Broom' : 'Bywood' }}
+                    isExpanded={isNoteExpanded}
+                    onToggle={onToggleNote}
+                    stockType={item.stockType}
+                />
             </div>
             <div className="pt-0.5 min-w-0 flex-1">
-              <button 
-                  onClick={() => onOpenEdit && onOpenEdit(item)}
-                  className="text-sm font-black text-white hover:text-indigo-400 transition-colors text-left truncate w-full"
-              >
-                  {item.name}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                    onClick={() => onOpenEdit && onOpenEdit(item)}
+                    className="text-sm font-black text-white hover:text-indigo-400 transition-colors text-left truncate tracking-tight capitalize"
+                >
+                    {item.name}
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(item.name); setNameCopied(true); setTimeout(() => setNameCopied(false), 2000); }}
+                  className="shrink-0 opacity-50 hover:opacity-100 hover:text-emerald-400 transition-all cursor-pointer"
+                  data-tooltip="Copy name"
+                >
+                  {nameCopied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} className="text-slate-400" />}
+                </button>
+              </div>
+              {item.subheader && <span className="text-xs italic text-slate-400 truncate">{item.subheader}</span>}
               <div className="flex flex-wrap items-center gap-2 mt-1 mb-2">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">{item.packSize}</span>
+                  <span className="text-[10px] italic text-slate-500 uppercase">{item.packSize}</span>
                   <span className="px-1.5 py-0.5 rounded border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-[8px] font-black uppercase tracking-tighter">Shared SKU</span>
                   {item.tags?.map(tag => {
                     const settings = tagSettings[tag];
@@ -148,8 +203,8 @@ export const SharedInventoryRow: React.FC<SharedInventoryRowProps> = ({
                   })}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                  {item.barcode && <CopyableText text={item.barcode} label="BAR" icon={<Barcode size={10} />} />}
-                  {item.productCode && <CopyableText text={item.productCode} label="PIP" icon={<Hash size={10} />} />}
+                  {item.barcode && <CopyableText text={item.barcode} label="BAR" icon={<Barcode size={13} />} />}
+                  {item.productCode && <CopyableText text={item.productCode} label="PIP" icon={<Hash size={13} />} />}
               </div>
             </div>
         </div>
@@ -224,16 +279,31 @@ export const SharedInventoryRow: React.FC<SharedInventoryRowProps> = ({
                   <HistoryIcon size={12} />
               </button>
               <Tooltip x={localHistoryCoords.x} y={localHistoryCoords.y} isVisible={localHistoryTip}>Local History</Tooltip>
-              <div className="flex items-center justify-center gap-1 mt-0.5">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">Target:</span>
-                <input 
-                    type="number"
-                    min="0"
-                    value={localTarget}
-                    onChange={(e) => setLocalTarget(e.target.value)}
-                    onBlur={handleLocalTargetBlur}
-                    className="w-8 bg-transparent border-b border-slate-800 hover:border-slate-600 text-center text-[9px] font-bold text-slate-500 focus:text-indigo-400 focus:border-indigo-500 outline-none transition-colors p-0"
-                />
+              <div className="flex flex-col items-center gap-1 mt-0.5">
+                <div className="flex items-center justify-center gap-1">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">{item.stockType === 'dispensary' ? 'P ' : ''}Target:</span>
+                  <input 
+                      type="number"
+                      min="0"
+                      value={localTarget}
+                      onChange={(e) => setLocalTarget(e.target.value)}
+                      onBlur={handleLocalTargetBlur}
+                      className="w-8 bg-transparent border-b border-slate-800 hover:border-slate-600 text-center text-[9px] font-bold text-slate-500 focus:text-indigo-400 focus:border-indigo-500 outline-none transition-colors p-0"
+                  />
+                </div>
+                {item.stockType === 'dispensary' && (
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="text-[9px] font-bold text-orange-500/70 uppercase tracking-tight">L Target:</span>
+                    <input 
+                        type="number"
+                        min="0"
+                        value={localLooseTarget}
+                        onChange={(e) => setLocalLooseTarget(e.target.value)}
+                        onBlur={handleLocalLooseTargetBlur}
+                        className="w-8 bg-transparent border-b border-slate-800 hover:border-slate-600 text-center text-[9px] font-bold text-orange-500/70 focus:text-orange-500 focus:border-orange-500 outline-none transition-colors p-0"
+                    />
+                  </div>
+                )}
               </div>
             </div>
             
@@ -249,8 +319,8 @@ export const SharedInventoryRow: React.FC<SharedInventoryRowProps> = ({
                     <>
                         <span className="text-[8px] font-black uppercase text-emerald-500 px-1">Ready</span>
                         <div className="w-10 h-6 flex items-center justify-center font-black text-white text-xs">{draft[localBranchKey] || 0}</div>
-                        <button 
-                            onClick={() => onToggleConfirmation(item.id, localBranchKey)} 
+                        <button
+                            onClick={() => onToggleConfirmation(item.id, localBranchKey)}
                             className="w-6 h-6 rounded bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-colors"
                         >
                             <X size={10} strokeWidth={3} />
@@ -259,16 +329,17 @@ export const SharedInventoryRow: React.FC<SharedInventoryRowProps> = ({
                 ) : (
                     <>
                         <span className="text-[8px] font-black uppercase text-amber-500 px-1">Order</span>
-                        <input 
-                            type="number" 
+                        <input
+                            type="number"
                             min="0"
                             value={draft[localBranchKey] || ''}
                             onChange={(e) => onOrderDraftChange(item.id, localBranchKey, e.target.value)}
+                            onBlur={() => onSaveDraftOnBlur(item.id)}
                             placeholder="0"
                             className="w-10 h-6 bg-slate-800 rounded border border-slate-700 text-center text-xs font-bold text-amber-500 outline-none focus:border-indigo-500"
                         />
-                        <button 
-                            onClick={() => onToggleConfirmation(item.id, localBranchKey)} 
+                        <button
+                            onClick={() => onToggleConfirmation(item.id, localBranchKey)}
                             className="w-6 h-6 rounded bg-indigo-600 text-white hover:bg-indigo-500 flex items-center justify-center transition-colors shadow-lg"
                         >
                             <Check size={10} strokeWidth={4} />
@@ -306,61 +377,47 @@ export const SharedInventoryRow: React.FC<SharedInventoryRowProps> = ({
               ) : (
                   <span className="text-2xl font-black text-slate-700">-</span>
               )}
-              <div className="flex items-center justify-center gap-1 mt-0.5">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tight">Target:</span>
-                {match ? (
-                    <input 
-                        type="number"
-                        min="0"
-                        value={remoteTarget}
-                        onChange={(e) => setRemoteTarget(e.target.value)}
-                        onBlur={handleRemoteTargetBlur}
-                        className="w-8 bg-transparent border-b border-slate-800 hover:border-slate-600 text-center text-[9px] font-bold text-slate-500 focus:text-indigo-400 focus:border-indigo-500 outline-none transition-colors p-0"
-                    />
-                ) : (
-                    <span className="text-[9px] font-bold text-slate-700">-</span>
+              <div className="flex flex-col items-center gap-1 mt-0.5">
+                <div className="flex items-center justify-center gap-1">
+                  <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tight">{item.stockType === 'dispensary' ? 'P ' : ''}Target:</span>
+                  {match ? (
+                      <input 
+                          type="number"
+                          min="0"
+                          value={remoteTarget}
+                          onChange={(e) => setRemoteTarget(e.target.value)}
+                          onBlur={handleRemoteTargetBlur}
+                          className="w-8 bg-transparent border-b border-slate-800 hover:border-slate-600 text-center text-[9px] font-bold text-slate-500 focus:text-indigo-400 focus:border-indigo-500 outline-none transition-colors p-0"
+                      />
+                  ) : (
+                      <span className="text-[9px] font-bold text-slate-700">-</span>
+                  )}
+                </div>
+                {item.stockType === 'dispensary' && (
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="text-[9px] font-bold text-orange-500/50 uppercase tracking-tight">L Target:</span>
+                    {match ? (
+                        <input 
+                            type="number"
+                            min="0"
+                            value={remoteLooseTarget}
+                            onChange={(e) => setRemoteLooseTarget(e.target.value)}
+                            onBlur={handleRemoteLooseTargetBlur}
+                            className="w-8 bg-transparent border-b border-slate-800 hover:border-slate-600 text-center text-[9px] font-bold text-orange-500/50 focus:text-orange-500 focus:border-orange-500 outline-none transition-colors p-0"
+                        />
+                    ) : (
+                        <span className="text-[9px] font-bold text-slate-700">-</span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
             
-            {match?.isDiscontinued ? (
+            {match?.isDiscontinued && (
                <div className="flex items-center justify-center gap-1 mt-1 p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 w-full min-h-[34px]">
                   <Ban size={12} className="text-rose-500" />
                   <span className="text-[8px] font-black uppercase text-rose-500 tracking-widest">Unavailable</span>
                </div>
-            ) : (
-                <div className={`flex items-center gap-1 mt-1 rounded-lg p-1 border transition-all ${confirmations[partnerBranchKey] ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-slate-900 border-slate-800'}`}>
-                {confirmations[partnerBranchKey] ? (
-                    <>
-                        <span className="text-[8px] font-black uppercase text-emerald-500 px-1">Ready</span>
-                        <div className="w-10 h-6 flex items-center justify-center font-black text-white text-xs">{draft[partnerBranchKey] || 0}</div>
-                        <button 
-                            onClick={() => onToggleConfirmation(item.id, partnerBranchKey)} 
-                            className="w-6 h-6 rounded bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-colors"
-                        >
-                            <X size={10} strokeWidth={3} />
-                        </button>
-                    </>
-                ) : (
-                    <>
-                        <span className="text-[8px] font-black uppercase text-amber-500 px-1">Order</span>
-                        <input 
-                            type="number" 
-                            min="0"
-                            value={draft[partnerBranchKey] || ''}
-                            onChange={(e) => onOrderDraftChange(item.id, partnerBranchKey, e.target.value)}
-                            placeholder="0"
-                            className="w-10 h-6 bg-slate-800 rounded border border-slate-700 text-center text-xs font-bold text-amber-500 outline-none focus:border-indigo-500"
-                        />
-                        <button 
-                            onClick={() => onToggleConfirmation(item.id, partnerBranchKey)} 
-                            className="w-6 h-6 rounded bg-indigo-600 text-white hover:bg-indigo-500 flex items-center justify-center transition-colors shadow-lg"
-                        >
-                            <Check size={10} strokeWidth={4} />
-                        </button>
-                    </>
-                )}
-                </div>
             )}
         </div>
       </td>
@@ -381,27 +438,87 @@ export const SharedInventoryRow: React.FC<SharedInventoryRowProps> = ({
         </div>
       </td>
 
+      {/* Suggested Order */}
+      <td className="p-6 text-center align-top">
+        <div className="flex flex-col items-center mt-4">
+          {(() => {
+            const isOnOrder = branchOrders.some(o => o.productId === item.id && (o.status === 'ordered' || o.status === 'backorder'));
+            if (isOnOrder) {
+              return (
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-lg font-black text-slate-600">0</span>
+                  <span className="px-2 py-0.5 rounded bg-sky-500/15 border border-sky-500/30 text-[8px] font-black uppercase tracking-widest text-sky-400">On Order</span>
+                </div>
+              );
+            }
+            if (item.isExcessStock) {
+              return (
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-lg font-black text-slate-600">0</span>
+                  <span className="px-2 py-0.5 rounded bg-orange-500/15 border border-orange-500/30 text-[8px] font-black uppercase tracking-widest text-orange-500">Excess Stock</span>
+                </div>
+              );
+            }
+            const target = item.stockToKeep || 0;
+            const stock = item.stockInHand || 0;
+            const localDeficit = Math.max(0, target - stock);
+            const itemKey = getProductMatchKey(item);
+            const pendingQty = itemKey ? jointOrders
+              .filter(o => (o.status === 'restock' || o.status === 'pending_allocation') && getProductMatchKey(o) === itemKey)
+              .reduce((sum: number, o: any) => sum + (o[localBranchKey === 'bywood' ? 'allocationBywood' : 'allocationBroom'] || 0), 0) : 0;
+            const suggestedOrder = Math.max(0, localDeficit - pendingQty);
+            return (
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center justify-center gap-1">
+                    <span className={`text-lg font-black ${suggestedOrder > 0 ? 'text-amber-400' : 'text-slate-600'}`}>
+                    {suggestedOrder}
+                    </span>
+                    {suggestedOrder > 0 && !isReady && (
+                    <button
+                        onClick={() => {
+                        onOrderDraftChange(item.id, localBranchKey, suggestedOrder.toString());
+                        onSaveDraftOnBlur(item.id);
+                        onToggleConfirmation(item.id, localBranchKey);
+                        }}
+                        className="ml-1 text-amber-400 hover:text-amber-300 hover:scale-110 transition-all"
+                        data-tooltip="Fill joint order with suggested quantity"
+                    >
+                        <ArrowRight size={14} />
+                    </button>
+                    )}
+                </div>
+                {match?.isExcessStock && (
+                   <span className="px-2 py-0.5 rounded bg-orange-500/15 border border-orange-500/30 text-[8px] font-black uppercase tracking-widest text-orange-500">Partner Excess</span>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      </td>
+
       {/* Joint Order */}
       <td className="p-6 text-right align-top">
-        <div className="flex items-center justify-end gap-3 mt-1">
-          <div className="flex flex-col items-end">
-              <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Total Order</span>
-              <div className={`w-16 h-10 rounded-xl flex items-center justify-center font-black text-sm border ${totalOrder > 0 ? 'bg-indigo-600/20 text-indigo-400 border-indigo-500/50' : 'bg-slate-950 text-slate-600 border-slate-800'}`}>
-                  {totalOrder}
-              </div>
+        <div className="flex flex-col items-end gap-2 mt-1">
+          <div className="flex items-center justify-end gap-3">
+            <div className="flex flex-col items-end">
+                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Total Order</span>
+                <div className={`w-16 h-10 rounded-xl flex items-center justify-center font-black text-sm border ${totalOrder > 0 ? 'bg-indigo-600/20 text-indigo-400 border-indigo-500/50' : 'bg-slate-950 text-slate-600 border-slate-800'}`}>
+                    {totalOrder}
+                </div>
+            </div>
+            <button
+                onClick={() => onPlaceJointOrder(item)}
+                disabled={totalOrder <= 0 || !isReady}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all shadow-lg mt-4 ${
+                    totalOrder > 0 && isReady
+                    ? 'bg-emerald-600 text-white border-emerald-500 hover:bg-emerald-500 shadow-emerald-900/40'
+                    : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed opacity-50'
+                }`}
+                data-tooltip={!isReady ? "At least one branch must confirm" : "Send Joint Order"}
+            >
+                <Send size={16} />
+            </button>
           </div>
-          <button 
-              onClick={() => onPlaceJointOrder(item)}
-              disabled={totalOrder <= 0 || !isReady}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all shadow-lg mt-4 ${
-                  totalOrder > 0 && isReady 
-                  ? 'bg-emerald-600 text-white border-emerald-500 hover:bg-emerald-500 shadow-emerald-900/40' 
-                  : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed opacity-50'
-              }`}
-              title={!isReady ? "Both branches must confirm their orders" : "Send Joint Order"}
-          >
-              {isReady ? <Send size={16} /> : <Lock size={16} />}
-          </button>
         </div>
       </td>
     </tr>

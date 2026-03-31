@@ -8,7 +8,7 @@ interface LocalDuplicatesModalProps {
   onClose: () => void;
   inventory: Product[];
   onDelete: (id: string) => void;
-  theme: 'dark' | 'light';
+  theme: 'dark';
 }
 
 export const LocalDuplicatesModal: React.FC<LocalDuplicatesModalProps> = ({ isOpen, onClose, inventory, onDelete, theme }) => {
@@ -117,16 +117,20 @@ export const LocalDuplicatesModal: React.FC<LocalDuplicatesModalProps> = ({ isOp
                         <div className="flex items-center gap-3 mt-1 text-[10px] font-bold text-slate-500 uppercase">
                            <span>{item.packSize}</span>
                            <span className="w-1 h-1 rounded-full bg-slate-700" />
-                           <span className="text-emerald-500">Stock: {item.stockInHand}</span>
-                           <span className="w-1 h-1 rounded-full bg-slate-700" />
-                           <span>£{item.price.toFixed(2)}</span>
+                           {typeof (item as any).stockInHand === 'number' && (
+                             <>
+                               <span className="text-emerald-500">Stock: {(item as any).stockInHand}</span>
+                               <span className="w-1 h-1 rounded-full bg-slate-700" />
+                             </>
+                           )}
+                           <span>£{(item.price || 0).toFixed(2)}</span>
                         </div>
                         <div className="text-[9px] font-mono text-slate-600 mt-1 truncate">ID: {item.id}</div>
                       </div>
                       <button 
                         onClick={() => onDelete(item.id)}
                         className="p-3 rounded-2xl bg-slate-900 text-slate-500 hover:bg-rose-600 hover:text-white transition-all border border-slate-800 group-hover:border-slate-700"
-                        title="Remove this duplicate"
+                        data-tooltip="Remove this duplicate"
                       >
                         <Trash2 size={18} />
                       </button>

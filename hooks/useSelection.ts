@@ -20,18 +20,22 @@ export function useSelection<T extends { id: string }>(items: T[]) {
     });
   }, []);
 
-  const toggleAll = useCallback(() => {
-    const itemIds = items.map((i) => i.id);
-    const areAllInCurrentListSelected = itemIds.length > 0 && itemIds.every(id => selectedIds.has(id));
+  const toggleAll = useCallback((specificIds?: string[] | React.MouseEvent) => {
+    let idsToUse = items.map((i) => i.id);
+    if (specificIds && Array.isArray(specificIds)) {
+      idsToUse = specificIds;
+    }
+    
+    const areAllInCurrentListSelected = idsToUse.length > 0 && idsToUse.every(id => selectedIds.has(id));
 
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (areAllInCurrentListSelected) {
         // If all items in the current view are already selected, deselect them
-        itemIds.forEach(id => next.delete(id));
+        idsToUse.forEach(id => next.delete(id));
       } else {
         // Otherwise, select all items in the current view
-        itemIds.forEach(id => next.add(id));
+        idsToUse.forEach(id => next.add(id));
       }
       return next;
     });

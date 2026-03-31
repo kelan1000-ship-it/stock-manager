@@ -5,6 +5,8 @@ import { Notebook, X } from 'lucide-react';
 interface ProductNoteWidgetProps {
   id: string;
   notes: string | undefined;
+  partnerNotes?: string;
+  branchLabels?: { local: string; partner: string };
   isExpanded: boolean;
   onToggle: () => void;
   stockType?: 'retail' | 'dispensary';
@@ -18,26 +20,28 @@ interface ProductNoteWidgetProps {
 export const ProductNoteWidget: React.FC<ProductNoteWidgetProps> = ({
   id,
   notes,
+  partnerNotes,
+  branchLabels,
   isExpanded,
   onToggle,
   stockType = 'retail'
 }) => {
-  if (!notes) return null;
+  if (!notes && !partnerNotes) return null;
 
   return (
     <div className="relative flex flex-col gap-1">
       {/* Trigger Button - Icon Only Representation */}
-      <button 
+      <button
         onClick={(e) => {
           e.stopPropagation();
           onToggle();
         }}
         className={`group flex items-center justify-center p-1 rounded-md transition-all w-7 h-7 shadow-md border border-[#F59E0B]/50 ${
-          isExpanded 
-            ? 'bg-[#FFC107] text-slate-950' 
+          isExpanded
+            ? 'bg-[#FFC107] text-slate-950'
             : 'bg-[#FFC107] animate-tag-flash text-slate-950 hover:bg-[#FDBA74]'
         }`}
-        title={isExpanded ? "Hide Notes" : "Show Internal Notes"}
+        data-tooltip={isExpanded ? "Hide Notes" : "Show Internal Notes"}
       >
         <Notebook size={14} />
       </button>
@@ -54,19 +58,44 @@ export const ProductNoteWidget: React.FC<ProductNoteWidgetProps> = ({
                 Internal Staff Briefing
               </span>
             </div>
-            <button 
+            <button
               onClick={(e) => { e.stopPropagation(); onToggle(); }}
               className="p-1 rounded hover:bg-black/10 text-black transition-colors"
             >
               <X size={14} />
             </button>
           </div>
-          <div className="bg-white/20 p-3 rounded-lg border border-black/5">
-             <p className="text-[11px] font-bold text-black leading-relaxed italic">
-                "{notes}"
-             </p>
+          <div className="flex flex-col gap-2">
+            {notes && (
+              <div>
+                {branchLabels && (
+                  <p className="text-[9px] font-black uppercase tracking-wider text-black/70 mb-1">
+                    ● {branchLabels.local}
+                  </p>
+                )}
+                <div className="bg-white/20 p-3 rounded-lg border border-black/5">
+                  <p className="text-[11px] font-bold text-black leading-relaxed italic">
+                    "{notes}"
+                  </p>
+                </div>
+              </div>
+            )}
+            {partnerNotes && (
+              <div>
+                {branchLabels && (
+                  <p className="text-[9px] font-black uppercase tracking-wider text-black/70 mb-1">
+                    ● {branchLabels.partner}
+                  </p>
+                )}
+                <div className="bg-white/20 p-3 rounded-lg border border-black/5">
+                  <p className="text-[11px] font-bold text-black leading-relaxed italic">
+                    "{partnerNotes}"
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-          
+
           {/* Visual pointer linking to the button */}
           <div className="absolute top-2 -left-2 w-4 h-4 bg-[#FFC107] border-l-2 border-t-2 border-dashed border-slate-900 rotate-[-45deg] transform translate-y-1" />
         </div>

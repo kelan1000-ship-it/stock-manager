@@ -13,6 +13,7 @@ import RetailStockManager from './components/RetailStockManager';
 import { LoginScreen } from './components/LoginScreen';
 import { Loader2 } from 'lucide-react';
 import Logo from './Logo';
+import { GlobalTooltip } from './components/GlobalTooltip';
 
 /**
  * Inner component that reads auth state from context.
@@ -64,6 +65,7 @@ const AppContent: React.FC = () => {
   // ─── Fully authenticated — show the app ───────────────────────
   return (
     <div className="min-h-screen">
+      <GlobalTooltip />
       <RetailStockManager />
     </div>
   );

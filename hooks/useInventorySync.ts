@@ -21,11 +21,19 @@ export function useInventorySync(
       const otherItems = [...(prev[otherBranch] || [])];
       
       pendingData.forEach(excelItem => {
-        // Robust Matching: Use string comparison for Barcode OR fallback to Name
-        const existingIdx = currentItems.findIndex(p => 
-          (excelItem.barcode && String(p.barcode).trim() === String(excelItem.barcode).trim()) || 
-          (!excelItem.barcode && excelItem.name && p.name.toLowerCase().trim() === excelItem.name.toLowerCase().trim())
-        );
+        // Robust Matching: Strict string comparison for Barcode OR fallback to Name
+        const excelBarcode = excelItem.barcode ? String(excelItem.barcode).trim() : null;
+        const excelName = excelItem.name ? String(excelItem.name).toLowerCase().trim() : null;
+
+        const existingIdx = currentItems.findIndex(p => {
+          if (excelBarcode && p.barcode) {
+            return String(p.barcode).trim() === excelBarcode;
+          }
+          if (excelName && p.name) {
+            return p.name.toLowerCase().trim() === excelName;
+          }
+          return false;
+        });
 
         if (existingIdx > -1) {
           // Overwrite existing record with fresh spreadsheet fields
@@ -117,7 +125,7 @@ export function useInventorySync(
             price: excelItem.price || 0,
             costPrice: excelItem.costPrice || 0,
             stockInHand: excelItem.stockInHand || 0,
-            stockToKeep: excelItem.stockToKeep || 5,
+            stockToKeep: excelItem.stockToKeep || 0,
             partPacks: excelItem.partPacks || 0,
             supplier: excelItem.supplier || '',
             location: excelItem.location || '',
@@ -132,8 +140,9 @@ export function useInventorySync(
             productImage: excelItem.productImage || null,
             isOrdered: false,
             lastUpdated: now,
-            priceHistory: [{ 
-              date: now, 
+            createdAt: now,
+            priceHistory: [{
+              date: now,
               rrp: excelItem.price || 0, 
               costPrice: excelItem.costPrice || 0, 
               margin: excelItem.price ? ((excelItem.price - (excelItem.costPrice || 0)) / excelItem.price) * 100 : 0 

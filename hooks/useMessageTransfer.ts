@@ -2,6 +2,7 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import { BranchData, BranchKey, Message, Product, Transfer } from '../types';
 import { saveTransfer } from '../services/firestoreService';
+import { findProductMatches } from '../utils/productMatching';
 
 export function useMessageTransfer(
   currentBranch: BranchKey,
@@ -31,23 +32,144 @@ export function useMessageTransfer(
     }));
   }, [currentBranch, setBranchData]);
 
-  const toggleMessageReadStatus = useCallback((messageId: string) => {
+  const updateMessageReadStatus = useCallback((messageIds: string[]) => {
     setBranchData(prev => ({
       ...prev,
-      messages: prev.messages.map(m => m.id === messageId ? { ...m, isRead: !m.isRead } : m)
+      messages: prev.messages.map(m => messageIds.includes(m.id) ? { ...m, isRead: true } : m)
     }));
   }, [setBranchData]);
 
-  const sendMessage = useCallback((text: string, file?: { fileName: string; fileSize: number; fileType: string; fileData: string }) => {
+  const toggleMessageReadStatus = useCallback((messageId: string) => {
+    setBranchData(prev => {
+      const msg = prev.messages.find(m => m.id === messageId);
+      if (msg) {
+        const isCurrentlyRead = msg.isRead;
+        // If we are marking it as UNREAD (it was previously read)
+        if (isCurrentlyRead) {
+          try {
+            const stored = localStorage.getItem('manualUnreadMessages');
+            let overrides = JSON.parse(stored || '[]');
+            if (!Array.isArray(overrides)) overrides = [];
+            
+            if (!overrides.includes(messageId)) {
+              localStorage.setItem('manualUnreadMessages', JSON.stringify([...overrides, messageId]));
+            }
+          } catch (e) {
+            console.error("Failed to update manual unread storage", e);
+          }
+        } else {
+          // If we are marking it as READ (it was previously unread)
+          try {
+            const stored = localStorage.getItem('manualUnreadMessages');
+            let overrides = JSON.parse(stored || '[]');
+            if (Array.isArray(overrides)) {
+              localStorage.setItem('manualUnreadMessages', JSON.stringify(overrides.filter((id: string) => id !== messageId)));
+            }
+          } catch (e) {
+            console.error("Failed to update manual unread storage", e);
+          }
+        }
+      }
+
+      return {
+        ...prev,
+        messages: prev.messages.map(m => m.id === messageId ? { ...m, isRead: !m.isRead } : m)
+      };
+    });
+  }, [setBranchData]);
+
+  const sendMessage = useCallback((
+    text: string, 
+    file?: { fileName: string; fileSize: number; fileType: string; fileData: string }, 
+    taskId?: string,
+    reply?: { id: string; text: string; sender: BranchKey }
+  ) => {
     const newMsg: Message = {
       id: `msg_${Date.now()}`,
       sender: currentBranch,
       text,
       timestamp: new Date().toISOString(),
       isRead: false,
-      ...file
+      deletedBy: [],
+      taskId,
+      ...file,
+      replyToId: reply?.id,
+      replyToText: reply?.text,
+      replyToSender: reply?.sender
     };
     setBranchData(prev => ({ ...prev, messages: [...prev.messages, newMsg] }));
+  }, [currentBranch, setBranchData]);
+
+  const sendNudge = useCallback((text: string) => {
+    console.log("[useMessageTransfer] sendNudge called with:", text);
+    try {
+      const newMsg: Message = {
+        id: `msg_nudge_${Date.now()}`,
+        sender: currentBranch,
+        text: text || "🔔 Attention required! (Nudge)",
+        timestamp: new Date().toISOString(),
+        isRead: false,
+        isNudge: true,
+        deletedBy: []
+      };
+      console.log("[useMessageTransfer] Creating nudge message:", newMsg);
+      setBranchData(prev => {
+        console.log("[useMessageTransfer] setBranchData updating messages. Prev count:", prev.messages.length);
+        return { ...prev, messages: [...prev.messages, newMsg] };
+      });
+    } catch (e) {
+      console.error("[useMessageTransfer] sendNudge failed:", e);
+    }
+  }, [currentBranch, setBranchData]);
+
+  const deleteMessage = useCallback((messageId: string) => {
+    setBranchData(prev => ({
+      ...prev,
+      messages: prev.messages.map(m => 
+        m.id === messageId 
+          ? { ...m, deletedBy: [...(m.deletedBy || []), currentBranch] }
+          : m
+      )
+    }));
+  }, [currentBranch, setBranchData]);
+
+  const clearAllMessages = useCallback(() => {
+    setBranchData(prev => ({
+      ...prev,
+      messages: prev.messages.map(m => 
+        (m.deletedBy || []).includes(currentBranch) 
+          ? m 
+          : { ...m, deletedBy: [...(m.deletedBy || []), currentBranch] }
+      )
+    }));
+  }, [currentBranch, setBranchData]);
+
+  const toggleReaction = useCallback((messageId: string, emoji: string) => {
+    setBranchData(prev => ({
+      ...prev,
+      messages: prev.messages.map(m => {
+        if (m.id !== messageId) return m;
+        
+        const currentReactions = m.reactions || {};
+        const userReacted = currentReactions[emoji]?.includes(currentBranch);
+        
+        let newEmojiReactions;
+        if (userReacted) {
+          newEmojiReactions = currentReactions[emoji].filter(b => b !== currentBranch);
+        } else {
+          newEmojiReactions = [...(currentReactions[emoji] || []), currentBranch];
+        }
+          
+        const newReactions = { ...currentReactions };
+        if (newEmojiReactions.length === 0) {
+          delete newReactions[emoji];
+        } else {
+          newReactions[emoji] = newEmojiReactions;
+        }
+        
+        return { ...m, reactions: newReactions };
+      })
+    }));
   }, [currentBranch, setBranchData]);
 
   // ─── Transfers ──────────────────────────────────────────────────
@@ -125,6 +247,7 @@ export function useMessageTransfer(
         // Only mark as resolved for terminal states — 'confirmed' is intermediate
         // (dispatched, awaiting receipt) and must remain in the active list
         resolvedAt: (action === 'completed' || action === 'cancelled') ? now : originalTransfer.resolvedAt,
+        confirmedAt: action === 'confirmed' ? now : originalTransfer.confirmedAt,
       } as Transfer;
 
       // Queue the write — flushed by useEffect after render commit
@@ -143,13 +266,18 @@ export function useMessageTransfer(
         const receivingBranch: BranchKey = (transfer.type === 'send') ? transfer.targetBranch as BranchKey : transfer.sourceBranch as BranchKey;
         const sendingBranch: BranchKey = (transfer.type === 'send') ? transfer.sourceBranch as BranchKey : transfer.targetBranch as BranchKey;
 
-        const existingIndex = prev[receivingBranch].findIndex(p => p.barcode === transfer.barcode && !p.deletedAt);
+        // Use robust matching (Barcode -> Name+PackSize)
+        const targetProduct = { ...transfer } as unknown as Product;
+        const existingMatches = findProductMatches(prev[receivingBranch], targetProduct);
+        const existingIndex = existingMatches.length > 0 ? prev[receivingBranch].indexOf(existingMatches[0]) : -1;
+
         let updatedInventory = [...prev[receivingBranch]];
 
         if (existingIndex > -1) {
           const p = updatedInventory[existingIndex];
           updatedInventory[existingIndex] = {
             ...p,
+            location: p.location === 'Received' ? '' : p.location,
             stockInHand: p.stockInHand + transfer.quantity,
             partPacks: (p.partPacks || 0) + (transfer.partQuantity || 0),
             lastUpdated: now,
@@ -163,7 +291,8 @@ export function useMessageTransfer(
           };
         } else {
           // Product doesn't exist at receiving branch — create it
-          const sourceProduct = prev[sendingBranch].find(p => p.barcode === transfer.barcode && !p.deletedAt);
+          const sourceMatches = findProductMatches(prev[sendingBranch], targetProduct);
+          const sourceProduct = sourceMatches.length > 0 ? sourceMatches[0] : undefined;
 
           const newProduct: Product = sourceProduct
             ? {
@@ -172,8 +301,9 @@ export function useMessageTransfer(
                 stockInHand: transfer.quantity,
                 partPacks: transfer.partQuantity || 0,
                 stockToKeep: 0,
-                location: 'Received',
+                location: '',
                 lastUpdated: now,
+                createdAt: now,
                 stockHistory: [{ date: now, type: 'transfer_in', change: transfer.quantity, newBalance: transfer.quantity, note: `Transfer from ${sendingBranch === 'bywood' ? 'Bywood Ave' : 'Broom Rd'}` }],
                 isOrdered: false,
                 orderHistory: [],
@@ -186,8 +316,9 @@ export function useMessageTransfer(
                 stockInHand: transfer.quantity,
                 partPacks: transfer.partQuantity || 0,
                 price: 0, costPrice: 0, stockToKeep: 0,
-                supplier: 'Transfer', location: 'Received',
+                supplier: 'Transfer', location: '',
                 lastUpdated: now,
+                createdAt: now,
                 stockHistory: [{ date: now, type: 'transfer_in', change: transfer.quantity, newBalance: transfer.quantity, note: `Transfer from ${sendingBranch === 'bywood' ? 'Bywood Ave' : 'Broom Rd'}` }],
                 orderHistory: [], priceHistory: [],
                 isOrdered: false, lastOrderedDate: null, productCode: '',
@@ -205,9 +336,12 @@ export function useMessageTransfer(
       // ─── CONFIRMED (for requests): Deduct stock from fulfilling branch ─
       if (action === 'confirmed' && transfer.type === 'request') {
         const fulfillingBranch = transfer.targetBranch as BranchKey;
+        const targetProduct = { ...transfer } as unknown as Product;
+        const matches = findProductMatches(prev[fulfillingBranch], targetProduct);
+        const matchId = matches.length > 0 ? matches[0].id : null;
 
         const updatedInventory = prev[fulfillingBranch].map(p => {
-          if (p.barcode === transfer.barcode && !p.deletedAt) {
+          if (matchId && p.id === matchId) {
             const newStock = Math.max(0, p.stockInHand - transfer.quantity);
             return {
               ...p,
@@ -232,9 +366,12 @@ export function useMessageTransfer(
       // ─── CANCELLED (for sends): Refund stock to sender ────
       if (action === 'cancelled' && transfer.type === 'send') {
         const sourceBranch = transfer.sourceBranch as BranchKey;
+        const targetProduct = { ...transfer } as unknown as Product;
+        const matches = findProductMatches(prev[sourceBranch], targetProduct);
+        const matchId = matches.length > 0 ? matches[0].id : null;
 
         const updatedInventory = prev[sourceBranch].map(p => {
-          if (p.barcode === transfer.barcode && !p.deletedAt) {
+          if (matchId && p.id === matchId) {
             return {
               ...p,
               stockInHand: p.stockInHand + transfer.quantity,
@@ -255,7 +392,36 @@ export function useMessageTransfer(
         return { ...prev, transfers: updatedTransfers, [sourceBranch]: updatedInventory };
       }
 
-      // ─── CANCELLED (for requests): Just mark as cancelled ─
+      // ─── CANCELLED (for requests): Refund if already confirmed ────
+      if (action === 'cancelled' && transfer.type === 'request' && originalTransfer.status === 'confirmed') {
+        const fulfillingBranch = transfer.targetBranch as BranchKey;
+        const targetProduct = { ...transfer } as unknown as Product;
+        const matches = findProductMatches(prev[fulfillingBranch], targetProduct);
+        const matchId = matches.length > 0 ? matches[0].id : null;
+
+        const updatedInventory = prev[fulfillingBranch].map(p => {
+          if (matchId && p.id === matchId) {
+            return {
+              ...p,
+              stockInHand: p.stockInHand + transfer.quantity,
+              partPacks: (p.partPacks || 0) + (transfer.partQuantity || 0),
+              lastUpdated: now,
+              stockHistory: [...(p.stockHistory || []), {
+                date: now,
+                type: 'transfer_in',
+                change: transfer.quantity,
+                newBalance: p.stockInHand + transfer.quantity,
+                note: `Refund: Cancelled confirmed request from ${transfer.sourceBranch === 'bywood' ? 'Bywood Ave' : 'Broom Rd'}`
+              }]
+            };
+          }
+          return p;
+        });
+
+        return { ...prev, transfers: updatedTransfers, [fulfillingBranch]: updatedInventory };
+      }
+
+      // ─── CANCELLED (for pending requests): Just mark as cancelled ─
       return { ...prev, transfers: updatedTransfers };
     });
   }, [setBranchData]);
@@ -268,12 +434,42 @@ export function useMessageTransfer(
     return product ? product.stockInHand : 0;
   }, [currentBranch]);
 
+  const clearHistoricTransfers = useCallback(() => {
+    setBranchData(prev => {
+      let hasChanges = false;
+      const updatedTransfers = prev.transfers.map(t => {
+        const isHistoric = (t.targetBranch === currentBranch || t.sourceBranch === currentBranch) && 
+                           (t.status === 'completed' || t.status === 'cancelled' || !!t.resolvedAt);
+        const alreadyCleared = t.clearedBy?.includes(currentBranch);
+        
+        if (isHistoric && !alreadyCleared) {
+          hasChanges = true;
+          const updatedTransfer = {
+            ...t,
+            clearedBy: [...(t.clearedBy || []), currentBranch]
+          };
+          pendingTransferWrites.current.push(updatedTransfer);
+          return updatedTransfer;
+        }
+        return t;
+      });
+
+      return hasChanges ? { ...prev, transfers: updatedTransfers } : prev;
+    });
+  }, [currentBranch, setBranchData]);
+
   return {
     markRead,
+    updateMessageReadStatus,
     toggleMessageReadStatus,
     sendMessage,
+    deleteMessage,
+    clearAllMessages,
+    toggleReaction,
     handleTransfer,
     processTransfer,
-    getOtherBranchStock
+    sendNudge,
+    getOtherBranchStock,
+    clearHistoricTransfers
   };
 }

@@ -2,6 +2,7 @@
 // Fix: Import React to resolve 'Cannot find namespace React' errors
 import React, { useCallback } from 'react';
 import { BranchData, MasterProduct } from '../types';
+import { matchesAnySearchField } from '../utils/stringUtils';
 
 export function useMasterInventory(
   branchData: BranchData,
@@ -35,16 +36,19 @@ export function useMasterInventory(
     return undefined;
   }, [branchData.masterInventory]);
 
-  const suggestFromMaster = useCallback((query: string) => {
-    if (!query) return [];
-    const q = query.toLowerCase();
-    return branchData.masterInventory.filter(p => 
-        (p.barcode && p.barcode.includes(q)) || 
-        (p.productCode && p.productCode.toLowerCase().includes(q)) ||
-        (p.name && p.name.toLowerCase().includes(q))
-    ).slice(0, 5);
-  }, [branchData.masterInventory]);
-
+    const suggestFromMaster = useCallback((query: string) => {
+      if (!query) return [];
+      
+      const results = branchData.masterInventory.filter(p =>
+          matchesAnySearchField([p.name, p.barcode, p.productCode], query)
+      );
+      
+      if (results.length > 0) {
+          return results.slice(0, 5);
+      }
+  
+      return [];
+    }, [branchData.masterInventory]);
   const updateMasterProduct = useCallback((id: string, updates: Partial<MasterProduct>) => {
     setBranchData(prev => ({
         ...prev,
@@ -61,6 +65,29 @@ export function useMasterInventory(
     setBranchData(prev => ({ ...prev, masterInventory: [...prev.masterInventory, ...products] }));
   }, [setBranchData]);
 
+  const upsertBulkMasterProducts = useCallback((products: MasterProduct[]) => {
+    setBranchData(prev => {
+      const existing = prev.masterInventory || [];
+      const updated = [...existing];
+      const newProducts: MasterProduct[] = [];
+
+      products.forEach(p => {
+        if (!p.id) return; // Skip if somehow no ID was generated
+        const index = updated.findIndex(existingItem => existingItem.id === p.id);
+        if (index !== -1) {
+          updated[index] = { ...updated[index], ...p };
+        } else {
+          newProducts.push(p);
+        }
+      });
+
+      return {
+        ...prev,
+        masterInventory: [...updated, ...newProducts]
+      };
+    });
+  }, [setBranchData]);
+
   const deleteMasterProduct = useCallback((id: string) => {
     setBranchData(prev => ({ ...prev, masterInventory: prev.masterInventory.filter(p => p.id !== id) }));
   }, [setBranchData]);
@@ -75,6 +102,7 @@ export function useMasterInventory(
     updateMasterProduct,
     addMasterProduct,
     addBulkMasterProducts,
+    upsertBulkMasterProducts,
     deleteMasterProduct,
     deleteBulkMasterProducts
   };

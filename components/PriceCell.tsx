@@ -11,13 +11,15 @@ interface PriceCellProps {
   alert: PricingAlert | undefined;
   onUpdatePrice: (id: string, price: number) => void;
   onUpdateItem: (id: string, updates: Partial<Product>) => void;
+  readOnly?: boolean;
 }
 
 export const PriceCell: React.FC<PriceCellProps> = ({ 
   item, 
   alert, 
   onUpdatePrice, 
-  onUpdateItem 
+  onUpdateItem,
+  readOnly
 }) => {
   const [localPriceInput, setLocalPriceInput] = useState(item.price.toFixed(2));
   const [localCostInput, setLocalCostInput] = useState(item.costPrice.toFixed(2));
@@ -33,6 +35,7 @@ export const PriceCell: React.FC<PriceCellProps> = ({
   }, [item.costPrice]);
 
   const handlePriceCommit = () => {
+    if (readOnly) return;
     const newPriceVal = parseFloat(localPriceInput);
     if (isNaN(newPriceVal)) {
       setLocalPriceInput(item.price.toFixed(2));
@@ -46,6 +49,7 @@ export const PriceCell: React.FC<PriceCellProps> = ({
   };
 
   const handleCostCommit = () => {
+    if (readOnly) return;
     const newCostVal = parseFloat(localCostInput);
     if (isNaN(newCostVal)) {
       setLocalCostInput(item.costPrice.toFixed(2));
@@ -67,11 +71,12 @@ export const PriceCell: React.FC<PriceCellProps> = ({
             type="text" 
             inputMode="decimal" 
             value={localPriceInput} 
-            onFocus={(e) => e.target.select()} 
+            disabled={readOnly}
+            onFocus={(e) => !readOnly && e.target.select()} 
             onChange={(e) => setLocalPriceInput(e.target.value)} 
             onBlur={handlePriceCommit} 
             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} 
-            className="w-20 p-1 rounded border text-center font-black text-sm text-emerald-500 focus:ring-1 ring-emerald-500 outline-none transition-all bg-slate-800/50 border-slate-700 focus:border-emerald-500/60" 
+            className={`w-20 p-1 rounded border text-center font-black text-sm text-emerald-500 focus:ring-1 ring-emerald-500 outline-none transition-all bg-slate-800/50 border-slate-700 focus:border-emerald-500/60 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} 
           />
           {alert && (
             <div className="absolute -right-5 top-1/2 -translate-y-1/2" {...priceAlertHandlers}>
@@ -83,16 +88,17 @@ export const PriceCell: React.FC<PriceCellProps> = ({
           )}
         </div>
         <div className="flex items-center justify-center gap-1.5 w-full">
-          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Cost £:</span>
+          <span className="text-[9px] font-black text-white uppercase tracking-widest whitespace-nowrap">Cost £:</span>
           <input 
             type="text" 
             inputMode="decimal"
             value={localCostInput} 
-            onFocus={(e) => e.target.select()} 
+            disabled={readOnly}
+            onFocus={(e) => !readOnly && e.target.select()} 
             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} 
             onChange={(e) => setLocalCostInput(e.target.value)}
             onBlur={handleCostCommit}
-            className="w-14 p-0.5 rounded bg-transparent border-b text-[10px] font-bold text-slate-400 text-center outline-none border-slate-800 hover:border-slate-600 focus:border-slate-500 transition-colors" 
+            className={`w-14 p-0.5 rounded bg-transparent border-b text-[10px] font-bold text-slate-400 text-center outline-none border-slate-800 hover:border-slate-600 focus:border-slate-500 transition-colors ${readOnly ? 'opacity-50 cursor-not-allowed' : ''}`} 
           />
         </div>
       </div>

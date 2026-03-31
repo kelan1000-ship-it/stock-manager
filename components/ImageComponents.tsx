@@ -1,10 +1,20 @@
 
 import React, { useState, useEffect } from 'react';
-import { Package, ZoomIn, ZoomOut, X, ScanEye } from 'lucide-react';
+import { Package, ZoomIn, ZoomOut, X, ScanEye, Pill } from 'lucide-react';
 import { SafeImage } from './SafeImage';
 
 // Product Thumbnail Component
-export const ProductThumbnail = ({ src, alt, onClick }: { src?: string | null, alt: string, onClick?: () => void }) => {
+export const ProductThumbnail = ({ 
+  src, 
+  alt, 
+  onClick,
+  stockType
+}: { 
+  src?: string | null, 
+  alt: string, 
+  onClick?: () => void,
+  stockType?: 'retail' | 'dispensary'
+}) => {
   const [error, setError] = useState(false);
   
   useEffect(() => {
@@ -12,13 +22,14 @@ export const ProductThumbnail = ({ src, alt, onClick }: { src?: string | null, a
   }, [src]);
 
   if (!src || error) {
+    const isDispensary = stockType === 'dispensary';
     return (
       <button 
         onClick={onClick}
-        className="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 hover:bg-slate-700 hover:text-slate-400 transition-colors shrink-0"
-        title="No image available"
+        className={`w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center transition-colors shrink-0 ${isDispensary ? 'text-violet-400 hover:bg-violet-900/20 hover:text-violet-300' : 'text-slate-500 hover:bg-slate-700 hover:text-slate-400'}`}
+        data-tooltip="No image available"
       >
-        <Package size={20} />
+        {isDispensary ? <Pill size={20} /> : <Package size={20} />}
       </button>
     );
   }
@@ -29,7 +40,7 @@ export const ProductThumbnail = ({ src, alt, onClick }: { src?: string | null, a
     <button 
       onClick={onClick} 
       className="w-10 h-10 rounded-lg border border-slate-700 overflow-hidden relative group shrink-0 bg-white"
-      title={`View ${alt}`}
+      data-tooltip={`View ${alt}`}
     >
        <SafeImage src={validSrc} alt={alt} onError={() => setError(true)} className='w-full h-full object-cover transition-transform duration-300 group-hover:scale-110' />
        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
@@ -49,7 +60,7 @@ export const ProductPreviewModal = ({
   isOpen: boolean; 
   onClose: () => void; 
   title?: string;
-  actions?: { label: string; onClick: () => void; primary?: boolean; icon?: React.ReactNode }[];
+  actions?: { label: string; onClick: () => void; primary?: boolean; active?: boolean; icon?: React.ReactNode }[];
 }) => {
   const [isZoomed, setIsZoomed] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
@@ -80,7 +91,7 @@ export const ProductPreviewModal = ({
         <button 
           onClick={() => setIsZoomed(!isZoomed)}
           className="p-4 rounded-2xl bg-white/10 text-white hover:bg-white/20 transition-all border border-white/10 backdrop-blur-md"
-          title={isZoomed ? "Actual Size" : "Toggle Detailed Zoom"}
+          data-tooltip={isZoomed ? "Actual Size" : "Toggle Detailed Zoom"}
         >
           {isZoomed ? <ZoomOut size={24} /> : <ZoomIn size={24} />}
         </button>
@@ -128,7 +139,9 @@ export const ProductPreviewModal = ({
                      className={`px-8 py-3 rounded-full font-black uppercase text-[10px] tracking-[0.2em] shadow-xl backdrop-blur-md flex items-center gap-2 transition-all active:scale-95 ${
                        action.primary 
                          ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-900/40' 
-                         : 'bg-slate-800/90 border border-white/10 text-white hover:bg-slate-700'
+                         : action.active
+                            ? 'bg-indigo-600 text-white border-indigo-400/50'
+                            : 'bg-slate-800/90 border border-white/10 text-white hover:bg-slate-700'
                      }`}
                    >
                      {action.icon}

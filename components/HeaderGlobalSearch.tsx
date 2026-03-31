@@ -1,16 +1,19 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, LayoutDashboard, Handshake, ClipboardList, Layers, BarChart3, Archive, Recycle, ChevronRight, Notebook, RefreshCw, Package, X } from 'lucide-react';
+import { Search, LayoutDashboard, Handshake, ClipboardList, Layers, BarChart3, Archive, Recycle, ChevronRight, Notebook, RefreshCw, Package, X, Truck } from 'lucide-react';
 import { Product } from '../types';
 import { SafeImage } from './SafeImage';
+import { matchesSearchTerms, matchesAnySearchField } from '../utils/stringUtils';
 
 interface HeaderGlobalSearchProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onOpenPriceChecker: () => void;
   onNavigate: (view: any) => void;
-  products?: Product[];
+  products?: (Product & { branch?: string })[];
   onProductSelect?: (product: Product) => void;
+  currentBranch?: string;
+  onRequestTransfer?: (product: Product) => void;
 }
 
 export const HeaderGlobalSearch: React.FC<HeaderGlobalSearchProps> = ({
@@ -19,7 +22,9 @@ export const HeaderGlobalSearch: React.FC<HeaderGlobalSearchProps> = ({
   onOpenPriceChecker,
   onNavigate,
   products = [],
-  onProductSelect
+  onProductSelect,
+  currentBranch,
+  onRequestTransfer
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -29,6 +34,7 @@ export const HeaderGlobalSearch: React.FC<HeaderGlobalSearchProps> = ({
     { id: 'shared-stock', label: 'Shared Stock', icon: Handshake, color: 'text-indigo-500', bg: 'bg-indigo-500/10', desc: 'Joint venture inventory' },
     { id: 'requests', label: 'Requests', icon: ClipboardList, color: 'text-rose-500', bg: 'bg-rose-500/10', desc: 'Customer orders' },
     { id: 'planogram', label: 'Planogram', icon: Layers, color: 'text-violet-500', bg: 'bg-violet-500/10', desc: 'Shelf management' },
+    { id: 'supplier-management', label: 'Supplier Management', icon: Truck, color: 'text-orange-500', bg: 'bg-orange-500/10', desc: 'Wholesalers & Catalogues' },
     { id: 'performance', label: 'Performance', icon: BarChart3, color: 'text-blue-500', bg: 'bg-blue-500/10', desc: 'Analytics & stats' },
     { id: 'master-inventory', label: 'Master Inventory', icon: Notebook, color: 'text-indigo-400', bg: 'bg-indigo-500/10', desc: 'Global product catalogue' },
     { id: 'reconciliation', label: 'Reconciliation', icon: RefreshCw, color: 'text-amber-500', bg: 'bg-amber-500/10', desc: 'Compare vs Master' },
@@ -38,16 +44,15 @@ export const HeaderGlobalSearch: React.FC<HeaderGlobalSearchProps> = ({
 
   const filteredSections = useMemo(() => {
     if (!searchQuery) return sections.filter(s => ['inventory', 'shared-stock', 'requests', 'planogram', 'performance'].includes(s.id));
-    return sections.filter(s => s.label.toLowerCase().includes(searchQuery.toLowerCase()));
+    return sections.filter(s => matchesSearchTerms(s.label, searchQuery));
   }, [searchQuery, sections]);
 
   const filteredProducts = useMemo(() => {
     if (!searchQuery) return [];
-    const q = searchQuery.toLowerCase();
-    return products.filter(p => 
-      !p.deletedAt && !p.isArchived &&
-      (p.name.toLowerCase().includes(q) || p.barcode?.includes(q) || p.productCode?.toLowerCase().includes(q))
-    ).slice(0, 5);
+    return products.filter(p => {
+      if (p.deletedAt || p.isArchived) return false;
+      return matchesAnySearchField([p.name, p.subheader, p.barcode, p.productCode, p.packSize], searchQuery);
+    });
   }, [searchQuery, products]);
 
   useEffect(() => {
@@ -74,21 +79,23 @@ export const HeaderGlobalSearch: React.FC<HeaderGlobalSearchProps> = ({
           placeholder="Global search or navigate..." 
           className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl py-2.5 pl-11 pr-20 text-sm font-bold text-white placeholder-slate-600 outline-none focus:border-emerald-500/50 focus:ring-4 ring-emerald-500/5 transition-all shadow-inner"
         />
-        {searchQuery && (
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+          {searchQuery && (
             <button
-                onClick={() => onSearchChange('')}
-                className="absolute right-9 top-1/2 -translate-y-1/2 p-1.5 rounded-xl text-slate-500 hover:text-white transition-colors"
+              onClick={() => onSearchChange('')}
+              className="p-1 rounded-lg text-slate-500 hover:text-white transition-colors"
             >
-                <X size={14} />
+              <X size={14} />
             </button>
-        )}
-        <button
-          onClick={onOpenPriceChecker}
-          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-emerald-400 transition-colors"
-          title="RRP Checker"
-        >
-          <span className="font-semibold text-sm leading-none">£</span>
-        </button>
+          )}
+          <button
+            onClick={onOpenPriceChecker}
+            className="p-1 text-[#FFD700] hover:text-[#FFC700] transition-all rounded-full"
+            data-tooltip="RRP Checker"
+          >
+            <span className="font-black text-sm leading-none px-0.5">£</span>
+          </button>
+        </div>
 
         {isFocused && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -132,9 +139,13 @@ export const HeaderGlobalSearch: React.FC<HeaderGlobalSearchProps> = ({
                                 <button
                                     key={product.id}
                                     onClick={() => {
-                                        if (onProductSelect) onProductSelect(product);
                                         setIsFocused(false);
                                         onSearchChange('');
+                                        if (product.branch && currentBranch && product.branch !== currentBranch && onRequestTransfer) {
+                                            onRequestTransfer(product);
+                                        } else if (onProductSelect) {
+                                            onProductSelect(product);
+                                        }
                                     }}
                                     className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-800 transition-colors text-left group"
                                 >
@@ -146,9 +157,21 @@ export const HeaderGlobalSearch: React.FC<HeaderGlobalSearchProps> = ({
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <span className="block text-sm font-black text-white truncate">{product.name}</span>
+                                        <div className="flex items-center justify-between">
+                                            <span className="block text-sm font-black text-white truncate">{product.name}</span>
+                                            {product.branch && (
+                                                <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border ml-2 ${
+                                                    product.branch === currentBranch 
+                                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' 
+                                                    : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
+                                                }`}>
+                                                    {product.branch}
+                                                </span>
+                                            )}
+                                        </div>
                                         <span className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider truncate">
-                                            {product.packSize} • {product.stockInHand} in stock
+                                            {product.packSize} • <span className={(product.stockInHand > 0 || (product.partPacks || 0) > 0) ? "text-emerald-500" : "text-slate-500"}>{product.stockInHand} Full</span>
+                                            {(product.partPacks || 0) > 0 && <span className="text-amber-500"> • {product.partPacks} Loose</span>}
                                         </span>
                                     </div>
                                 </button>

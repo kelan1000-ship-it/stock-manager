@@ -2,7 +2,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, ArrowRightLeft, Package, AlertTriangle, CheckCircle2, Loader2, Target, History, Box, Pill, Send, Search, Notebook, ArrowRight, ArrowLeft, MoveRight, MoveLeft } from 'lucide-react';
 import { Product, Transfer, BranchKey, BranchData } from '../types';
+import { ProductThumbnail } from './ImageComponents';
 import { useStockTransfer } from '../hooks/useStockTransfer';
+import { findProductMatches } from '../utils/productMatching';
 
 interface StockTransferFormProps {
   isOpen: boolean;
@@ -10,8 +12,9 @@ interface StockTransferFormProps {
   product: Product | null;
   currentBranch: BranchKey;
   onCompleteInternal: (product: Product, quantity: number, partQuantity?: number, type?: 'send' | 'request', note?: string) => void;
-  theme: 'light' | 'dark';
+  theme: 'dark';
   branchData?: BranchData;
+  defaultTab?: 'send' | 'request';
 }
 
 export const StockTransferForm: React.FC<StockTransferFormProps> = ({
@@ -21,14 +24,31 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
   currentBranch,
   onCompleteInternal,
   theme,
-  branchData
+  branchData,
+  defaultTab
 }) => {
-  const [transferType, setTransferType] = useState<'send' | 'request'>('send');
+  const [transferType, setTransferType] = useState<'send' | 'request'>(defaultTab || 'send');
   const [quantity, setQuantity] = useState<number>(0);
   const [partQuantity, setPartQuantity] = useState<number>(0);
   const [note, setNote] = useState<string>('');
   const [localError, setLocalError] = useState<string | null>(null);
   const { isSubmitting, error: apiError, success, sendTransferToSheets, resetStatus } = useStockTransfer();
+
+  // Retrieve current branch stock (live Firestore data) to handle Global Search items correctly
+  const currentBranchStockData = useMemo(() => {
+    if (!isOpen || !product || !branchData) return { full: 0, parts: 0 };
+    try {
+      const currentInventory: Product[] = branchData[currentBranch] || [];
+      const matches = findProductMatches(currentInventory, product);
+      return {
+        full: matches.reduce((acc, m) => acc + m.stockInHand, 0),
+        parts: matches.reduce((acc, m) => acc + (m.partPacks || 0), 0)
+      };
+    } catch (e) {
+      console.error("Error accessing current branch data", e);
+      return { full: 0, parts: 0 };
+    }
+  }, [isOpen, product, currentBranch, branchData]);
 
   // Retrieve other branch stock from branchData (live Firestore data)
   const otherBranchStockData = useMemo(() => {
@@ -37,7 +57,7 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
       if (!branchData) return { full: 0, parts: 0 };
       const otherBranchKey: BranchKey = currentBranch === 'bywood' ? 'broom' : 'bywood';
       const otherInventory: Product[] = branchData[otherBranchKey] || [];
-      const matches = otherInventory.filter(p => p.barcode === product.barcode && !p.deletedAt);
+      const matches = findProductMatches(otherInventory, product);
       return {
         full: matches.reduce((acc, m) => acc + m.stockInHand, 0),
         parts: matches.reduce((acc, m) => acc + (m.partPacks || 0), 0)
@@ -50,14 +70,14 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setTransferType('send');
+      setTransferType(defaultTab || 'send');
       setQuantity(0);
       setPartQuantity(0);
       setNote('');
       setLocalError(null);
       resetStatus();
     }
-  }, [isOpen, resetStatus]);
+  }, [isOpen, defaultTab, resetStatus]);
 
   if (!isOpen || !product) return null;
 
@@ -80,12 +100,12 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
     
     if (transferType === 'send') {
       // Logic for sending stock (check local)
-      if (quantity > product.stockInHand) {
-        setLocalError(`Insufficient local packs (${product.stockInHand}).`);
+      if (quantity > currentBranchStockData.full) {
+        setLocalError(`Insufficient local packs (${currentBranchStockData.full}).`);
         return;
       }
-      if (partQuantity > (product.partPacks || 0)) {
-        setLocalError(`Insufficient local parts (${product.partPacks || 0}).`);
+      if (partQuantity > currentBranchStockData.parts) {
+        setLocalError(`Insufficient local parts (${currentBranchStockData.parts}).`);
         return;
       }
     } else {
@@ -178,12 +198,10 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
           {/* Product Info Compact */}
           <div className="p-4 rounded-2xl bg-slate-800/30 border border-slate-800 space-y-4">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 ${isDispensary ? 'text-violet-400' : 'text-slate-400'}`}>
-                {isDispensary ? <Pill size={20} /> : <Package size={20} />}
-              </div>
+              <ProductThumbnail src={product.productImage} alt={product.name} stockType={product.stockType} />
               <div className="flex-1 overflow-hidden">
                 <p className="text-sm font-black truncate text-white capitalize">{product.name}</p>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{product.packSize} • {product.barcode}</p>
+                <p className="text-[10px] italic text-slate-500 uppercase tracking-tight">{product.packSize} • {product.barcode}</p>
               </div>
             </div>
 
@@ -194,10 +212,10 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
                 <p className="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2">{branchLabels[currentBranch]}</p>
                 <div className="space-y-1">
                   <p className={`text-3xl font-black leading-none transition-colors ${transferType === 'send' ? 'text-amber-400 animate-pulse' : 'text-white'}`}>
-                    {product.stockInHand} <span className={`text-[9px] font-bold tracking-tighter align-middle ${transferType === 'send' ? 'text-amber-600' : 'text-slate-600'}`}>Full</span>
+                    {currentBranchStockData.full} <span className={`text-[9px] font-bold tracking-tighter align-middle ${transferType === 'send' ? 'text-amber-600' : 'text-slate-600'}`}>Full</span>
                   </p>
                   <p className={`text-lg font-black leading-none transition-colors ${transferType === 'send' ? 'text-amber-400/80 animate-pulse' : 'text-slate-400'}`}>
-                    {product.partPacks || 0} <span className={`text-[9px] font-bold tracking-tighter align-middle ${transferType === 'send' ? 'text-amber-600' : 'text-slate-600'}`}>Loose</span>
+                    {currentBranchStockData.parts} <span className={`text-[9px] font-bold tracking-tighter align-middle ${transferType === 'send' ? 'text-amber-600' : 'text-slate-600'}`}>Loose</span>
                   </p>
                 </div>
               </div>
@@ -230,6 +248,33 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Product Additional Info */}
+            {(product.notes || product.expiryDate || (product.tags && product.tags.length > 0)) && (
+              <div className="p-3 rounded-2xl bg-slate-800/20 border border-slate-800/50 space-y-2 mt-2">
+                {product.notes && (
+                  <div className="flex gap-2 items-start">
+                    <Notebook size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                    <p className="text-[11px] font-bold text-slate-300 leading-tight">{product.notes}</p>
+                  </div>
+                )}
+                {product.expiryDate && (
+                  <div className="flex gap-2 items-center">
+                    <AlertTriangle size={14} className="text-rose-400 shrink-0" />
+                    <p className="text-[11px] font-bold text-rose-300 leading-tight">Exp: {new Date(product.expiryDate).toLocaleDateString('en-GB')}</p>
+                  </div>
+                )}
+                {product.tags && product.tags.length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap">
+                    {product.tags.map(tag => (
+                      <span key={tag} className="px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 text-[9px] font-black uppercase tracking-wider border border-indigo-500/20">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Quantities Grid */}

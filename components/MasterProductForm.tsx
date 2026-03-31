@@ -14,8 +14,8 @@ interface MasterProductFormProps {
 
 export const MasterProductForm: React.FC<MasterProductFormProps> = ({ initialData, onSave, onCancel, theme }) => {
   const [formData, setFormData] = useState({
-    name: '', barcode: '', productCode: '', packSize: '', 
-    price: '', costPrice: '', image: ''
+    name: '', subheader: '', barcode: '', productCode: '', packSize: '',
+    price: '', costPrice: '', image: '', supplier: ''
   });
   const [isScanning, setIsScanning] = useState(false);
   const [isResearching, setIsResearching] = useState(false);
@@ -24,12 +24,14 @@ export const MasterProductForm: React.FC<MasterProductFormProps> = ({ initialDat
     if (initialData) {
       setFormData({
         name: initialData.name || '',
+        subheader: initialData.subheader || '',
         barcode: initialData.barcode || '',
         productCode: initialData.productCode || '',
         packSize: initialData.packSize || '',
         price: initialData.price?.toString() || '0.00',
         costPrice: initialData.costPrice?.toString() || '0.00',
-        image: initialData.image || ''
+        image: initialData.image || '',
+        supplier: initialData.supplier || ''
       });
     }
   }, [initialData]);
@@ -53,7 +55,7 @@ export const MasterProductForm: React.FC<MasterProductFormProps> = ({ initialDat
     }
     setIsResearching(true);
     try {
-      const result = await researchBarcodeFromWeb(formData.name, formData.packSize);
+      const result = await researchBarcodeFromWeb(formData.name, formData.packSize, formData.productCode || undefined);
       if (result.barcode) {
         setFormData(prev => ({ ...prev, barcode: result.barcode || prev.barcode }));
         alert(`AI found a potential match: ${result.barcode}\n\nSources: ${result.sources.join(', ')}`);
@@ -69,9 +71,13 @@ export const MasterProductForm: React.FC<MasterProductFormProps> = ({ initialDat
 
   return (
     <div className="p-6 bg-slate-800/80 border-b border-emerald-500/30 grid grid-cols-1 md:grid-cols-12 gap-3 animate-in slide-in-from-top-4 relative z-20 shadow-2xl">
-        <div className="space-y-1 md:col-span-3">
+        <div className="space-y-1 md:col-span-2">
             <p className="text-[8px] font-black uppercase text-slate-500 ml-1">Product Name <span className="text-rose-500">*</span></p>
             <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs font-bold outline-none focus:border-emerald-500" placeholder="Name..." />
+        </div>
+        <div className="space-y-1 md:col-span-1">
+            <p className="text-[8px] font-black uppercase text-slate-500 ml-1">Subheader</p>
+            <input type="text" value={formData.subheader} onChange={(e) => setFormData({...formData, subheader: e.target.value})} className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs italic outline-none focus:border-emerald-500" placeholder="Subheader..." />
         </div>
         <div className="space-y-1 md:col-span-1">
             <p className="text-[8px] font-black uppercase text-slate-500 ml-1">Pack Size</p>
@@ -91,7 +97,11 @@ export const MasterProductForm: React.FC<MasterProductFormProps> = ({ initialDat
                 </div>
             </div>
         </div>
-        <div className="space-y-1 md:col-span-2">
+        <div className="space-y-1 md:col-span-1">
+            <p className="text-[8px] font-black uppercase text-slate-500 ml-1">Supplier</p>
+            <input type="text" value={formData.supplier} onChange={(e) => setFormData({...formData, supplier: e.target.value})} className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs font-bold outline-none focus:border-emerald-500" placeholder="Supplier..." />
+        </div>
+        <div className="space-y-1 md:col-span-1">
             <p className="text-[8px] font-black uppercase text-slate-500 ml-1">Image URL</p>
             <div className="flex gap-1.5">
                 <input type="text" value={formData.image} onChange={(e) => setFormData({...formData, image: e.target.value})} className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-[10px] font-bold outline-none focus:border-emerald-500 truncate" placeholder="https://..." />

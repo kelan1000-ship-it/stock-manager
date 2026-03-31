@@ -1,8 +1,9 @@
 
-import React, { useState, useMemo } from 'react';
-import { LayoutGrid, Search, MapPin, ArrowLeft, Move, Box, Plus, Pencil, X } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { LayoutGrid, Search, MapPin, ArrowLeft, Move, Box, Plus, Pencil, X, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Product, PlanogramLayout } from '../types';
 import { ProductThumbnail } from './ManagerComponents';
+import { matchesSearchTerms, matchesAnySearchField } from '../utils/stringUtils';
 
 interface ProductPickerProps {
   activeTab: 'shelf' | 'floor';
@@ -14,6 +15,8 @@ interface ProductPickerProps {
   onDragStart: (e: React.DragEvent, type: 'library' | 'shelf' | 'floor_tool', id: string | number) => void;
   onDragEnd: () => void;
   onUpdateProduct: (id: string, updates: Partial<Product>) => void;
+  isLibraryVisible?: boolean;
+  setIsLibraryVisible?: (visible: boolean) => void;
 }
 
 export const ProductPicker: React.FC<ProductPickerProps> = ({
@@ -25,11 +28,22 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
   draggedItem,
   onDragStart,
   onDragEnd,
-  onUpdateProduct
+  onUpdateProduct,
+  isLibraryVisible = true,
+  setIsLibraryVisible
 }) => {
   const [libraryMode, setLibraryMode] = useState<'products' | 'locations'>('products');
   const [selectedLibLocation, setSelectedLibLocation] = useState<string | null>(null);
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [libraryMode, selectedLibLocation, search, activeTab]);
 
   const uniqueLocations = useMemo(() => {
     const locs = new Set<string>();
@@ -40,8 +54,7 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
   }, [inventory]);
 
   const filteredInventory = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return inventory.filter(p => !p.deletedAt && !p.isArchived && (p.name.toLowerCase().includes(q) || p.barcode.includes(q)));
+    return inventory.filter(p => !p.deletedAt && !p.isArchived && matchesAnySearchField([p.name, p.barcode], search));
   }, [inventory, search]);
 
   const handleSaveLocation = (id: string, newLocation: string) => {
@@ -49,8 +62,44 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
     setEditingLocationId(null);
   };
 
+  const currentList = useMemo(() => {
+    if (activeTab === 'floor') {
+      return planograms.filter(p => matchesSearchTerms(p.name, search));
+    }
+    
+    if (libraryMode === 'locations' && !selectedLibLocation) {
+      return uniqueLocations;
+    }
+    
+    if (selectedLibLocation) {
+      return inventory.filter(p => p.location === selectedLibLocation && matchesAnySearchField([p.name, p.barcode], search));
+    }
+    
+    return filteredInventory;
+  }, [activeTab, libraryMode, selectedLibLocation, planograms, search, uniqueLocations, inventory, filteredInventory]);
+
+  const totalPages = Math.ceil(currentList.length / pageSize);
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return currentList.slice(start, start + pageSize);
+  }, [currentList, currentPage, pageSize]);
+
+  if (!isLibraryVisible) {
+    return (
+      <div className="hidden lg:flex flex-col items-center py-6 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl w-20 shrink-0 h-full">
+        <button 
+          onClick={() => setIsLibraryVisible?.(true)} 
+          className="p-3 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-all shadow-lg border border-slate-700" 
+          data-tooltip="Show Library"
+        >
+          <PanelLeftOpen size={20} />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="lg:col-span-1 flex flex-col rounded-[2.5rem] bg-slate-900 border border-slate-800 overflow-hidden shadow-2xl">
+    <div className="w-full lg:w-[320px] shrink-0 flex flex-col rounded-[2.5rem] bg-slate-900 border border-slate-800 overflow-hidden shadow-2xl">
       <div className="p-8 border-b border-slate-800 space-y-5 bg-slate-900/50">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -58,6 +107,13 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
               <LayoutGrid size={18} className={activeTab === 'shelf' ? "text-emerald-500" : "text-indigo-500"} />
               {activeTab === 'shelf' ? 'Product Library' : 'Shelf Catalogue'}
             </h3>
+            <button 
+              onClick={() => setIsLibraryVisible?.(false)} 
+              className="p-2 -mr-2 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
+              data-tooltip="Hide Library"
+            >
+              <PanelLeftClose size={18} />
+            </button>
           </div>
           
           {activeTab === 'shelf' && (
@@ -122,7 +178,7 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
                         <MapPin size={24} className="mx-auto mb-2 text-slate-600" />
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">No Locations Found</p>
                     </div>
-                ) : uniqueLocations.map(loc => (
+                ) : (paginatedItems as string[]).map(loc => (
                    <button 
                      key={loc}
                      onClick={() => setSelectedLibLocation(loc)}
@@ -141,10 +197,7 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
                 ))}
              </div>
           ) : (
-            (selectedLibLocation 
-              ? inventory.filter(p => p.location === selectedLibLocation && (!search || p.name.toLowerCase().includes(search.toLowerCase()) || p.barcode.includes(search))) 
-              : filteredInventory
-            ).map(p => (
+            (paginatedItems as Product[]).map(p => (
               <div 
                 key={p.id}
                 draggable
@@ -163,11 +216,11 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
                     : 'bg-slate-800/40 border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800/60'
                 }`}
               >
-                <ProductThumbnail src={p.productImage} alt={p.name} />
+                <ProductThumbnail src={p.productImage} alt={p.name} stockType={p.stockType} />
                 <div className="flex-1 min-w-0">
                   <p className="text-[12px] font-black text-white truncate group-hover:text-emerald-400 transition-colors capitalize">{p.name}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{p.packSize}</span>
+                    <span className="text-[9px] italic text-slate-500 uppercase tracking-widest">{p.packSize}</span>
                     
                     {editingLocationId === p.id ? (
                         <input 
@@ -188,7 +241,7 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
                             <button 
                                 onClick={(e) => { e.stopPropagation(); setEditingLocationId(p.id); }}
                                 className="opacity-0 group-hover/loc:opacity-100 p-1 rounded-full hover:bg-slate-700 text-slate-500 hover:text-emerald-400 transition-all"
-                                title="Edit Location"
+                                data-tooltip="Edit Location"
                             >
                                 <Pencil size={10} />
                             </button>
@@ -201,7 +254,7 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
             ))
           )
         ) : (
-          planograms.filter(p => p.name.toLowerCase().includes(search.toLowerCase())).map(p => (
+          (paginatedItems as PlanogramLayout[]).map(p => (
             <div 
               key={p.id}
               draggable
@@ -225,6 +278,51 @@ export const ProductPicker: React.FC<ProductPickerProps> = ({
           ))
         )}
       </div>
+
+      {/* Pagination Footer */}
+      {currentList.length > 0 && (
+        <div className="p-6 border-t border-slate-800 space-y-4 bg-slate-900/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest">Rows:</span>
+              <select 
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[10px] font-bold text-white outline-none focus:border-emerald-500 transition-colors"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+            <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">
+              {Math.min(currentList.length, (currentPage - 1) * pageSize + 1)}-{Math.min(currentPage * pageSize, currentList.length)} of {currentList.length}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            
+            <span className="text-[10px] font-black text-white px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 shadow-inner">
+              Page {currentPage} / {totalPages}
+            </span>
+
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

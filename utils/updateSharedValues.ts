@@ -1,29 +1,36 @@
 import { BranchData, BranchKey, Product } from '../types';
 
 export function updateSharedValues(
-  prev: BranchData, 
-  currentBranch: BranchKey, 
-  barcode: string, 
-  field: 'price' | 'costPrice', 
-  value: number
+  prev: BranchData,
+  currentBranch: BranchKey,
+  barcode: string,
+  field: 'price' | 'costPrice',
+  value: number,
+  productCode?: string
 ): BranchData {
   const now = new Date().toISOString();
   const otherBranch = currentBranch === 'bywood' ? 'broom' : 'bywood';
 
+  const matches = (p: Product) => {
+    if (barcode && p.barcode === barcode) return true;
+    if (!barcode && productCode && p.productCode === productCode) return true;
+    return false;
+  };
+
   const updated = { ...prev };
-  const localItem = prev[currentBranch].find(p => p.barcode === barcode && !p.deletedAt);
-  const partnerItem = prev[otherBranch].find(p => p.barcode === barcode && !p.deletedAt);
-  
+  const localItem = prev[currentBranch].find(p => matches(p) && !p.deletedAt);
+  const partnerItem = prev[otherBranch].find(p => matches(p) && !p.deletedAt);
+
   if (!localItem) return prev;
 
   const isPriceField = field === 'price';
   const isCostField = field === 'costPrice';
-  
+
   const isSynced = !!localItem.isPriceSynced || !!partnerItem?.isPriceSynced;
 
   // 1. Update Initiating (Local) Branch
   updated[currentBranch] = prev[currentBranch].map((p: Product) => {
-    if (p.barcode === barcode && !p.deletedAt) {
+    if (matches(p) && !p.deletedAt) {
       const newPrice = field === 'price' ? value : p.price;
       const newCost = field === 'costPrice' ? value : p.costPrice;
       const hasChanged = Math.abs(p.price - newPrice) > 0.001 || Math.abs(p.costPrice - newCost) > 0.001;
@@ -53,7 +60,7 @@ export function updateSharedValues(
 
   if (shouldUpdatePartner) {
     updated[otherBranch] = prev[otherBranch].map((p: Product) => {
-      if (p.barcode === barcode && !p.deletedAt) {
+      if (matches(p) && !p.deletedAt) {
         const newPrice = field === 'price' ? value : p.price;
         const newCost = field === 'costPrice' ? value : p.costPrice;
         const hasChanged = Math.abs(p.price - newPrice) > 0.001 || Math.abs(p.costPrice - newCost) > 0.001;

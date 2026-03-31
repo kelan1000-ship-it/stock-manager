@@ -2,46 +2,71 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
-  PoundSterling, ArrowDownToLine, Archive, ArchiveRestore, X, Trash2, RotateCw, Zap
+  PoundSterling, ArrowDownToLine, Archive, ArchiveRestore, X, Trash2, RotateCw, Zap, Globe, Loader2, Truck, FileSpreadsheet, Send, Share2
 } from 'lucide-react';
 import { BulkPriceModal } from './BulkPriceModal';
 import { BulkIntelligenceModal } from './BulkIntelligenceModal';
 import { TriState } from '../types';
 
-export const BulkActionToolbar = ({ 
-  count, 
-  onClear, 
-  onAdjustPrice, 
-  onReceive, 
+export const BulkActionToolbar = ({
+  count,
+  onClear,
+  onAdjustPrice,
+  onAdjustCostPrice,
+  onReceive,
   onUpdateIntelligence,
   onArchive,
   onDelete,
   isArchiveView = false,
-  isBinView = false
-}: { 
-  count: number, 
-  onClear: () => void, 
-  onAdjustPrice: (adjustment: { type: 'percent' | 'fixed', value: number }) => void, 
-  onReceive: () => void, 
-  onUpdateIntelligence: (updates: { isShared: TriState, isPriceSynced: TriState, enableThresholdAlert: TriState }) => void,
-  onArchive: () => void,
+  isBinView = false,
+  isMasterView = false,
+  isSharedStockView = false,
+  onBulkResearch,
+  onBulkAssignSupplier,
+  isResearching = false,
+  onExportExcel,
+  onSendToOrder,
+  onDistribute
+}: {
+  count: number,
+  onClear: () => void,
+  onAdjustPrice?: (adjustment: { type: 'percent' | 'fixed', value: number }) => void,
+  onAdjustCostPrice?: (adjustment: { type: 'percent' | 'fixed', value: number }) => void,
+  onReceive?: () => void,
+  onUpdateIntelligence?: (updates: { 
+    isShared: TriState, 
+    isPriceSynced: TriState, 
+    enableThresholdAlert: TriState,
+    isExcessStock: TriState 
+  }) => void,
+  onArchive?: () => void,
   onDelete?: () => void,
   isArchiveView?: boolean,
-  isBinView?: boolean
+  isBinView?: boolean,
+  isMasterView?: boolean,
+  isSharedStockView?: boolean,
+  onBulkResearch?: () => void,
+  onBulkAssignSupplier?: () => void,
+  isResearching?: boolean,
+  onExportExcel?: () => void,
+  onSendToOrder?: () => void,
+  onDistribute?: () => void
 }) => {
   const [showPricePopover, setShowPricePopover] = useState(false);
   const [showIntelPopover, setShowIntelPopover] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const priceModalRef = useRef<HTMLDivElement>(null);
   const intelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(event.target as Node) &&
+        (!priceModalRef.current || !priceModalRef.current.contains(event.target as Node))
+      ) {
         setShowPricePopover(false);
       }
-      // Note: Intel modal is portaled, so this ref check might not catch clicks inside it if we rely on ref equality.
-      // However, usually the portal handles its own state or we use a separate overlay.
-      // We'll rely on the modal's own Close button or clicking the toolbar button again to toggle.
     };
     if (showPricePopover) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -58,7 +83,7 @@ export const BulkActionToolbar = ({
               <BulkIntelligenceModal 
                 isOpen={showIntelPopover} 
                 onClose={() => setShowIntelPopover(false)} 
-                onConfirm={(updates) => { onUpdateIntelligence(updates); setShowIntelPopover(false); }} 
+                onConfirm={(updates) => { if (onUpdateIntelligence) onUpdateIntelligence(updates); setShowIntelPopover(false); }} 
               />
            </div>
         </div>,
@@ -67,11 +92,18 @@ export const BulkActionToolbar = ({
 
       {showPricePopover && createPortal(
         <div className="fixed inset-0 z-[200] flex items-end justify-center pb-32 pointer-events-none">
-           <div className="pointer-events-auto relative">
-              <BulkPriceModal 
-                isOpen={showPricePopover} 
-                onClose={() => setShowPricePopover(false)} 
-                onConfirm={(adj) => { onAdjustPrice(adj); setShowPricePopover(false); }} 
+           <div className="pointer-events-auto relative" ref={priceModalRef}>
+              <BulkPriceModal
+                isOpen={showPricePopover}
+                onClose={() => setShowPricePopover(false)}
+                onConfirm={(adj) => {
+                  if (adj.priceType === 'cost' && onAdjustCostPrice) {
+                    onAdjustCostPrice({ type: adj.type, value: adj.value });
+                  } else if (onAdjustPrice) {
+                    onAdjustPrice({ type: adj.type, value: adj.value });
+                  }
+                  setShowPricePopover(false);
+                }}
               />
            </div>
         </div>,
@@ -97,62 +129,122 @@ export const BulkActionToolbar = ({
           <div className="h-10 w-px bg-slate-800/50 mx-2 shrink-0" />
 
           <div className="flex items-center gap-2 pr-1">
-            {!isArchiveView && !isBinView && (
+            {isMasterView && (
               <>
-                <div className="relative shrink-0" ref={popoverRef}>
+                {onBulkResearch && (
                   <button 
-                    onClick={() => { setShowPricePopover(!showPricePopover); setShowIntelPopover(false); }}
-                    className={`h-12 px-6 rounded-full flex items-center gap-3 font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95 border ${
-                      showPricePopover 
-                        ? 'bg-indigo-600 text-white border-indigo-500 shadow-xl shadow-indigo-900/40' 
-                        : 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-900/40 hover:bg-indigo-500'
-                    }`}
+                    onClick={onBulkResearch} 
+                    disabled={isResearching}
+                    className="h-12 px-6 rounded-full bg-indigo-600 text-white border border-indigo-500 hover:bg-indigo-500 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-900/40 disabled:opacity-50 shrink-0"
                   >
-                    <PoundSterling size={16} /> <span className="whitespace-nowrap">Adjust RRP</span>
+                    {isResearching ? <Loader2 className="animate-spin" size={16} /> : <Globe size={16} />}
+                    <span className="whitespace-nowrap">AI Research</span>
                   </button>
-                </div>
-
-                <button 
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); onReceive(); }}
-                  className="h-12 px-6 rounded-full bg-emerald-600 text-white border border-emerald-500 hover:bg-emerald-500 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest group/btn shadow-lg shadow-emerald-900/40 shrink-0"
-                >
-                  <ArrowDownToLine size={16} className="transition-transform group-hover/btn:-translate-y-0.5" /> 
-                  <span className="whitespace-nowrap">Receive Stock</span>
-                </button>
-
-                <div className="relative shrink-0" ref={intelRef}>
+                )}
+                {onBulkAssignSupplier && (
                   <button 
-                    onClick={() => { setShowIntelPopover(!showIntelPopover); setShowPricePopover(false); }}
-                    className={`h-12 px-6 rounded-full flex items-center gap-3 font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95 border ${
-                      showIntelPopover 
-                        ? 'bg-blue-600 text-white border-blue-500 shadow-xl shadow-blue-900/40' 
-                        : 'bg-blue-600/10 text-blue-500 border-blue-500/20 hover:bg-blue-600 hover:text-white shadow-lg'
-                    }`}
+                    onClick={onBulkAssignSupplier}
+                    className="h-12 px-6 rounded-full bg-orange-600 text-white border border-orange-500 hover:bg-orange-500 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-lg shadow-orange-900/40 shrink-0"
                   >
-                    <Zap size={16} /> <span className="whitespace-nowrap">Intelligence</span>
+                    <Truck size={16} />
+                    <span className="whitespace-nowrap">Assign Supplier</span>
                   </button>
-                </div>
+                )}
               </>
             )}
 
-            <button 
-              onClick={onArchive}
-              className={`h-12 px-8 rounded-full font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95 flex items-center gap-3 shadow-lg border shrink-0 ${
-                isBinView
-                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-900/40 hover:bg-emerald-500'
-                  : isArchiveView 
-                  ? 'bg-amber-600 text-white border-amber-500 shadow-amber-900/40 hover:bg-amber-500'
-                  : 'bg-amber-600/10 text-amber-500 border-amber-500/20 hover:bg-amber-600 hover:text-white hover:border-amber-500 shadow-amber-900/10'
-              }`}
-            >
-              {isBinView ? <RotateCw size={16} /> : isArchiveView ? <ArchiveRestore size={16} /> : <Archive size={16} />}
-              <span className="whitespace-nowrap">
-                {isBinView ? 'RESTORE ITEM' : isArchiveView ? 'UNARCHIVE' : 'ARCHIVE'}
-              </span>
-            </button>
+            {!isArchiveView && !isBinView && !isMasterView && (
+              <>
+                {onAdjustPrice && (
+                  <div className="relative shrink-0" ref={popoverRef}>
+                    <button
+                      onClick={() => { setShowPricePopover(v => !v); setShowIntelPopover(false); }}
+                      className={`h-12 px-6 rounded-full flex items-center gap-3 font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95 border ${
+                        showPricePopover
+                          ? 'bg-indigo-600 text-white border-indigo-500 shadow-xl shadow-indigo-900/40'
+                          : 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-900/40 hover:bg-indigo-500'
+                      }`}
+                    >
+                      <PoundSterling size={16} /> <span className="whitespace-nowrap">Adjust Prices</span>
+                    </button>
+                  </div>
+                )}
 
-            {(isArchiveView || isBinView) && onDelete && (
+                {!isSharedStockView && onReceive && (
+                  <button 
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); onReceive(); }}
+                    className="h-12 px-6 rounded-full bg-emerald-600 text-white border border-emerald-500 hover:bg-emerald-500 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest group/btn shadow-lg shadow-emerald-900/40 shrink-0"
+                  >
+                    <ArrowDownToLine size={16} className="transition-transform group-hover/btn:-translate-y-0.5" /> 
+                    <span className="whitespace-nowrap">Receive Stock</span>
+                  </button>
+                )}
+
+                {onUpdateIntelligence && (
+                  <div className="relative shrink-0" ref={intelRef}>
+                    <button 
+                      onClick={() => { setShowIntelPopover(!showIntelPopover); setShowPricePopover(false); }}
+                      className={`h-12 px-6 rounded-full flex items-center gap-3 font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95 border ${
+                        showIntelPopover 
+                          ? 'bg-blue-600 text-white border-blue-500 shadow-xl shadow-blue-900/40' 
+                          : 'bg-blue-600/10 text-blue-500 border-blue-500/20 hover:bg-blue-600 hover:text-white shadow-lg'
+                      }`}
+                    >
+                      <Zap size={16} /> <span className="whitespace-nowrap">Intelligence</span>
+                    </button>
+                  </div>
+                )}
+
+                {onExportExcel && (
+                  <button
+                    onClick={onExportExcel}
+                    className="h-12 px-6 rounded-full bg-orange-600/10 text-orange-400 border border-orange-500/20 hover:bg-orange-600 hover:text-white hover:border-orange-500 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-lg shrink-0"
+                  >
+                    <FileSpreadsheet size={16} /> <span className="whitespace-nowrap">Export Excel</span>
+                  </button>
+                )}
+
+                {onSendToOrder && (
+                  <button 
+                    onClick={onSendToOrder}
+                    className="h-12 px-6 rounded-full bg-emerald-600 text-white border border-emerald-500 hover:bg-emerald-500 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-900/40 shrink-0"
+                  >
+                    <Send size={16} />
+                    <span className="whitespace-nowrap">Send to Order</span>
+                  </button>
+                )}
+
+                {onDistribute && (
+                  <button
+                    onClick={onDistribute}
+                    className="h-12 px-6 rounded-full bg-emerald-600 text-white border border-emerald-500 hover:bg-emerald-500 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-900/40 shrink-0"
+                  >
+                    <Share2 size={16} />
+                    <span className="whitespace-nowrap">Distribute</span>
+                  </button>
+                )}              </>
+            )}
+
+            {!isMasterView && !isSharedStockView && onArchive && (
+              <button 
+                onClick={onArchive}
+                className={`h-12 px-8 rounded-full font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95 flex items-center gap-3 shadow-lg border shrink-0 ${
+                  isBinView
+                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-900/40 hover:bg-emerald-500'
+                    : isArchiveView 
+                    ? 'bg-amber-600 text-white border-amber-500 shadow-amber-900/40 hover:bg-amber-500'
+                    : 'bg-amber-600/10 text-amber-500 border-amber-500/20 hover:bg-amber-600 hover:text-white hover:border-amber-500 shadow-amber-900/10'
+                }`}
+              >
+                {isBinView ? <RotateCw size={16} /> : isArchiveView ? <ArchiveRestore size={16} /> : <Archive size={16} />}
+                <span className="whitespace-nowrap">
+                  {isBinView ? 'RESTORE ITEM' : isArchiveView ? 'UNARCHIVE' : 'ARCHIVE'}
+                </span>
+              </button>
+            )}
+
+            {(isArchiveView || isBinView || isMasterView) && !isSharedStockView && onDelete && (
               <button 
                 onClick={onDelete}
                 className={`h-12 px-6 rounded-full transition-all hover:scale-105 active:scale-95 flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-lg border shrink-0 ${
@@ -160,12 +252,14 @@ export const BulkActionToolbar = ({
                     ? 'bg-rose-600/10 text-rose-500 border-rose-500/20 hover:bg-rose-600 hover:text-white hover:border-rose-500' 
                     : isArchiveView
                     ? 'bg-rose-600/10 text-rose-500 border-rose-500/20 hover:bg-rose-600 hover:text-white hover:border-rose-500'
+                    : isMasterView
+                    ? 'bg-rose-600 text-white border-rose-500 shadow-rose-900/40 hover:bg-rose-500'
                     : 'bg-rose-600/10 text-rose-500 border-rose-500/20 hover:bg-rose-600 hover:text-white hover:border-rose-500 shadow-rose-900/10'
                 }`}
               >
                 <Trash2 size={16} />
                 <span className="whitespace-nowrap">
-                  {isBinView ? 'DELETE PERMANENTLY' : 'MOVE TO BIN'}
+                  {isBinView ? 'DELETE PERMANENTLY' : isMasterView ? 'DELETE RECORDS' : 'MOVE TO BIN'}
                 </span>
               </button>
             )}
@@ -175,7 +269,7 @@ export const BulkActionToolbar = ({
             <button 
               onClick={onClear}
               className="w-12 h-12 rounded-full bg-slate-800 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 transition-all flex items-center justify-center group/close shrink-0"
-              title="Clear Selection"
+              data-tooltip="Clear Selection"
             >
               <X size={20} className="transition-transform group-hover/close:rotate-90 duration-300" />
             </button>

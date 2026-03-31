@@ -1,9 +1,9 @@
 
 import React, { RefObject, useMemo } from 'react';
-import { 
-  ArchiveRestore, Recycle, LayoutDashboard, RefreshCw, ShoppingBag, AlertCircle, Printer, 
-  CalendarClock, Star, ChevronDown, Check, Tag as TagIcon, Search, ScanLine, 
-  ClipboardList, ArrowRight, Plus, Truck, X
+import {
+  ArchiveRestore, Recycle, LayoutDashboard, RefreshCw, ShoppingBag, AlertCircle, Printer,
+  CalendarClock, Star, ChevronDown, Check, Tag as TagIcon, Search, ScanLine,
+  ClipboardList, ArrowRight, Plus, Truck, X, Activity, Clock, MapPin, Archive
 } from 'lucide-react';
 import { PerformanceView } from './PerformanceView';
 import { RequestsView } from './RequestsView';
@@ -11,7 +11,9 @@ import { PlanogramView } from './PlanogramView';
 import { PricingDeskView } from './PricingDeskView';
 import { InventoryTable } from './InventoryTable';
 import { SharedStockModule } from './SharedStockModule';
+import { SupplierManagementView } from './SupplierManagementView';
 import { FilterButton, DepartmentToggle } from './FilterComponents';
+import { STATUS_OPTIONS } from '../utils/statusUtils';
 import { Product, CustomerRequest, InventorySubFilter, BranchData, BranchKey, ColumnVisibility } from '../types';
 import { StockLogicReturn } from '../hooks/useStockLogic';
 import { PricingDeskReturn } from '../hooks/usePricingDesk';
@@ -21,7 +23,7 @@ import { ColumnVisibilityControl } from './ColumnVisibilityControl';
 import { DashboardWidgets } from './DashboardWidgets';
 
 interface MainViewRouterProps {
-  mainView: 'inventory' | 'requests' | 'performance' | 'archive' | 'bin' | 'planogram' | 'reconciliation' | 'shared-stock';
+  mainView: 'inventory' | 'requests' | 'performance' | 'archive' | 'bin' | 'planogram' | 'reconciliation' | 'shared-stock' | 'supplier-management';
   logic: StockLogicReturn;
   branchData: BranchData;
   currentBranch: BranchKey;
@@ -30,23 +32,35 @@ interface MainViewRouterProps {
   planogramLogic: PlanogramReturn;
   noteLogic: { isNoteExpanded: (id: string) => boolean; toggleNote: (id: string) => void; };
   sortedItems: Product[];
+  effectiveSortConfig: { key: string; direction: 'asc' | 'desc' }[];
   sortedRequests: CustomerRequest[];
   liveOrderTotal: number;
   manualRestockQtys: Record<string, number>;
   updateManualQty: (id: string, qty: number) => void;
-  requestSortConfig: { key: string | null; direction: 'asc' | 'desc' };
-  setRequestSortConfig: (config: { key: string | null; direction: 'asc' | 'desc' }) => void;
-  isRequestBinView: boolean;
-  setIsRequestBinView: (isBin: boolean) => void;
+  requestSortConfig: { key: string; direction: 'asc' | 'desc' }[];
+  setRequestSortConfig: React.Dispatch<React.SetStateAction<{ key: string; direction: 'asc' | 'desc' }[]>>;
+  requestTab: 'active' | 'archive' | 'bin';
+  setRequestTab: (tab: 'active' | 'archive' | 'bin') => void;
   selectedIds: Set<string>;
   toggleSelection: (id: string) => void;
-  toggleAll: () => void;
+  toggleAll: (specificIds?: string[]) => void;
   isAllSelected: boolean;
   uniqueSuppliers: string[];
-  selectedSupplier: string;
-  setSelectedSupplier: (s: string) => void;
+  selectedSuppliers: string[];
+  supplierFilterMode: 'show' | 'hide';
+  toggleSupplierFilter: (s: string) => void;
+  clearSupplierFilters: () => void;
+  toggleSupplierFilterMode: () => void;
+  uniqueLocations: string[];
+  selectedLocations: string[];
+  locationFilterMode: 'show' | 'hide';
+  toggleLocationFilter: (l: string) => void;
+  clearLocationFilters: () => void;
+  toggleLocationFilterMode: () => void;
   activeFilters: string[];
+  tagFilterMode: 'show' | 'hide';
   toggleFilter: (tag: string) => void;
+  toggleTagFilterMode: () => void;
   clearFilters: () => void;
   allUniqueTags: string[];
   tagSettings: Record<string, TagStyle>;
@@ -59,8 +73,14 @@ interface MainViewRouterProps {
   setIsTagMenuOpen: (o: boolean) => void;
   isSupplierMenuOpen: boolean;
   setIsSupplierMenuOpen: (o: boolean) => void;
-  tagMenuRef: RefObject<HTMLDivElement | null>;
-  supplierMenuRef: RefObject<HTMLDivElement | null>;
+  isLocationMenuOpen: boolean;
+  setIsLocationMenuOpen: (o: boolean) => void;
+  isStatusMenuOpen: boolean;
+  setIsStatusMenuOpen: (o: boolean) => void;
+  tagMenuRef: React.RefObject<HTMLDivElement | null>;
+  supplierMenuRef: React.RefObject<HTMLDivElement | null>;
+  locationMenuRef: React.RefObject<HTMLDivElement | null>;
+  statusMenuRef: React.RefObject<HTMLDivElement | null>;
   onOpenPriceChecker: () => void;
   columns: ColumnVisibility;
   toggleColumn: (key: keyof ColumnVisibility) => void;
@@ -70,20 +90,32 @@ interface MainViewRouterProps {
 
 export const MainViewRouter: React.FC<MainViewRouterProps> = ({
   mainView, logic, branchData, currentBranch, setBranchData, pricingLogic, planogramLogic, noteLogic,
-  sortedItems, sortedRequests, liveOrderTotal, manualRestockQtys, updateManualQty,
-  requestSortConfig, setRequestSortConfig, isRequestBinView, setIsRequestBinView,
+  sortedItems, effectiveSortConfig, sortedRequests, liveOrderTotal, manualRestockQtys, updateManualQty,
+  requestSortConfig, setRequestSortConfig, requestTab, setRequestTab,
   selectedIds, toggleSelection, toggleAll, isAllSelected,
-  uniqueSuppliers, selectedSupplier, setSelectedSupplier,
-  activeFilters, toggleFilter, clearFilters, allUniqueTags, tagSettings,
+  uniqueSuppliers, selectedSuppliers, supplierFilterMode, toggleSupplierFilter, clearSupplierFilters, toggleSupplierFilterMode,
+  uniqueLocations, selectedLocations, locationFilterMode, toggleLocationFilter, clearLocationFilters, toggleLocationFilterMode,
+  activeFilters, tagFilterMode, toggleFilter, toggleTagFilterMode, clearFilters, allUniqueTags, tagSettings,
   openProductEdit, openTransferForm, openHistoryView, setPreviewImage, theme,
-  isTagMenuOpen, setIsTagMenuOpen, isSupplierMenuOpen, setIsSupplierMenuOpen,
-  tagMenuRef, supplierMenuRef, onOpenPriceChecker,
+  isTagMenuOpen, setIsTagMenuOpen, isSupplierMenuOpen, setIsSupplierMenuOpen, isLocationMenuOpen, setIsLocationMenuOpen, isStatusMenuOpen, setIsStatusMenuOpen,
+  tagMenuRef, supplierMenuRef, locationMenuRef, statusMenuRef, onOpenPriceChecker,
   columns, toggleColumn,
   onOpenReconciliation, onOpenDuplicates
-}) => {
-  
+}) => {  
   if (mainView === 'performance') {
     return <PerformanceView items={branchData[currentBranch] || []} />;
+  }
+
+  if (mainView === 'supplier-management') {
+    return (
+      <SupplierManagementView 
+        branchData={branchData}
+        currentBranch={currentBranch}
+        onUpdateSupplier={logic.updateSupplier || (() => {})}
+        onAddSupplier={logic.addSupplier || (() => {})}
+        onDeleteSupplier={logic.deleteSupplier || (() => {})}
+      />
+    );
   }
 
   if (mainView === 'shared-stock') {
@@ -105,9 +137,10 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-           <div className="p-1.5 rounded-2xl border bg-slate-900 border-slate-800 flex">
-              <button onClick={() => setIsRequestBinView(false)} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!isRequestBinView ? 'bg-rose-700 text-white' : 'text-slate-500'}`}><ClipboardList size={14} /> Active</button>
-              <button onClick={() => setIsRequestBinView(true)} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isRequestBinView ? 'bg-slate-700 text-white' : 'text-slate-500'}`}><Recycle size={14} /> Bin</button>
+           <div className="p-1.5 rounded-2xl border bg-slate-950 border-slate-800 flex">
+              <button onClick={() => setRequestTab('active')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${requestTab === 'active' ? 'bg-rose-700 text-white' : 'text-slate-500 hover:bg-slate-800'}`}><ClipboardList size={14} /> Active</button>
+              <button onClick={() => setRequestTab('archive')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${requestTab === 'archive' ? 'bg-amber-600 text-white' : 'text-slate-500 hover:bg-slate-800'}`}><Archive size={14} /> Archive</button>
+              <button onClick={() => setRequestTab('bin')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${requestTab === 'bin' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:bg-slate-800'}`}><Recycle size={14} /> Bin</button>
            </div>
            
            <button 
@@ -131,10 +164,22 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
             logic.setIsAddingRequest(true); 
           }} 
           onDelete={logic.handleDeleteRequest}
+          onUpdate={logic.updateRequestItem}
           onRestore={logic.handleRestoreRequest}
           sortConfig={requestSortConfig}
-          onSort={(k) => setRequestSortConfig({ key: k, direction: requestSortConfig.key === k && requestSortConfig.direction === 'asc' ? 'desc' : 'asc' })}
-          isBinView={isRequestBinView}
+          onSort={(k, multi) => setRequestSortConfig((prev) => {
+            const existing = prev.findIndex(c => c.key === k);
+            if (multi) {
+              if (existing !== -1) {
+                if (prev[existing].direction === 'asc') return prev.map((c, i) => i === existing ? { ...c, direction: 'desc' as const } : c);
+                return prev.filter((_, i) => i !== existing);
+              }
+              return [...prev, { key: k, direction: 'asc' as const }];
+            }
+            if (existing !== -1 && prev.length === 1) return [{ key: k, direction: prev[existing].direction === 'asc' ? 'desc' as const : 'asc' as const }];
+            return [{ key: k, direction: 'asc' as const }];
+          })}
+          requestTab={requestTab}
         />
       </div>
     );
@@ -142,27 +187,33 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
 
   if (mainView === 'planogram') {
     return (
-      <PlanogramView 
-         activePlanogram={planogramLogic.activePlanogram}
-         activeFloorPlan={planogramLogic.activeFloorPlan}
-         inventory={branchData[currentBranch] || []}
-         onUpdateSlot={planogramLogic.updateSlot}
-         onSwapSlots={planogramLogic.swapSlots}
-         onAddPlanogram={planogramLogic.addPlanogram}
-         onUpdatePlanogramDetails={planogramLogic.updatePlanogramDetails}
-         onUpdateImage={planogramLogic.updatePlanogramImage}
-         onSaveAiVisualisation={planogramLogic.updateAiVisualisation}
-         planograms={planogramLogic.planograms}
-         onSelectPlanogram={planogramLogic.setActivePlanogramId}
-         currentBranch={currentBranch}
-         addShelfToFloor={planogramLogic.addShelfToFloor}
-         updateFloorItem={planogramLogic.updateFloorItem}
-         removeFloorItem={planogramLogic.removeFloorItem}
-         onUpdateProduct={logic.updateProductItem}
-         onAddFace={planogramLogic.addFaceToPlanogram}
-         onRemoveFace={planogramLogic.removeFace}
-      />
-    );
+      <PlanogramView
+        activePlanogram={planogramLogic.activePlanogram}
+        activeFloorPlan={planogramLogic.activeFloorPlan}
+        inventory={branchData[currentBranch] || []}
+        onUpdateSlot={planogramLogic.updateSlot}
+        onUpdateSlotPurpose={planogramLogic.updateSlotPurpose}
+        onSwapSlots={planogramLogic.swapSlots}
+        onAddPlanogram={planogramLogic.addPlanogram}
+        onUpdatePlanogramDetails={planogramLogic.updatePlanogramDetails}
+        onUpdateImage={planogramLogic.updatePlanogramImage}
+        onSaveAiVisualisation={planogramLogic.updateAiVisualisation}
+        planograms={planogramLogic.planograms}
+        onSelectPlanogram={planogramLogic.setActivePlanogramId}
+        currentBranch={currentBranch}
+        addShelfToFloor={planogramLogic.addShelfToFloor}
+        updateFloorItem={planogramLogic.updateFloorItem}
+        removeFloorItem={planogramLogic.removeFloorItem}
+        onUpdateProduct={logic.updateProductItem}
+        onAddFace={planogramLogic.addFaceToPlanogram}
+        onRemoveFace={planogramLogic.removeFace}
+        onDeletePlanogram={planogramLogic.deletePlanogram}
+        onSaveConfiguration={planogramLogic.saveConfiguration}
+        onLoadConfiguration={planogramLogic.loadConfiguration}
+        onDeleteConfiguration={planogramLogic.deleteConfiguration}
+        onRenameConfiguration={planogramLogic.renameConfiguration}
+        onOpenProductEdit={openProductEdit}
+      />    );
   }
 
   // Derived state for Active Main Inventory stats (excluding Archive/Bin)
@@ -174,10 +225,11 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
     const activeOrderKey = currentBranch === 'bywood' ? 'bywoodOrders' : 'broomOrders';
     const orders = branchData[activeOrderKey] || [];
     const activeIds = new Set(activeMainInventory.map((p: Product) => p.id));
-    return orders.filter((o: { productId: string; status?: string }) =>
+    const orderedItems = orders.filter((o: { productId: string; status?: string }) =>
       activeIds.has(o.productId) &&
-      (o.status === 'pending' || o.status === 'ordered' || o.status === 'backorder')
-    ).length;
+      o.status === 'ordered'
+    );
+    return new Set(orderedItems.map((o: { productId: string }) => o.productId)).size;
   }, [branchData, currentBranch, activeMainInventory]);
 
   if (mainView === 'inventory' || mainView === 'archive' || mainView === 'bin') {
@@ -239,57 +291,82 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
         />
 
         {/* Updated Filter Section */}
-        <div className="rounded-[3rem] bg-slate-900 border border-slate-800 shadow-2xl p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="rounded-[3rem] bg-slate-950 border border-slate-800 shadow-2xl p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
            <div className="flex justify-center">
              <DepartmentToggle activeFilter={logic.stockTypeFilter} onChange={logic.setStockTypeFilter} />
            </div>
            
            {/* Grid Layout for Filter Tabs - Spreads evenly */}
-           <div className={`grid gap-3 w-full ${mainView === 'inventory' ? 'grid-cols-2 md:grid-cols-4 lg:grid-cols-7' : 'grid-cols-1'}`}>
+           <div className={`grid gap-3 w-full ${mainView === 'inventory' ? 'grid-cols-2 md:grid-cols-4 lg:grid-cols-8' : 'grid-cols-1'}`}>
               <FilterButton label="All Items" value="all" icon={LayoutDashboard} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} className="w-full justify-center" />
               {mainView === 'inventory' && (
                 <>
                   <FilterButton label="Restock" value="restock" icon={RefreshCw} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} className="w-full justify-center" />
-                  <FilterButton label="To Order" value="ordered" icon={ShoppingBag} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} className="w-full justify-center" />
+                  <FilterButton label="Ordered" value="ordered" icon={ShoppingBag} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} className="w-full justify-center" />
                   <FilterButton label="Price Alerts" value="alerts" icon={AlertCircle} count={pricingLogic.alerts.length} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-blue-600 shadow-blue-900/40" className="w-full justify-center" />
                   <FilterButton label="Labels" value="labels" icon={Printer} count={pricingLogic.labelQueue.length} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-blue-600 shadow-blue-900/40" className="w-full justify-center" />
                   <FilterButton label="Clearance" value="clearance" icon={Star} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-amber-600 shadow-amber-900/40" className="w-full justify-center" />
                   <FilterButton label="Expiring" value="expiring" icon={CalendarClock} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-rose-600 shadow-rose-900/40" className="w-full justify-center" />
+                  <FilterButton label="Recently Added" value="recently-added" icon={Clock} count={logic.recentlyAddedCount} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-violet-600 shadow-violet-900/40" className="w-full justify-center" />
                 </>
               )}
            </div>
 
-           {/* Unified Filter Bar */}
-           <div className="flex flex-col xl:flex-row items-center w-full bg-slate-950 border border-slate-800 rounded-2xl p-1 shadow-sm">
+            {/* Unified Filter Bar */}
+            <div className="flex flex-col xl:flex-row items-center w-full bg-slate-950 border border-slate-800 rounded-2xl p-1 shadow-sm">
                 
                 {/* Supplier */}
                 <div className="relative w-full xl:w-auto h-full" ref={supplierMenuRef}>
                     <button 
                       onClick={() => setIsSupplierMenuOpen(!isSupplierMenuOpen)}
-                      className={`h-[52px] w-full xl:w-auto min-w-[180px] px-6 rounded-xl hover:bg-slate-900 transition-all text-white font-black text-[10px] uppercase tracking-widest flex items-center justify-between gap-4 ${isSupplierMenuOpen ? 'bg-slate-900' : ''}`}
+                      className={`h-[52px] w-full xl:w-auto px-4 rounded-xl hover:bg-slate-900 transition-all text-white font-black text-[10px] uppercase tracking-widest flex items-center justify-between gap-3 ${isSupplierMenuOpen ? 'bg-slate-900' : ''}`}
                     >
-                      <div className="flex items-center gap-3">
-                        <Truck size={16} className="text-slate-500" />
-                        <span className="truncate max-w-[120px]">{selectedSupplier === 'All Suppliers' ? 'All Suppliers' : selectedSupplier}</span>
+                      <div className="flex items-center gap-2">
+                        <Truck size={16} className={selectedSuppliers.length > 0 ? (supplierFilterMode === 'show' ? 'text-emerald-500' : 'text-rose-500') : 'text-slate-500'} />
+                        <span className={selectedSuppliers.length > 0 ? 'text-white' : 'text-slate-400'}>
+                          Suppliers
+                          {selectedSuppliers.length > 0 && <span className="ml-1 text-[9px] text-slate-500">({selectedSuppliers.length})</span>}
+                        </span>
                       </div>
                       <ChevronDown size={14} className={`text-slate-500 transition-transform ${isSupplierMenuOpen ? 'rotate-180' : ''}`} />
                     </button>
                     {isSupplierMenuOpen && (
                       <div className="absolute top-full left-0 mt-3 w-64 rounded-3xl border shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] p-2 z-[60] animate-in fade-in zoom-in duration-200 ring-1 ring-white/5 bg-slate-950 border-slate-800">
                         <div className="p-3 border-b flex items-center justify-between border-slate-800">
-                          <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Filter by Supplier</span>
+                          <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Filter Mode</span>
+                          <button 
+                            onClick={toggleSupplierFilterMode}
+                            className={`flex items-center gap-2 px-3 py-1 rounded-full border transition-all text-[9px] font-black uppercase tracking-tighter ${
+                              supplierFilterMode === 'show' 
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                                : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                            }`}
+                          >
+                            {supplierFilterMode === 'show' ? 'Show Selected' : 'Hide Selected'}
+                          </button>
+                        </div>
+                        <div className="p-3 border-b flex items-center justify-between border-slate-800">
+                          <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">wholesalers</span>
+                          {selectedSuppliers.length > 0 && (
+                            <button onClick={clearSupplierFilters} className="text-[9px] font-black uppercase text-rose-400 hover:text-rose-300">Clear</button>
+                          )}
                         </div>
                         <div className="max-h-64 overflow-y-auto p-1 space-y-1 scrollbar-hide mt-1">
-                          {uniqueSuppliers.map((supplier) => (
-                            <button 
-                              key={supplier}
-                              onClick={() => { setSelectedSupplier(supplier); setIsSupplierMenuOpen(false); }}
-                              className={`w-full flex items-center justify-between p-3 rounded-xl transition-all group ${selectedSupplier === supplier ? 'bg-emerald-600/10' : 'hover:bg-slate-800'}`}
-                            >
-                              <span className={`text-[11px] font-black uppercase tracking-tight ${selectedSupplier === supplier ? 'text-emerald-400' : 'text-slate-300'}`}>{supplier}</span>
-                              {selectedSupplier === supplier && <Check size={14} className="text-emerald-500" />}
-                            </button>
-                          ))}
+                          {uniqueSuppliers.length === 0 ? (
+                            <p className="p-4 text-center text-[10px] font-bold text-slate-600 uppercase tracking-widest">No suppliers found</p>
+                          ) : uniqueSuppliers.map((supplier) => {
+                            const isActive = selectedSuppliers.includes(supplier);
+                            return (
+                              <button 
+                                key={supplier}
+                                onClick={() => toggleSupplierFilter(supplier)}
+                                className={`w-full flex items-center justify-between p-3 rounded-xl transition-all group ${isActive ? 'bg-emerald-600/10' : 'hover:bg-slate-800'}`}
+                              >
+                                <span className={`text-[11px] font-black uppercase tracking-tight ${isActive ? 'text-emerald-400' : 'text-slate-300'}`}>{supplier}</span>
+                                {isActive && <Check size={14} className="text-emerald-500" />}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -302,18 +379,34 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
                 <div className="relative w-full xl:w-auto h-full" ref={tagMenuRef}>
                     <button 
                       onClick={() => setIsTagMenuOpen(!isTagMenuOpen)}
-                      className={`h-[52px] w-full xl:w-auto min-w-[160px] px-6 rounded-xl hover:bg-slate-900 transition-all text-white font-black text-[10px] uppercase tracking-widest flex items-center justify-between gap-4 ${isTagMenuOpen ? 'bg-slate-900' : ''}`}
+                      className={`h-[52px] w-full xl:w-auto px-4 rounded-xl hover:bg-slate-900 transition-all text-white font-black text-[10px] uppercase tracking-widest flex items-center justify-between gap-3 ${isTagMenuOpen ? 'bg-slate-900' : ''}`}
                     >
-                      <div className="flex items-center gap-3">
-                        <TagIcon size={16} className="text-slate-500" />
-                        <span>{activeFilters.length === 0 ? 'All Tags' : `${activeFilters.length} Tags`}</span>
+                      <div className="flex items-center gap-2">
+                        <TagIcon size={16} className={activeFilters.length > 0 ? (tagFilterMode === 'show' ? 'text-emerald-500' : 'text-rose-500') : 'text-slate-500'} />
+                        <span className={activeFilters.length > 0 ? 'text-white' : 'text-slate-400'}>
+                          Tags
+                          {activeFilters.length > 0 && <span className="ml-1 text-[9px] text-slate-500">({activeFilters.length})</span>}
+                        </span>
                       </div>
                       <ChevronDown size={14} className={`text-slate-500 transition-transform ${isTagMenuOpen ? 'rotate-180' : ''}`} />
                     </button>
                     {isTagMenuOpen && (
                       <div className="absolute top-full left-0 mt-3 w-64 rounded-3xl border shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] p-2 z-[60] animate-in fade-in zoom-in duration-200 ring-1 ring-white/5 bg-slate-950 border-slate-800">
                          <div className="p-3 border-b flex items-center justify-between border-slate-800">
-                            <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Filter by tags</span>
+                            <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Filter Mode</span>
+                            <button 
+                                onClick={toggleTagFilterMode}
+                                className={`flex items-center gap-2 px-3 py-1 rounded-full border transition-all text-[9px] font-black uppercase tracking-tighter ${
+                                tagFilterMode === 'show' 
+                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                                    : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                                }`}
+                            >
+                                {tagFilterMode === 'show' ? 'Show Selected' : 'Hide Selected'}
+                            </button>
+                         </div>
+                         <div className="p-3 border-b flex items-center justify-between border-slate-800">
+                            <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Labels</span>
                             {activeFilters.length > 0 && (
                               <button onClick={clearFilters} className="text-[9px] font-black uppercase text-rose-400 hover:text-rose-300">Clear</button>
                             )}
@@ -349,6 +442,124 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
                 {/* Divider */}
                 <div className="w-full h-px xl:w-px xl:h-8 bg-slate-800 my-1 xl:my-0 mx-0 xl:mx-1" />
 
+                {/* Status Filter */}
+                <div className="relative w-full xl:w-auto h-full" ref={statusMenuRef}>
+                    <button 
+                      onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}
+                      className={`h-[52px] w-full xl:w-auto px-4 rounded-xl hover:bg-slate-900 transition-all text-white font-black text-[10px] uppercase tracking-widest flex items-center justify-between gap-3 ${isStatusMenuOpen ? 'bg-slate-900' : ''}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Activity size={16} className={logic.selectedStatuses.length > 0 ? (logic.statusFilterMode === 'show' ? 'text-blue-500' : 'text-rose-500') : 'text-slate-500'} />
+                        <span className={logic.selectedStatuses.length > 0 ? 'text-white' : 'text-slate-400'}>
+                          Statuses
+                          {logic.selectedStatuses.length > 0 && <span className="ml-1 text-[9px] text-slate-500">({logic.selectedStatuses.length})</span>}
+                        </span>
+                      </div>
+                      <ChevronDown size={14} className={`text-slate-500 transition-transform ${isStatusMenuOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isStatusMenuOpen && (
+                      <div className="absolute top-full left-0 mt-3 w-64 rounded-3xl border shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] p-2 z-[60] animate-in fade-in zoom-in duration-200 ring-1 ring-white/5 bg-slate-950 border-slate-800">
+                        <div className="p-3 border-b flex items-center justify-between border-slate-800">
+                          <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Filter Mode</span>
+                          <button 
+                            onClick={logic.toggleStatusFilterMode}
+                            className={`flex items-center gap-2 px-3 py-1 rounded-full border transition-all text-[9px] font-black uppercase tracking-tighter ${
+                              logic.statusFilterMode === 'show' 
+                                ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' 
+                                : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                            }`}
+                          >
+                            {logic.statusFilterMode === 'show' ? 'Show Selected' : 'Hide Selected'}
+                          </button>
+                        </div>
+                        <div className="p-3 border-b flex items-center justify-between border-slate-800">
+                          <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Levels</span>
+                          {logic.selectedStatuses.length > 0 && (
+                            <button onClick={logic.clearStatusFilters} className="text-[9px] font-black uppercase text-rose-400 hover:text-rose-300">Clear</button>
+                          )}
+                        </div>
+                        <div className="max-h-64 overflow-y-auto p-1 space-y-1 scrollbar-hide mt-1">
+                          {STATUS_OPTIONS.map((status) => {
+                            const isActive = logic.selectedStatuses.includes(status);
+                            return (
+                              <button 
+                                key={status}
+                                onClick={() => logic.toggleStatusFilter(status)}
+                                className={`w-full flex items-center justify-between p-3 rounded-xl transition-all group ${isActive ? 'bg-blue-600/10' : 'hover:bg-slate-800'}`}
+                              >
+                                <span className={`text-[11px] font-black uppercase tracking-tight ${isActive ? 'text-blue-400' : 'text-slate-300'}`}>{status}</span>
+                                {isActive && <Check size={14} className="text-blue-500" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                </div>
+
+                {/* Divider */}
+                <div className="w-full h-px xl:w-px xl:h-8 bg-slate-800 my-1 xl:my-0 mx-0 xl:mx-1" />
+
+                {/* Location Filter */}
+                <div className="relative w-full xl:w-auto h-full" ref={locationMenuRef}>
+                    <button 
+                      onClick={() => setIsLocationMenuOpen(!isLocationMenuOpen)}
+                      className={`h-[52px] w-full xl:w-auto px-4 rounded-xl hover:bg-slate-900 transition-all text-white font-black text-[10px] uppercase tracking-widest flex items-center justify-between gap-3 ${isLocationMenuOpen ? 'bg-slate-900' : ''}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MapPin size={16} className={selectedLocations.length > 0 ? (locationFilterMode === 'show' ? 'text-emerald-500' : 'text-rose-500') : 'text-slate-500'} />
+                        <span className={selectedLocations.length > 0 ? 'text-white' : 'text-slate-400'}>
+                          Locations
+                          {selectedLocations.length > 0 && <span className="ml-1 text-[9px] text-slate-500">({selectedLocations.length})</span>}
+                        </span>
+                      </div>
+                      <ChevronDown size={14} className={`text-slate-500 transition-transform ${isLocationMenuOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isLocationMenuOpen && (
+                      <div className="absolute top-full left-0 mt-3 w-64 rounded-3xl border shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] p-2 z-[60] animate-in fade-in zoom-in duration-200 ring-1 ring-white/5 bg-slate-950 border-slate-800">
+                        <div className="p-3 border-b flex items-center justify-between border-slate-800">
+                          <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Filter Mode</span>
+                          <button 
+                            onClick={toggleLocationFilterMode}
+                            className={`flex items-center gap-2 px-3 py-1 rounded-full border transition-all text-[9px] font-black uppercase tracking-tighter ${
+                              locationFilterMode === 'show' 
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                                : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                            }`}
+                          >
+                            {locationFilterMode === 'show' ? 'Show Selected' : 'Hide Selected'}
+                          </button>
+                        </div>
+                        <div className="p-3 border-b flex items-center justify-between border-slate-800">
+                          <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Aisles & Shelves</span>
+                          {selectedLocations.length > 0 && (
+                            <button onClick={clearLocationFilters} className="text-[9px] font-black uppercase text-rose-400 hover:text-rose-300">Clear</button>
+                          )}
+                        </div>
+                        <div className="max-h-64 overflow-y-auto p-1 space-y-1 scrollbar-hide mt-1">
+                          {uniqueLocations.length === 0 ? (
+                            <p className="p-4 text-center text-[10px] font-bold text-slate-600 uppercase tracking-widest">No locations found</p>
+                          ) : uniqueLocations.map((location) => {
+                            const isActive = selectedLocations.includes(location);
+                            return (
+                              <button 
+                                key={location}
+                                onClick={() => toggleLocationFilter(location)}
+                                className={`w-full flex items-center justify-between p-3 rounded-xl transition-all group ${isActive ? 'bg-emerald-600/10' : 'hover:bg-slate-800'}`}
+                              >
+                                <span className={`text-[11px] font-black uppercase tracking-tight ${isActive ? 'text-emerald-400' : 'text-slate-300'}`}>{location}</span>
+                                {isActive && <Check size={14} className="text-emerald-500" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                </div>
+
+                {/* Divider */}
+                <div className="w-full h-px xl:w-px xl:h-8 bg-slate-800 my-1 xl:my-0 mx-0 xl:mx-1" />
+
                 {/* Search */}
                 <div className="flex-1 w-full flex items-center gap-3 px-4 h-[52px]">
                     <Search size={18} className="text-slate-500" />
@@ -369,7 +580,7 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
                     )}
                     <div className="w-px h-6 bg-slate-800 mx-1" />
                     <div className="flex items-center gap-1">
-                        <button onClick={onOpenPriceChecker} className="p-2 rounded-lg text-slate-500 hover:bg-slate-900 hover:text-emerald-400 transition-all"><span className="font-black text-lg leading-none">£</span></button>
+                        <button onClick={onOpenPriceChecker} className="p-2 rounded-lg text-[#FFD700] hover:bg-slate-900 hover:text-[#FFC700] transition-all"><span className="font-black text-lg leading-none">£</span></button>
                         <button onClick={() => logic.setIsVisionScanning(true)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-900 hover:text-emerald-400 transition-all"><ScanLine size={18} /></button>
                     </div>
                 </div>
@@ -387,26 +598,48 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
         {logic.subFilter === 'alerts' || logic.subFilter === 'labels' ? (
           <PricingDeskView branchData={branchData} setBranchData={setBranchData} theme={theme} currentBranch={currentBranch} subFilter={logic.subFilter as InventorySubFilter} onTabChange={(tab) => logic.setSubFilter(tab)} />
         ) : (
-          <InventoryTable 
-            items={sortedItems}
-            sortConfig={logic.sortConfig}
-            onSort={(k: string) => logic.setSortConfig({ key: k, direction: logic.sortConfig.direction === 'asc' ? 'desc' : 'asc' })}
-            selectedIds={selectedIds}
-            onToggleSelection={(id) => toggleSelection(id)}
-            onToggleAll={toggleAll}
-            isAllSelected={isAllSelected}
-            manualRestockQtys={manualRestockQtys}
-            onManualQtyChange={updateManualQty}
-            onPreviewImage={(src, title) => setPreviewImage({ src, title })}
-            noteLogic={noteLogic}
-            logic={logic}
-            pricingLogic={pricingLogic}
-            tagSettings={tagSettings}
-            onOpenEdit={openProductEdit}
-            onOpenTransfer={openTransferForm}
-            onOpenHistory={openHistoryView}
-            columns={columns}
-          />
+          <div className="space-y-6">
+            {logic.subFilter === 'ordered' && (
+              <div className="flex justify-center">
+                <div className="p-1 rounded-2xl border bg-slate-950 border-slate-800 flex shadow-inner">
+                  <button 
+                    onClick={() => logic.setOrderTab('active')} 
+                    className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${logic.orderTab === 'active' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40' : 'text-slate-500 hover:text-slate-400'}`}
+                  >
+                    <ShoppingBag size={14} /> Active Order
+                  </button>
+                  <button 
+                    onClick={() => logic.setOrderTab('backorder')} 
+                    className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${logic.orderTab === 'backorder' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/40' : 'text-slate-500 hover:text-slate-400'}`}
+                  >
+                    <Clock size={14} /> Backorder
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            <InventoryTable 
+              items={sortedItems}
+              sortConfig={effectiveSortConfig}
+              onSort={(k: string, multi: boolean) => logic.handleSort(k, multi)}
+              selectedIds={selectedIds}
+              onToggleSelection={(id) => toggleSelection(id)}
+              onToggleAll={toggleAll}
+              isAllSelected={isAllSelected}
+              manualRestockQtys={manualRestockQtys}
+              onManualQtyChange={updateManualQty}
+              onPreviewImage={(src, title) => setPreviewImage({ src, title })}
+              noteLogic={noteLogic}
+              logic={logic}
+              pricingLogic={pricingLogic}
+              tagSettings={tagSettings}
+              onOpenEdit={openProductEdit}
+              onOpenTransfer={openTransferForm}
+              onOpenHistory={openHistoryView}
+              columns={columns}
+              isSortingDisabled={logic.subFilter === 'recently-added'}
+            />
+          </div>
         )}
       </div>
     );

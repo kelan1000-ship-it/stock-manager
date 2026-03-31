@@ -3,8 +3,9 @@ import { ProductThumbnail, ProductPreviewModal } from './ImageComponents';
 import { LiveVisionScanner } from './BarcodeScanner';
 import { BulkAddView } from './BulkAddView';
 import { TransferInbox } from './OrderManagementComponents';
-import { ManageDataDropdown } from './DataExchangeModals';
+import { ManageDataDropdown, MissingAttributesModal } from './DataExchangeModals';
 import { ChatWindow } from './MessageCenter';
+import { TaskManager } from './TaskManager';
 import { ProductFormPanel } from './ProductFormPanel';
 import { RequestFormPanel } from './RequestFormPanel';
 import { 
@@ -23,7 +24,9 @@ export {
   RequestFormPanel, 
   TransferInbox, 
   ManageDataDropdown, 
+  MissingAttributesModal,
   ChatWindow, 
+  TaskManager,
   ProductFormPanel,
   Tooltip,
   TooltipIconButton,

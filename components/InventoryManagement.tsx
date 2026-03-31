@@ -48,8 +48,10 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({
     });
   };
 
+  const MANDATORY_COLUMNS = new Set(['Product Name', 'Subheader', 'Product Group', 'Barcode', 'PIP', 'Pack Size']);
+
   const toggleColumn = (col: string) => {
-    if (col === 'Product Name' || col === 'Product Group') return; // Name and Product Group are mandatory
+    if (MANDATORY_COLUMNS.has(col)) return; // These fields are mandatory
     setSelectedColumns(prev => {
       const next = new Set(prev);
       if (next.has(col)) next.delete(col);
@@ -59,7 +61,7 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({
   };
 
   const selectAllColumns = () => setSelectedColumns(new Set(DEFAULT_HEADERS));
-  const clearAllColumns = () => setSelectedColumns(new Set(['Product Name', 'Product Group'])); // Keep mandatory selected
+  const clearAllColumns = () => setSelectedColumns(new Set(MANDATORY_COLUMNS)); // Keep mandatory selected
 
   const handleActionWithColumns = () => {
     const columns = Array.from(selectedColumns);
@@ -156,7 +158,7 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                      {DEFAULT_HEADERS.map(col => {
                         const isSelected = selectedColumns.has(col);
-                        const isMandatory = col === 'Product Name' || col === 'Product Group';
+                        const isMandatory = MANDATORY_COLUMNS.has(col);
                         
                         return (
                           <button 
@@ -340,7 +342,7 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({
                               ? 'bg-emerald-600/20 text-emerald-500 border-emerald-500/30 hover:bg-emerald-600/40' 
                               : 'bg-rose-500/20 text-rose-500 border-rose-500/30 hover:bg-rose-500/40'
                           }`}
-                          title={isIgnored ? "Include Update" : "Ignore Update"}
+                          data-tooltip={isIgnored ? "Include Update" : "Ignore Update"}
                         >
                           {!isIgnored ? <Check size={18} strokeWidth={3} /> : <X size={18} strokeWidth={3} />}
                         </button>

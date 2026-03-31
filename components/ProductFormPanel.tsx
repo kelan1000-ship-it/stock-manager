@@ -9,6 +9,7 @@ import { ProductPricing } from './ProductPricing';
 import { ProductStock } from './ProductStock';
 import { ProductMetadata } from './ProductMetadata';
 import { ProductPhotoCapture } from './ProductImageUploader';
+import { ProductThumbnail } from './ImageComponents';
 import { SafeImage } from './SafeImage';
 import { useProductForm } from '../hooks/useProductForm';
 import { ProductFormData, MasterProduct, Product } from '../types';
@@ -127,9 +128,9 @@ export const ProductFormPanel = ({
                             <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-emerald-500 group-hover:scale-105 transition-transform"><ScanLine size={20} /></div>
                             <div className="text-left"><span className="block text-[10px] font-black text-white uppercase tracking-wider">Barcode</span><span className="text-[8px] font-bold text-slate-500">Camera</span></div>
                         </button>
-                        <div className={`group relative min-h-[66px] rounded-2xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 transition-all shadow-sm hover:shadow-indigo-900/20 overflow-hidden cursor-pointer ${isAILoading ? 'processing-pulsar' : ''}`}>
+                        <div className={`group relative min-h-[66px] rounded-2xl transition-all shadow-sm overflow-hidden cursor-pointer ${isAILoading ? 'ai-pulse-light' : 'bg-white/5 backdrop-blur-xl border border-white/10 animate-ai-glow hover:bg-white/15 hover:border-white/20'}`}>
                             <div className={`absolute inset-0 flex items-center gap-2 p-3 transition-all duration-300 ease-out ${isAILoading ? '' : 'group-hover:opacity-0 group-hover:-translate-y-4 pointer-events-none'}`}>
-                                <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-indigo-400 shadow-inner group-hover:scale-110 transition-transform">{isAILoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}</div>
+                                <div className={`w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-indigo-400 shadow-inner group-hover:scale-110 transition-transform ${isAILoading ? 'border-indigo-500/50' : ''}`}>{isAILoading ? <Loader2 size={20} className="animate-spin text-white" /> : <Sparkles size={20} />}</div>
                                 <div className="text-left"><span className="block text-[10px] font-black text-white uppercase tracking-wider">{isAILoading ? 'Processing' : 'AI Scan'}</span><span className="text-[8px] font-bold text-slate-500">Detect</span></div>
                             </div>
                             {!isAILoading && (
@@ -159,8 +160,10 @@ export const ProductFormPanel = ({
                       <div className="max-h-[400px] overflow-y-auto scrollbar-hide">
                         {suggestions.map((p: MasterProduct) => (
                           <button key={p.id} onClick={() => handleSelectMasterProduct(p)} className="w-full p-5 flex items-center gap-5 hover:bg-indigo-600/10 transition-all text-left border-b border-slate-800/50 last:border-0 group">
-                            <div className="w-14 h-14 rounded-2xl bg-white overflow-hidden shrink-0 border border-slate-800 shadow-sm p-1"><SafeImage src={p.image} alt="" className="w-full h-full object-contain p-1" /></div>
-                            <div className="flex-1 min-w-0"><p className="text-sm font-black text-white group-hover:text-indigo-300 transition-colors uppercase truncate">{p.name}</p><div className="flex items-center gap-3 mt-1"><span className="text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-950 px-2 py-0.5 rounded border border-slate-800">{p.packSize || 'N/A'}</span><span className="text-[9px] font-mono font-bold text-slate-500">{p.barcode || p.productCode}</span></div></div>
+                            <div className="w-14 h-14 rounded-2xl bg-white overflow-hidden shrink-0 border border-slate-800 shadow-sm p-1">
+                                <ProductThumbnail src={p.image} alt={p.name} stockType="retail" />
+                            </div>
+                            <div className="flex-1 min-w-0"><p className="text-sm font-black text-white group-hover:text-indigo-300 transition-colors uppercase truncate">{p.name}</p><div className="flex items-center gap-3 mt-1"><span className="text-[9px] italic text-slate-500 uppercase tracking-widest bg-slate-950 px-2 py-0.5 rounded border border-slate-800">{p.packSize || 'N/A'}</span><span className="text-[9px] font-mono font-bold text-slate-500">{p.barcode || p.productCode}</span></div></div>
                           </button>
                         ))}
                       </div>

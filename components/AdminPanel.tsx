@@ -10,9 +10,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   X, UserPlus, Shield, ShieldCheck, Store, Trash2,
-  Loader2, Check, AlertCircle, ChevronDown, Users
+  Loader2, Check, AlertCircle, ChevronDown, Users, Settings
 } from 'lucide-react';
 import { AppUser, BranchId, BRANCH_DISPLAY_NAMES, UserRole } from '../types/auth';
+import { BranchKey, EposConfig } from '../types';
 import {
   subscribeToAllUsers,
   createBranchUser,
@@ -20,7 +21,9 @@ import {
   updateUserRole,
   removeUser,
 } from '../services/authService';
+import { subscribeToEposConfig, saveEposConfig } from '../services/firestoreService';
 import { useAuth } from '../contexts/AuthContext';
+import { logPermissionChange } from '../services/auditService';
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -37,6 +40,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Section Toggles
+  const [isEposSettingsOpen, setIsEposSettingsOpen] = useState(false);
+  const [isAllUsersOpen, setIsAllUsersOpen] = useState(true);
+
+  // EPOS Configs
+  const [bywoodEposConfig, setBywoodEposConfig] = useState<EposConfig | null>(null);
+  const [broomEposConfig, setBroomEposConfig] = useState<EposConfig | null>(null);
+
   // New user form
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -48,7 +59,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (!isOpen) return;
     const unsub = subscribeToAllUsers(setUsers);
-    return unsub;
+    
+    const unsubBywood = subscribeToEposConfig('bywood', setBywoodEposConfig);
+    const unsubBroom = subscribeToEposConfig('broom', setBroomEposConfig);
+
+    return () => {
+      unsub();
+      unsubBywood();
+      unsubBroom();
+    };
   }, [isOpen]);
 
   // Clear messages after timeout
@@ -63,10 +82,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
     setNewEmail('');
     setNewPassword('');
     setNewDisplayName('');
-    setNewRole('branch');
+    setNewRole('viewer');
     setNewBranches([]);
     setIsCreating(false);
     setError(null);
+  };
+
+  const handleUpdateEposConfig = async (branch: BranchKey, percent: number) => {
+    setActionLoading(`epos-${branch}`);
+    try {
+      await saveEposConfig(branch, {
+        id: 'default',
+        branch,
+        staffDiscountPercent: percent
+      });
+      setSuccess(`Updated EPOS config for ${BRANCH_DISPLAY_NAMES[branch]}`);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleCreateUser = useCallback(async () => {
@@ -78,7 +113,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
       setError('Password must be at least 6 characters.');
       return;
     }
-    if (newRole === 'branch' && newBranches.length === 0) {
+    if (newRole !== 'admin' && newBranches.length === 0) {
       setError('Branch users must be assigned at least one branch.');
       return;
     }
@@ -142,26 +177,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
     );
   };
 
-  const handleToggleRole = (uid: string, currentRole: UserRole) => {
-    const newRoleVal: UserRole = currentRole === 'admin' ? 'branch' : 'admin';
-    const confirmMsg = currentRole === 'admin'
-      ? 'Demote this user from admin to branch user?'
-      : 'Promote this user to admin? They will have access to all branches.';
+  const handleChangeRole = async (uid: string, currentRole: UserRole, newRoleVal: UserRole, userEmail: string) => {
+    if (currentRole === newRoleVal) return;
     
-    if (!confirm(confirmMsg)) return;
+    if (!confirm(`Change role from ${currentRole} to ${newRoleVal}?`)) return;
 
     setActionLoading(`role-${uid}`);
-    const updates: Promise<void>[] = [updateUserRole(uid, newRoleVal)];
     
-    // If promoting to admin, give them all branches
-    if (newRoleVal === 'admin') {
-      updates.push(updateUserBranches(uid, ALL_BRANCHES));
-    }
+    try {
+        await updateUserRole(uid, newRoleVal);
+        
+        // If promoting to admin, give them all branches
+        if (newRoleVal === 'admin') {
+           await updateUserBranches(uid, ALL_BRANCHES);
+        }
 
-    Promise.all(updates)
-      .then(() => setSuccess(`Role updated to ${newRoleVal}.`))
-      .catch((e) => setError(e.message))
-      .finally(() => setActionLoading(null));
+        if (currentAdmin?.email) {
+            await logPermissionChange(currentAdmin.email, userEmail, currentRole, newRoleVal);
+        }
+
+        setSuccess(`Role updated to ${newRoleVal}.`);
+    } catch (e: any) {
+        setError(e.message);
+    } finally {
+        setActionLoading(null);
+    }
   };
 
   const handleRemoveUser = (uid: string, name: string) => {
@@ -260,12 +300,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
               {/* Role Select */}
               <div>
                 <label className="block text-[8px] font-black uppercase tracking-widest text-slate-500 mb-2">Role</label>
-                <div className="flex gap-2">
-                  {(['branch', 'admin'] as UserRole[]).map(role => (
+                <div className="grid grid-cols-2 gap-2">
+                  {(['viewer', 'editor', 'manager', 'admin'] as UserRole[]).map(role => (
                     <button
                       key={role}
                       onClick={() => setNewRole(role)}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
+                      className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
                         newRole === role
                           ? role === 'admin'
                             ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
@@ -281,7 +321,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
               </div>
 
               {/* Branch Assignment (only for branch role) */}
-              {newRole === 'branch' && (
+              {newRole !== 'admin' && (
                 <div>
                   <label className="block text-[8px] font-black uppercase tracking-widest text-slate-500 mb-2">Assign Branches</label>
                   <div className="flex gap-2">
@@ -319,107 +359,177 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {/* ─── Existing Users ───────────────────────────────── */}
-          <div>
-            <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-3">
-              All Users ({users.length})
-            </h3>
-            <div className="space-y-3">
-              {users.map(user => (
-                <div
-                  key={user.uid}
-                  className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3"
-                >
-                  {/* User header */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className={`p-1.5 rounded-lg ${
-                        user.role === 'admin'
-                          ? 'bg-amber-500/10 border border-amber-500/20'
-                          : 'bg-slate-800 border border-slate-700'
-                      }`}>
-                        {user.role === 'admin'
-                          ? <ShieldCheck size={14} className="text-amber-400" />
-                          : <Store size={14} className="text-slate-400" />
-                        }
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-white">{user.displayName}</p>
-                        <p className="text-[9px] font-medium text-slate-500">{user.email}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      {/* Role toggle */}
-                      {user.uid !== currentAdmin?.uid && (
-                        <button
-                          onClick={() => handleToggleRole(user.uid, user.role)}
-                          disabled={!!actionLoading}
-                          title={user.role === 'admin' ? 'Demote to branch user' : 'Promote to admin'}
-                          className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-amber-400 transition-colors disabled:opacity-30"
-                        >
-                          {actionLoading === `role-${user.uid}`
-                            ? <Loader2 size={12} className="animate-spin" />
-                            : <Shield size={12} />
-                          }
-                        </button>
-                      )}
-                      {/* Remove */}
-                      {user.uid !== currentAdmin?.uid && (
-                        <button
-                          onClick={() => handleRemoveUser(user.uid, user.displayName)}
-                          disabled={!!actionLoading}
-                          className="p-1.5 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-colors disabled:opacity-30"
-                        >
-                          {actionLoading === `remove-${user.uid}`
-                            ? <Loader2 size={12} className="animate-spin" />
-                            : <Trash2 size={12} />
-                          }
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Branch pills */}
-                  <div>
-                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-1.5">Branches</p>
-                    <div className="flex gap-2">
-                      {ALL_BRANCHES.map(branch => {
-                        const isAssigned = user.assignedBranches.includes(branch);
-                        const isAdminUser = user.role === 'admin';
-                        return (
-                          <button
-                            key={branch}
-                            onClick={() => {
-                              if (isAdminUser) return; // Admins always have all branches
-                              toggleBranch(user.uid, branch, user.assignedBranches);
-                            }}
-                            disabled={isAdminUser || !!actionLoading}
-                            className={`flex-1 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-all ${
-                              isAssigned
-                                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-                                : 'bg-slate-900/50 border-slate-700/30 text-slate-600 hover:border-slate-600'
-                            } ${isAdminUser ? 'cursor-default opacity-60' : ''}`}
-                          >
-                            {BRANCH_DISPLAY_NAMES[branch]}
-                            {isAssigned && <Check size={10} className="inline ml-1" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {user.role === 'admin' && (
-                      <p className="text-[8px] text-amber-400/50 font-medium mt-1">Admins have access to all branches</p>
-                    )}
-                  </div>
-
-                  {/* Meta */}
-                  <div className="flex gap-4 text-[8px] font-medium text-slate-600">
-                    <span>Joined: {new Date(user.createdAt).toLocaleDateString()}</span>
-                    <span>Last login: {new Date(user.lastLogin).toLocaleDateString()}</span>
-                  </div>
+          {/* ─── EPOS Settings ────────────────────────────────── */}
+          <div className="rounded-2xl bg-slate-950 border border-slate-800 overflow-hidden transition-all duration-300">
+            <button
+              onClick={() => setIsEposSettingsOpen(!isEposSettingsOpen)}
+              className="w-full flex items-center justify-between p-5 hover:bg-slate-900/50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <Settings size={14} className="text-blue-400" />
                 </div>
-              ))}
-            </div>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-400">EPOS Settings</h3>
+              </div>
+              <ChevronDown size={16} className={`text-slate-500 transition-transform duration-300 ${isEposSettingsOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isEposSettingsOpen && (
+              <div className="px-5 pb-5 pt-0 grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                {(['bywood', 'broom'] as BranchKey[]).map(branch => {
+                  const config = branch === 'bywood' ? bywoodEposConfig : broomEposConfig;
+                  return (
+                    <div key={branch} className="space-y-2">
+                      <label className="block text-[8px] font-black uppercase tracking-widest text-slate-500">
+                        {BRANCH_DISPLAY_NAMES[branch]} Staff Discount (%)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          defaultValue={config?.staffDiscountPercent || 0}
+                          onBlur={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            if (val !== (config?.staffDiscountPercent || 0)) {
+                              handleUpdateEposConfig(branch, val);
+                            }
+                          }}
+                          className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700/60 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                        />
+                        {actionLoading === `epos-${branch}` && (
+                          <Loader2 size={14} className="animate-spin text-blue-500 shrink-0" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ─── Existing Users ───────────────────────────────── */}
+          <div className="rounded-2xl bg-slate-950 border border-slate-800 overflow-hidden transition-all duration-300">
+            <button
+              onClick={() => setIsAllUsersOpen(!isAllUsersOpen)}
+              className="w-full flex items-center justify-between p-5 hover:bg-slate-900/50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <Users size={14} className="text-emerald-400" />
+                </div>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                  All Users ({users.length})
+                </h3>
+              </div>
+              <ChevronDown size={16} className={`text-slate-500 transition-transform duration-300 ${isAllUsersOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isAllUsersOpen && (
+              <div className="px-5 pb-5 pt-0 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                {users.map(user => (
+                  <div
+                    key={user.uid}
+                    className="p-4 rounded-xl bg-slate-900/50 border border-slate-800 space-y-3"
+                  >
+                    {/* User header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`p-1.5 rounded-lg ${
+                          user.role === 'admin'
+                            ? 'bg-amber-500/10 border border-amber-500/20'
+                            : 'bg-slate-800 border border-slate-700'
+                        }`}>
+                          {user.role === 'admin'
+                            ? <ShieldCheck size={14} className="text-amber-400" />
+                            : <Store size={14} className="text-slate-400" />
+                          }
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-white">{user.displayName}</p>
+                          <p className="text-[9px] font-medium text-slate-500">{user.email}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        {/* Role Selector */}
+                        {user.uid !== currentAdmin?.uid && (
+                          <div className="relative">
+                              {actionLoading === `role-${user.uid}` ? (
+                                  <div className="p-1.5"><Loader2 size={12} className="animate-spin text-emerald-500" /></div>
+                              ) : (
+                                  <select
+                                      value={user.role}
+                                      onChange={(e) => handleChangeRole(user.uid, user.role, e.target.value as UserRole, user.email)}
+                                      className="appearance-none bg-slate-900 border border-slate-700 text-[9px] font-bold uppercase tracking-wider text-slate-400 rounded-lg py-1 px-2 pr-6 hover:border-slate-600 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                                  >
+                                      <option value="viewer">Viewer</option>
+                                      <option value="editor">Editor</option>
+                                      <option value="manager">Manager</option>
+                                      <option value="admin">Admin</option>
+                                      {user.role === 'branch' && <option value="branch">Branch (Legacy)</option>}
+                                  </select>
+                              )}
+                              {!actionLoading && <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />}
+                          </div>
+                        )}
+                        {/* Remove */}
+                        {user.uid !== currentAdmin?.uid && (
+                          <button
+                            onClick={() => handleRemoveUser(user.uid, user.displayName)}
+                            disabled={!!actionLoading}
+                            className="p-1.5 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-colors disabled:opacity-30"
+                          >
+                            {actionLoading === `remove-${user.uid}`
+                              ? <Loader2 size={12} className="animate-spin" />
+                              : <Trash2 size={12} />
+                            }
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Branch pills */}
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-1.5">Branches</p>
+                      <div className="flex gap-2">
+                        {ALL_BRANCHES.map(branch => {
+                          const isAssigned = user.assignedBranches.includes(branch);
+                          const isAdminUser = user.role === 'admin';
+                          return (
+                            <button
+                              key={branch}
+                              onClick={() => {
+                                if (isAdminUser) return; // Admins always have all branches
+                                toggleBranch(user.uid, branch, user.assignedBranches);
+                              }}
+                              disabled={isAdminUser || !!actionLoading}
+                              className={`flex-1 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-all ${
+                                isAssigned
+                                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                                  : 'bg-slate-900/50 border-slate-700/30 text-slate-600 hover:border-slate-600'
+                              } ${isAdminUser ? 'cursor-default opacity-60' : ''}`}
+                            >
+                              {BRANCH_DISPLAY_NAMES[branch]}
+                              {isAssigned && <Check size={10} className="inline ml-1" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {user.role === 'admin' && (
+                        <p className="text-[8px] text-amber-400/50 font-medium mt-1">Admins have access to all branches</p>
+                      )}
+                    </div>
+
+                    {/* Meta */}
+                    <div className="flex gap-4 text-[8px] font-medium text-slate-600">
+                      <span>Joined: {new Date(user.createdAt).toLocaleDateString()}</span>
+                      <span>Last login: {new Date(user.lastLogin).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

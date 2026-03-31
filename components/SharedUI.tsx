@@ -34,6 +34,20 @@ export const Tooltip: React.FC<React.PropsWithChildren<{ x: number; y: number; i
   );
 };
 
+export const TooltipWrapper = ({ children, tooltip, className = "" }: { children: React.ReactNode, tooltip: string, className?: string }) => {
+  const { isVisible, coords, tooltipHandlers } = useTooltip(300);
+  return (
+    <>
+      <div {...tooltipHandlers} className={`inline-block ${className}`}>
+        {children}
+      </div>
+      <Tooltip x={coords.x} y={coords.y} isVisible={isVisible}>
+        {tooltip}
+      </Tooltip>
+    </>
+  );
+};
+
 export const TooltipIconButton = ({ 
   onClick, 
   icon: Icon, 
@@ -65,19 +79,32 @@ export const TooltipIconButton = ({
   );
 };
 
-export const SortHeader = ({ label, sortKey, config, onSort, align = "left" }: { label: string; sortKey: string; config: { key: string | null; direction: 'asc' | 'desc' }; onSort: (key: string) => void; align?: 'left' | 'center' | 'right' }) => {
-  const isActive = config.key === sortKey;
+export const SortHeader = ({ label, sortKey, config, onSort, align = "left", disabled = false }: { label: string; sortKey: string; config: { key: string; direction: 'asc' | 'desc' }[]; onSort: (key: string, multi: boolean) => void; align?: 'left' | 'center' | 'right'; disabled?: boolean }) => {
+  const sortIndex = config.findIndex(c => c.key === sortKey);
+  const isActive = sortIndex !== -1;
+  const direction = isActive ? config[sortIndex].direction : null;
+
   return (
-    <th 
-      className={`p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left'}`}
-      onClick={() => onSort(sortKey)}
+    <th
+      className={`p-4 transition-colors select-none ${!disabled ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800' : 'cursor-default'} ${align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left'}`}
+      onClick={(e) => !disabled && onSort(sortKey, e.shiftKey)}
+      data-tooltip={!disabled ? "Click to sort · Shift+click for multi-column sort" : undefined}
     >
       <div className={`flex items-center gap-1.5 ${align === 'center' ? 'justify-center' : align === 'right' ? 'justify-end' : 'justify-start'}`}>
-        <span className="font-black text-[10px] uppercase text-slate-500 tracking-wider">{label}</span>
-        <div className="flex flex-col -space-y-1 opacity-60">
-          <ChevronUp size={10} className={`transition-colors ${isActive && config.direction === 'asc' ? 'text-emerald-500 opacity-100' : 'text-slate-400 dark:text-slate-600'}`} />
-          <ChevronDown size={10} className={`transition-colors ${isActive && config.direction === 'desc' ? 'text-emerald-500 opacity-100' : 'text-slate-400 dark:text-slate-600'}`} />
+        <div className="flex items-center gap-1.5">
+          <span className="font-black text-[10px] uppercase text-slate-500 tracking-wider">{label}</span>
+          {isActive && !disabled && (
+            <span className="w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 leading-none">
+              {sortIndex + 1}
+            </span>
+          )}
         </div>
+        {!disabled && (
+          <div className="flex flex-col -space-y-1 opacity-60">
+            <ChevronUp size={10} className={`transition-colors ${isActive && direction === 'asc' ? 'text-emerald-500 opacity-100' : 'text-slate-400 dark:text-slate-600'}`} />
+            <ChevronDown size={10} className={`transition-colors ${isActive && direction === 'desc' ? 'text-emerald-500 opacity-100' : 'text-slate-400 dark:text-slate-600'}`} />
+          </div>
+        )}
       </div>
     </th>
   );
@@ -92,7 +119,7 @@ export const StatCard = ({ label, value, subValue, icon, color, theme, customBg 
     indigo: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20'
   };
   return (
-    <div className={`p-6 rounded-[2.5rem] border shadow-sm transition-all hover:scale-[1.02] ${customBg || (theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100')}`}>
+    <div className={`p-6 rounded-[2.5rem] border shadow-sm transition-all hover:scale-[1.02] ${customBg || (theme === 'dark' ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-100')}`}>
       <div className="flex items-center gap-4">
         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${colors[color] || colors.emerald}`}>{icon}</div>
         <div>
@@ -123,11 +150,11 @@ export const CopyableText = ({ text, label, icon }: { text: string, label?: stri
       <button 
         onClick={handleCopy}
         {...tooltipHandlers}
-        className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800/50 hover:bg-slate-700 transition-all border border-slate-700/50 group w-fit relative"
+        className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800/50 hover:bg-slate-700 transition-all border border-slate-700/50 group w-fit relative"
       >
         <span className="text-slate-500 group-hover:text-emerald-500 transition-colors">{icon}</span>
-        {label && <span className="text-[8px] font-black uppercase text-slate-600 group-hover:text-slate-400">{label}:</span>}
-        <span className="text-[9px] font-mono font-bold text-slate-400 group-hover:text-slate-200">{text}</span>
+        {label && <span className="text-[10px] font-black uppercase text-slate-600 group-hover:text-slate-400">{label}:</span>}
+        <span className="text-[11px] font-mono font-bold text-slate-400 group-hover:text-slate-200">{text}</span>
         {copied && <Check size={8} className="text-emerald-500 ml-0.5" />}
       </button>
       <Tooltip x={coords.x} y={coords.y} isVisible={isVisible}>

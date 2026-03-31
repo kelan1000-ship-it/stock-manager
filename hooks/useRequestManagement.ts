@@ -59,10 +59,19 @@ export function useRequestManagement(
     }));
   }, [currentBranch, setBranchData]);
 
+  const updateRequestItem = useCallback((id: string, updates: Partial<CustomerRequest>) => {
+    const key = currentBranch === 'bywood' ? 'bywoodRequests' : 'broomRequests';
+    setBranchData(prev => ({
+        ...prev,
+        [key]: prev[key].map(r => r.id === id ? { ...r, ...updates } : r)
+    }));
+  }, [currentBranch, setBranchData]);
+
   return {
     resetRequestForm,
     handleSaveRequest,
     handleDeleteRequest,
-    handleRestoreRequest
+    handleRestoreRequest,
+    updateRequestItem
   };
 }

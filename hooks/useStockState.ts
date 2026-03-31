@@ -1,6 +1,6 @@
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { BranchData, BranchKey, Product, ProductFormData, RequestFormData, BulkItem, CustomerRequest, OrderItem } from '../types';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { BranchData, BranchKey, Product, ProductFormData, RequestFormData, BulkItem, CustomerRequest, OrderItem, SharedOrderDraft, Supplier, PlanogramLayout, ShopFloor } from '../types';
 
 export type SyncStatus = 'connected' | 'reconnecting' | 'offline' | 'error';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,9 +11,12 @@ import {
   subscribeToRequests,
   subscribeToOrders,
   subscribeToJointOrders,
+  subscribeToSharedOrderDrafts,
   subscribeToMasterInventory,
   subscribeToPlanograms,
   subscribeToFloorPlans,
+  subscribeToSuppliers,
+  subscribeToTasks,
   saveProduct,
   deleteProductFromDb,
   saveMessage,
@@ -22,21 +25,30 @@ import {
   deleteRequestFromDb,
   saveOrder,
   saveJointOrder,
+  saveSharedOrderDraft,
+  deleteSharedOrderDraft,
   saveMasterProduct,
   deleteMasterProductFromDb,
   savePlanogram,
   deletePlanogramFromDb,
   saveFloorPlan,
+  saveSupplier,
+  deleteSupplierFromDb,
+  saveTask,
+  deleteTaskFromDb,
 } from '../services/firestoreService';
 
 // Initial state constants
 export const initialFormData = {
-  name: '', barcode: '', productCode: '', packSize: '', price: '', costPrice: '',
-  stockToKeep: '', stockInHand: '', partPacks: '', supplier: '', location: '', parentGroup: '',
+  name: '', subheader: '', barcode: '', productCode: '', packSize: '', price: '', costPrice: '',
+  stockToKeep: '', looseStockToKeep: '0', stockInHand: '', partPacks: '', supplier: '', location: '', parentGroup: '',
   productImage: '', sourceUrls: [], notes: '', expiryDate: '',
   isDiscontinued: false, isUnavailable: false, isReducedToClear: false,
   isShared: false, isPriceSynced: false, enableThresholdAlert: false,
-  stockType: 'retail' as 'retail' | 'dispensary', tags: []
+  thresholdType: 'percentage' as 'percentage' | 'quantity', thresholdValue: 25,
+  looseUnitPrice: '',
+  stockType: 'retail' as 'retail' | 'dispensary', tags: [],
+  isExcessStock: false, keywords: '', noVat: false
 };
 
 export const initialRequestFormData = {
@@ -67,10 +79,19 @@ let onWriteFailure: ((count: number) => void) | null = null;
 function syncToFirestore(prev: BranchData, next: BranchData) {
   const promises: Promise<void>[] = [];
 
+  // Tasks
+  if (prev.tasks !== next.tasks) {
+    const { upserted, removedIds } = diffById(prev.tasks || [], next.tasks || []);
+    if (upserted.length > 0) console.log(`[Firestore] Syncing ${upserted.length} tasks`);
+    upserted.forEach(t => promises.push(saveTask(t)));
+    removedIds.forEach(id => promises.push(deleteTaskFromDb(id)));
+  }
+
   // Products
   for (const branch of ['bywood', 'broom'] as BranchKey[]) {
     if (prev[branch] !== next[branch]) {
       const { upserted, removedIds } = diffById(prev[branch], next[branch]);
+      if (upserted.length > 0) console.log(`[Firestore] Syncing ${upserted.length} products for ${branch}`);
       upserted.forEach(p => promises.push(saveProduct(branch, p)));
       removedIds.forEach(id => promises.push(deleteProductFromDb(branch, id)));
     }
@@ -78,11 +99,13 @@ function syncToFirestore(prev: BranchData, next: BranchData) {
   // Messages
   if (prev.messages !== next.messages) {
     const { upserted } = diffById(prev.messages, next.messages);
+    if (upserted.length > 0) console.log(`[Firestore] Syncing ${upserted.length} messages`);
     upserted.forEach(m => promises.push(saveMessage(m)));
   }
   // Transfers
   if (prev.transfers !== next.transfers) {
     const { upserted } = diffById(prev.transfers, next.transfers);
+    if (upserted.length > 0) console.log(`[Firestore] Syncing ${upserted.length} transfers`);
     upserted.forEach(t => promises.push(saveTransfer(t)));
   }
   // Requests
@@ -91,6 +114,7 @@ function syncToFirestore(prev: BranchData, next: BranchData) {
     const nextList = (next[key] || []) as CustomerRequest[];
     if (prevList !== nextList) {
       const { upserted, removedIds } = diffById(prevList, nextList);
+      if (upserted.length > 0) console.log(`[Firestore] Syncing ${upserted.length} requests for ${branch}`);
       upserted.forEach(r => promises.push(saveRequest(branch, r)));
       removedIds.forEach(id => promises.push(deleteRequestFromDb(branch, id)));
     }
@@ -101,30 +125,53 @@ function syncToFirestore(prev: BranchData, next: BranchData) {
     const nextList = (next[key] || []) as OrderItem[];
     if (prevList !== nextList) {
       const { upserted } = diffById(prevList, nextList);
+      if (upserted.length > 0) console.log(`[Firestore] Syncing ${upserted.length} orders for ${branch}`);
       upserted.forEach(o => promises.push(saveOrder(branch, o)));
     }
   }
   // Joint Orders
   if (prev.jointOrders !== next.jointOrders) {
     const { upserted } = diffById(prev.jointOrders || [], next.jointOrders || []);
+    if (upserted.length > 0) console.log(`[Firestore] Syncing ${upserted.length} joint orders`);
     upserted.forEach(o => promises.push(saveJointOrder(o)));
+  }
+  // Shared Order Drafts
+  if (prev.sharedOrderDrafts !== next.sharedOrderDrafts) {
+    const { upserted, removedIds } = diffById(prev.sharedOrderDrafts || [], next.sharedOrderDrafts || []);
+    if (upserted.length > 0) console.log(`[Firestore] Syncing ${upserted.length} order drafts`);
+    upserted.forEach(d => promises.push(saveSharedOrderDraft(d)));
+    removedIds.forEach(id => promises.push(deleteSharedOrderDraft(id)));
   }
   // Master Inventory
   if (prev.masterInventory !== next.masterInventory) {
     const { upserted, removedIds } = diffById(prev.masterInventory || [], next.masterInventory || []);
+    if (upserted.length > 0) console.log(`[Firestore] Syncing ${upserted.length} master products`);
     upserted.forEach(p => promises.push(saveMasterProduct(p)));
     removedIds.forEach(id => promises.push(deleteMasterProductFromDb(id)));
   }
   // Planograms
-  if (prev.planograms !== next.planograms) {
-    const { upserted, removedIds } = diffById(prev.planograms || [], next.planograms || []);
-    upserted.forEach(l => promises.push(savePlanogram(l)));
-    removedIds.forEach(id => promises.push(deletePlanogramFromDb(id)));
+  for (const branch of ['bywood', 'broom'] as BranchKey[]) {
+    const key = branch === 'bywood' ? 'bywoodPlanograms' : 'broomPlanograms';
+    const prevList = (prev[key] || []) as PlanogramLayout[];
+    const nextList = (next[key] || []) as PlanogramLayout[];
+    if (prevList !== nextList) {
+      const { upserted, removedIds } = diffById(prevList, nextList);
+      if (upserted.length > 0) console.log(`[Firestore] Syncing ${upserted.length} planograms for ${branch}`);
+      upserted.forEach(l => promises.push(savePlanogram(branch, l)));
+      removedIds.forEach(id => promises.push(deletePlanogramFromDb(branch, id)));
+    }
   }
+
   // Floor Plans
-  if (prev.floorPlans !== next.floorPlans) {
-    const { upserted } = diffById(prev.floorPlans || [], next.floorPlans || []);
-    upserted.forEach(f => promises.push(saveFloorPlan(f)));
+  for (const branch of ['bywood', 'broom'] as BranchKey[]) {
+    const key = branch === 'bywood' ? 'bywoodFloorPlans' : 'broomFloorPlans';
+    const prevList = (prev[key] || []) as ShopFloor[];
+    const nextList = (next[key] || []) as ShopFloor[];
+    if (prevList !== nextList) {
+      const { upserted } = diffById(prevList, nextList);
+      if (upserted.length > 0) console.log(`[Firestore] Syncing ${upserted.length} floor plans for ${branch}`);
+      upserted.forEach(f => promises.push(saveFloorPlan(branch, f)));
+    }
   }
 
   if (promises.length > 0) {
@@ -134,6 +181,8 @@ function syncToFirestore(prev: BranchData, next: BranchData) {
         console.error(`FIRESTORE: ${failures.length}/${promises.length} writes failed:`,
           failures.map(f => (f as PromiseRejectedResult).reason));
         onWriteFailure?.(failures.length);
+      } else {
+        console.log(`[Firestore] Successfully synced ${promises.length} changes.`);
       }
     });
   }
@@ -146,7 +195,11 @@ export function useStockState() {
     bywood: [], broom: [], messages: [], transfers: [],
     bywoodRequests: [], broomRequests: [],
     bywoodOrders: [], broomOrders: [],
-    jointOrders: [], masterInventory: [], planograms: [], floorPlans: [],
+    jointOrders: [], masterInventory: [], 
+    bywoodPlanograms: undefined, broomPlanograms: undefined,
+    bywoodFloorPlans: undefined, broomFloorPlans: undefined,
+    tasks: [],
+    sharedOrderDrafts: undefined,
   });
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('connected');
@@ -267,16 +320,36 @@ export function useStockState() {
         fromFirestore(prev => ({ ...prev, jointOrders: o })),
         handleListenerError
       ),
+      subscribeToSharedOrderDrafts((d) =>
+        fromFirestore(prev => ({ ...prev, sharedOrderDrafts: d })),
+        handleListenerError
+      ),
       subscribeToMasterInventory((m) =>
         fromFirestore(prev => ({ ...prev, masterInventory: m })),
         handleListenerError
       ),
-      subscribeToPlanograms((p) =>
-        fromFirestore(prev => ({ ...prev, planograms: p })),
+      subscribeToPlanograms('bywood', (p) =>
+        fromFirestore(prev => ({ ...prev, bywoodPlanograms: p })),
         handleListenerError
       ),
-      subscribeToFloorPlans((f) =>
-        fromFirestore(prev => ({ ...prev, floorPlans: f })),
+      subscribeToPlanograms('broom', (p) =>
+        fromFirestore(prev => ({ ...prev, broomPlanograms: p })),
+        handleListenerError
+      ),
+      subscribeToFloorPlans('bywood', (f) =>
+        fromFirestore(prev => ({ ...prev, bywoodFloorPlans: f })),
+        handleListenerError
+      ),
+      subscribeToFloorPlans('broom', (f) =>
+        fromFirestore(prev => ({ ...prev, broomFloorPlans: f })),
+        handleListenerError
+      ),
+      subscribeToSuppliers((s) => 
+        fromFirestore(prev => ({ ...prev, suppliers: s })),
+        handleListenerError
+      ),
+      subscribeToTasks((t) =>
+        fromFirestore(prev => ({ ...prev, tasks: t })),
         handleListenerError
       ),
     ];
@@ -311,9 +384,11 @@ export function useStockState() {
   }, []);
 
   // ─── UI State ───────────────────────────────────────────────────
-  const [mainView, setMainView] = useState<'inventory' | 'requests' | 'performance' | 'archive' | 'bin' | 'planogram' | 'reconciliation' | 'shared-stock'>('inventory');
+  const [mainView, setMainView] = useState<'inventory' | 'requests' | 'performance' | 'archive' | 'bin' | 'planogram' | 'reconciliation' | 'shared-stock' | 'supplier-management'>('inventory');
   const [searchQuery, setSearchQuery] = useState('');
   const [subFilter, setSubFilter] = useState('all');
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [statusFilterMode, setStatusFilterMode] = useState<'show' | 'hide'>('show');
   const [stockTypeFilter, setStockTypeFilter] = useState<'all' | 'retail' | 'dispensary'>('all');
   const [isManageDataOpen, setIsManageDataOpen] = useState(false);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
@@ -321,9 +396,10 @@ export function useStockState() {
   const [isTransferInboxOpen, setIsTransferInboxOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [sortConfig, setSortConfig] = useState<{ key: string | null, direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }[]>([]);
   const [isVisionScanning, setIsVisionScanning] = useState(false);
   const [isAILoading, setIsAILoading] = useState(false);
+  const [isMissingAttributesOpen, setIsMissingAttributesOpen] = useState(false);
 
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -340,12 +416,30 @@ export function useStockState() {
 
   const [pendingDuplicate, setPendingDuplicate] = useState<Product | null>(null);
 
+  const [orderTab, setOrderTab] = useState<'active' | 'backorder'>('active');
+
+  const toggleStatusFilter = useCallback((status: string) => {
+    setSelectedStatuses(prev => 
+      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+    );
+  }, []);
+
+  const toggleStatusFilterMode = useCallback(() => {
+    setStatusFilterMode(prev => (prev === 'show' ? 'hide' : 'show'));
+  }, []);
+
+  const clearStatusFilters = useCallback(() => {
+    setSelectedStatuses([]);
+  }, []);
+
   return {
     currentBranch, setCurrentBranch,
     branchData, setBranchData,
     mainView, setMainView,
     searchQuery, setSearchQuery,
     subFilter, setSubFilter,
+    selectedStatuses, toggleStatusFilter, clearStatusFilters,
+    statusFilterMode, toggleStatusFilterMode,
     stockTypeFilter, setStockTypeFilter,
     isManageDataOpen, setIsManageDataOpen,
     isBulkOpen, setIsBulkOpen,
@@ -356,6 +450,7 @@ export function useStockState() {
     sortConfig, setSortConfig,
     isVisionScanning, setIsVisionScanning,
     isAILoading, setIsAILoading,
+    isMissingAttributesOpen, setIsMissingAttributesOpen,
 
     isAdding, setIsAdding,
     editingId, setEditingId,
@@ -371,6 +466,8 @@ export function useStockState() {
     isBulkCameraOpen, setIsBulkCameraOpen,
 
     pendingDuplicate, setPendingDuplicate,
+
+    orderTab, setOrderTab,
 
     syncStatus,
   };

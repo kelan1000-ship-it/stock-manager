@@ -2,10 +2,11 @@
 import React, { useRef, useEffect } from 'react';
 import { 
   Tag as TagIcon, Settings, Notebook, Handshake, Link2, AlertCircle, Ban, 
-  Plus, Palette, X, Zap, Check
+  Plus, Palette, X, Zap, Check, Search, Archive, Percent
 } from 'lucide-react';
 import { ProductFormData } from '../types';
 import { TagStyle } from '../hooks/useInventoryTags';
+import { toTitleCase } from '../utils/stringUtils';
 
 const TagSettingsPopover = ({ tag, settings, onUpdate, onClose }: { tag: string; settings: TagStyle; onUpdate: (tag: string, settings: Partial<TagStyle>) => void; onClose: () => void }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -135,8 +136,8 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
             type="text" 
             list="location-list" 
             value={formData.location} 
-            onChange={e => setFormData({...formData, location: e.target.value})} 
-            className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-[10px] font-black text-white focus:border-emerald-500 transition-all outline-none uppercase text-center" 
+            onChange={e => setFormData({...formData, location: toTitleCase(e.target.value)})} 
+            className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-[10px] font-black text-white focus:border-emerald-500 transition-all outline-none text-center" 
             placeholder="Shelf" 
           />
           <datalist id="location-list">{uniqueLocations?.map((l: string) => <option key={l} value={l} />)}</datalist>
@@ -189,11 +190,27 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
         </div>
 
         <div className="space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-white/5">
+            <Search size={14} className="text-indigo-500" />
+            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Search Keywords</h3>
+          </div>
+          <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 h-[calc(100%-2.5rem)]">
+            <textarea 
+                value={formData.keywords || ''} 
+                onChange={e => setFormData({...formData, keywords: e.target.value})} 
+                className="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 text-xs font-bold text-white outline-none focus:border-indigo-500 transition-all placeholder-slate-700 h-full min-h-[120px] resize-none shadow-inner" 
+                placeholder="Enter backend search keywords (e.g. brand, alternate names, ingredients)..." 
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4 pt-4">
           <div className="flex items-center gap-2 pb-1 border-b border-white/5">
             <Settings size={14} className="text-slate-500" />
             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Inventory Intelligence</h3>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             <ToggleButton 
                 label="Shared Stock" 
                 description="Visible to partner branch"
@@ -220,7 +237,9 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
             />
             <ToggleButton 
                 label="Threshold Alert" 
-                description="Notify when stock < 25%"
+                description={formData.enableThresholdAlert 
+                    ? `Alert when < ${formData.thresholdValue !== undefined ? formData.thresholdValue : 25}${formData.thresholdType === 'quantity' ? ' units' : '%'}`
+                    : "Notify on low stock"}
                 icon={AlertCircle} 
                 active={formData.enableThresholdAlert} 
                 onClick={() => setFormData({...formData, enableThresholdAlert: !formData.enableThresholdAlert})} 
@@ -234,9 +253,55 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
                 onClick={() => setFormData({...formData, isDiscontinued: !formData.isDiscontinued})} 
                 colorClass="rose" 
             />
+            <ToggleButton 
+                label="No VAT" 
+                description="Disable 20% VAT charge"
+                icon={Percent} 
+                active={formData.noVat} 
+                onClick={() => setFormData({...formData, noVat: !formData.noVat})} 
+                colorClass="violet" 
+            />
+            <ToggleButton 
+                label="Excess Stock" 
+                description="Blocks & flags as excess"
+                icon={Archive} 
+                active={formData.isExcessStock} 
+                onClick={() => setFormData({...formData, isExcessStock: !formData.isExcessStock})} 
+                colorClass="orange" 
+            />
           </div>
+          
+          {formData.enableThresholdAlert && (
+            <div className="flex gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl animate-in fade-in slide-in-from-top-2 mt-2">
+              <div className="flex-1">
+                <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1 block">Threshold Type</label>
+                <select
+                  value={formData.thresholdType || 'percentage'}
+                  onChange={e => setFormData({...formData, thresholdType: e.target.value as 'percentage' | 'quantity'})}
+                  className="w-full p-2 rounded-lg bg-slate-900 border border-slate-700 text-xs font-bold text-white outline-none focus:border-amber-500 transition-colors"
+                >
+                  <option value="percentage">Percentage of Stock to Keep</option>
+                  <option value="quantity">Remaining Quantity (Units)</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1 block">Threshold Value</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.thresholdValue !== undefined ? formData.thresholdValue : 25}
+                    onChange={e => setFormData({...formData, thresholdValue: parseInt(e.target.value) || 0})}
+                    className="w-full p-2 rounded-lg bg-slate-900 border border-slate-700 text-xs font-bold text-white outline-none focus:border-amber-500 transition-colors"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase text-slate-500">
+                    {formData.thresholdType === 'quantity' ? 'Units' : '%'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
 
       <div className="space-y-3 pt-2">
         <div className="flex items-center gap-2 pb-1 border-b border-white/5">

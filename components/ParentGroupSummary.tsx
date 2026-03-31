@@ -74,7 +74,7 @@ export const ParentGroupSummary: React.FC<ParentGroupSummaryProps> = ({ items })
             <div key={group.name} className="p-5 rounded-3xl bg-slate-900 border border-slate-800 hover:border-indigo-500/30 transition-all group/card shadow-lg flex flex-col gap-4">
               <div className="flex justify-between items-start">
                 <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-black text-white capitalize truncate pr-2" title={group.name}>{group.name}</h4>
+                  <h4 className="text-sm font-black text-white capitalize truncate pr-2" data-tooltip={group.name}>{group.name}</h4>
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{group.itemCount} Child SKUs</p>
                 </div>
                 <div className="bg-indigo-500/10 px-2 py-1 rounded-lg border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
@@ -89,23 +89,15 @@ export const ParentGroupSummary: React.FC<ParentGroupSummaryProps> = ({ items })
                  </div>
                  <div className="flex flex-col items-center flex-1">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Total Value</span>
-                    <span className="text-xl font-black text-emerald-500">£{group.totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                    <span className="text-xl font-black text-emerald-500">£{group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                  </div>
               </div>
 
               <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pt-1">
                  {group.products.slice(0, 5).map(p => (
                    <div key={p.id} className="relative group/thumb shrink-0">
-                      <div className="w-10 h-10 rounded-lg border border-slate-800 overflow-hidden bg-slate-950">
-                         {p.productImage ? (
-                           <img src={p.productImage} alt={p.name} className="w-full h-full object-cover opacity-80 group-hover/thumb:opacity-100 transition-opacity" />
-                         ) : (
-                           <div className="w-full h-full flex items-center justify-center text-slate-700">
-                             <Package size={16} />
-                           </div>
-                         )}
-                      </div>
-                      <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[8px] font-black text-white shadow-md">
+                      <ProductThumbnail src={p.productImage} alt={p.name} stockType={p.stockType} />
+                      <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[8px] font-black text-white shadow-md z-10 pointer-events-none">
                         {p.stockInHand}
                       </div>
                    </div>

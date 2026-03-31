@@ -24,7 +24,7 @@ export const DuplicateMatchModal = ({ isOpen, onClose, product, otherBranchName,
                 <h4 className="text-lg font-black">{product.name}</h4>
                 <p className="text-xs font-mono text-slate-500">{product.barcode}</p>
               </div>
-              <span className="px-3 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase">
+              <span className="px-3 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] italic uppercase">
                 {product.productCode ? `PIP: ${product.productCode}` : product.packSize}
               </span>
             </div>

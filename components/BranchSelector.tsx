@@ -38,7 +38,7 @@ export const BranchSelector: React.FC = () => {
             ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
             : 'bg-slate-800 border border-slate-700 text-slate-500'
         }`}
-        title={isAdmin ? 'Admin — access to all branches' : `Branch user: ${appUser?.displayName}`}
+        data-tooltip={isAdmin ? 'Admin — access to all branches' : `Branch user: ${appUser?.displayName}`}
       >
         {isAdmin ? <ShieldCheck size={10} /> : <Store size={10} />}
         {isAdmin ? 'Admin' : 'Staff'}

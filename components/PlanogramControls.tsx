@@ -1,6 +1,6 @@
 
 import React, { useRef } from 'react';
-import { Layers, Map as MapIcon, Square, Box, Monitor, Navigation, ImagePlus, FileImage, Eye, Aperture, Loader2, Sparkles } from 'lucide-react';
+import { Layers, Map as MapIcon, Square, Monitor, Navigation, FileImage, Aperture, Loader2, Sparkles, Upload } from 'lucide-react';
 import { PlanogramLayout, ShopFloor } from '../types';
 
 interface PlanogramControlsProps {
@@ -15,20 +15,37 @@ interface PlanogramControlsProps {
   activePlanogram: PlanogramLayout | null;
   activeFloorPlan: ShopFloor | null;
   isVisualizing: boolean;
+  isUploadingImage?: boolean;
   onVisualize: () => void;
   onShopVisualise: () => void;
   onUploadImage: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onPreviewReal: (url: string) => void;
   onPreviewAi: (url: string) => void;
+  activeFaceId: string | 'main';
+  isLibraryVisible?: boolean;
+  setIsLibraryVisible?: (visible: boolean) => void;
 }
 
 export const PlanogramControls: React.FC<PlanogramControlsProps> = ({
   activeTab, setActiveTab, viewMode, setViewMode,
   floorRotation, setFloorRotation, floorTilt, setFloorTilt,
-  activePlanogram, activeFloorPlan, isVisualizing,
-  onVisualize, onShopVisualise, onUploadImage, onPreviewReal, onPreviewAi
+  activePlanogram, activeFloorPlan, isVisualizing, isUploadingImage,
+  onVisualize, onShopVisualise, onUploadImage, onPreviewReal, onPreviewAi,
+  activeFaceId, isLibraryVisible = true, setIsLibraryVisible
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const currentFace = React.useMemo(() => {
+    if (activeFaceId === 'main') return { 
+        realShelfImage: activePlanogram?.realShelfImage, 
+        aiVisualisation: activePlanogram?.aiVisualisation 
+    };
+    const face = activePlanogram?.faces?.find(f => f.id === activeFaceId);
+    return { 
+        realShelfImage: face?.realShelfImage || activePlanogram?.realShelfImage, 
+        aiVisualisation: face?.aiVisualisation || activePlanogram?.aiVisualisation
+    };
+  }, [activePlanogram, activeFaceId]);
 
   return (
     <div className="flex flex-col xl:flex-row items-center justify-between gap-4 shrink-0">
@@ -50,35 +67,30 @@ export const PlanogramControls: React.FC<PlanogramControlsProps> = ({
       <div className="flex items-center gap-3 overflow-x-auto max-w-full pb-2 xl:pb-0 scrollbar-hide">
          {activeTab === 'shelf' ? (
             <>
-               <div className="flex p-1.5 rounded-xl bg-slate-800/50 border border-slate-700 shrink-0">
-                  <button onClick={() => setViewMode('2d')} className={`p-2.5 rounded-lg transition-all ${viewMode === '2d' ? 'bg-slate-300 text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-300'}`} title="2D Map"><Square size={18} /></button>
-                  <button onClick={() => setViewMode('3d')} className={`p-2.5 rounded-lg transition-all ${viewMode === '3d' ? 'bg-slate-300 text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-300'}`} title="3D Visualizer"><Box size={18} /></button>
-               </div>
-
                <div className="flex items-center gap-2 shrink-0">
                   <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={onUploadImage} />
-                  <button 
+                  <button
                     onClick={() => fileInputRef.current?.click()}
-                    className={`px-6 py-3.5 rounded-xl border font-black text-[10px] uppercase tracking-widest flex items-center gap-3 transition-all ${activePlanogram?.realShelfImage ? 'bg-amber-600/10 text-amber-500 border-amber-500/30 hover:bg-amber-600/20' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}
-                    title="Upload a photo of your physical shelf."
+                    disabled={isUploadingImage}
+                    className={`p-3.5 rounded-xl border bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-all ${isUploadingImage ? 'opacity-50 cursor-wait' : ''}`}
+                    data-tooltip="Upload shelf image"
                   >
-                     {activePlanogram?.realShelfImage ? <FileImage size={16} /> : <ImagePlus size={16} />}
-                     {activePlanogram?.realShelfImage ? 'Change Shelf Photo' : 'Actual Shelf Image'}
+                     <Upload size={16} />
                   </button>
-                  {activePlanogram?.realShelfImage && (
-                     <button 
-                       onClick={() => onPreviewReal(activePlanogram.realShelfImage!)} 
+                  <button
+                    onClick={() => currentFace.realShelfImage && onPreviewReal(currentFace.realShelfImage)}
+                    disabled={!currentFace.realShelfImage || isUploadingImage}
+                    className={`px-6 py-3.5 rounded-xl border font-black text-[10px] uppercase tracking-widest flex items-center gap-3 transition-all ${currentFace.realShelfImage ? 'bg-amber-600/10 text-amber-500 border-amber-500/30 hover:bg-amber-600/20 cursor-pointer' : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed opacity-60'} ${isUploadingImage ? 'opacity-50 cursor-wait' : ''}`}
+                    data-tooltip={currentFace.realShelfImage ? "View actual shelf picture" : "No image uploaded yet"}
+                  >
+                     {isUploadingImage ? <Loader2 size={16} className="animate-spin" /> : <FileImage size={16} />}
+                     {isUploadingImage ? 'Uploading...' : 'Actual Shelf Picture'}
+                  </button>
+                  {currentFace.aiVisualisation && (
+                     <button
+                       onClick={() => onPreviewAi(currentFace.aiVisualisation!)}
                        className="p-3 rounded-xl bg-amber-900/20 border border-amber-500/50 text-amber-500 hover:bg-amber-600 hover:text-white hover:border-amber-500 transition-all shadow-lg shadow-amber-900/20"
-                       title="Preview Reference Photo"
-                     >
-                        <Eye size={16} />
-                     </button>
-                  )}
-                  {activePlanogram?.aiVisualisation && (
-                     <button 
-                       onClick={() => onPreviewAi(activePlanogram.aiVisualisation!)} 
-                       className="p-3 rounded-xl bg-amber-900/20 border border-amber-500/50 text-amber-500 hover:bg-amber-600 hover:text-white hover:border-amber-500 transition-all shadow-lg shadow-amber-900/20"
-                       title="View Saved AI Visualisation"
+                       data-tooltip="View Saved AI Visualisation"
                      >
                         <Aperture size={16} />
                      </button>
@@ -103,8 +115,8 @@ export const PlanogramControls: React.FC<PlanogramControlsProps> = ({
          ) : (
             <>
                <div className="flex p-1.5 rounded-xl bg-slate-800/50 border border-slate-700 shrink-0">
-                  <button onClick={() => setViewMode('2d')} className={`p-3 rounded-lg transition-all ${viewMode === '2d' ? 'bg-slate-300 text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-300'}`} title="2D Map"><Square size={20} /></button>
-                  <button onClick={() => setViewMode('3d')} className={`p-3 rounded-lg transition-all ${viewMode === '3d' ? 'bg-slate-300 text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-300'}`} title="3D View"><Monitor size={20} /></button>
+                  <button onClick={() => setViewMode('2d')} className={`p-3 rounded-lg transition-all ${viewMode === '2d' ? 'bg-slate-300 text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-300'}`} data-tooltip="2D Map"><Square size={20} /></button>
+                  <button onClick={() => setViewMode('3d')} className={`p-3 rounded-lg transition-all ${viewMode === '3d' ? 'bg-slate-300 text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-300'}`} data-tooltip="3D View"><Monitor size={20} /></button>
                </div>
                {viewMode === '3d' && (
                   <div className="flex items-center gap-4 px-6 py-3 rounded-xl bg-slate-800/50 border border-slate-700 shrink-0 shadow-lg backdrop-blur-sm transition-all hover:bg-slate-800/70">
