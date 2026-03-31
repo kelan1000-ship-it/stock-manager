@@ -1,3 +1,16 @@
+# Secrets
+.env
+.env.local
+.env.*
+upload-keystore.jks
+google-services.json
+GoogleService-Info.plist
+
+# Firebase
+.firebase/
+firebase-debug.log*
+.firebaserc
+
 # Logs
 logs
 *.log
