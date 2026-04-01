@@ -105,7 +105,7 @@ export const SharedStockModule: React.FC<SharedStockModuleProps> = ({
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }[]>([{ key: 'name', direction: 'asc' }]);
   const [restockSortConfig, setRestockSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }[]>([{ key: 'name', direction: 'asc' }]);
   const [orderedSortConfig, setOrderedSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }[]>([{ key: 'name', direction: 'asc' }]);
-  const [showNeedsOrdering, setShowNeedsOrdering] = useState(false);
+  const [showSuggestedOrder, setShowSuggestedOrder] = useState(false);
   const [showReadyForOrder, setShowReadyForOrder] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
 
@@ -142,7 +142,7 @@ export const SharedStockModule: React.FC<SharedStockModuleProps> = ({
   // Reset to first page when filters, tabs, or sort change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedTags, tagFilterMode, selectedSuppliers, supplierFilterMode, selectedLocations, locationFilterMode, activeTab, sortConfig, showNeedsOrdering, showReadyForOrder]);
+  }, [searchQuery, selectedTags, tagFilterMode, selectedSuppliers, supplierFilterMode, selectedLocations, locationFilterMode, activeTab, sortConfig, showSuggestedOrder, showReadyForOrder]);
 
   const otherBranch = currentBranch === 'bywood' ? 'broom' : 'bywood';
 
@@ -258,7 +258,7 @@ export const SharedStockModule: React.FC<SharedStockModuleProps> = ({
       }
     }
 
-    if (showNeedsOrdering) {
+    if (showSuggestedOrder) {
       const branchAllocKey = currentBranch === 'bywood' ? 'allocationBywood' : 'allocationBroom';
       result = result.filter(p => {
         const isOnOrder = branchOrders.some(o => o.productId === p.id && (o.status === 'ordered' || o.status === 'backorder'));
@@ -337,7 +337,7 @@ export const SharedStockModule: React.FC<SharedStockModuleProps> = ({
     }
 
     return result;
-  }, [localItems, otherItems, searchQuery, selectedTags, tagFilterMode, selectedSuppliers, supplierFilterMode, selectedLocations, locationFilterMode, sortConfig, jointOrders, currentBranch, showNeedsOrdering, showReadyForOrder, branchOrders, orderDrafts]);
+  }, [localItems, otherItems, searchQuery, selectedTags, tagFilterMode, selectedSuppliers, supplierFilterMode, selectedLocations, locationFilterMode, sortConfig, jointOrders, currentBranch, showSuggestedOrder, showReadyForOrder, branchOrders, orderDrafts]);
 
   const sharedTags = useMemo(() => {
     const tags = new Set<string>();
@@ -524,7 +524,7 @@ export const SharedStockModule: React.FC<SharedStockModuleProps> = ({
     }).length;
   }, [localItems, orderDrafts]);
 
-  const needsOrderingCount = useMemo(() => {
+  const suggestedOrderCount = useMemo(() => {
     const branchAllocKey = currentBranch === 'bywood' ? 'allocationBywood' : 'allocationBroom';
     return localItems.filter(p => p.isShared && !p.deletedAt && !p.isArchived).filter(p => {
       const isOnOrder = branchOrders.some(o => o.productId === p.id && (o.status === 'ordered' || o.status === 'backorder'));
@@ -759,32 +759,40 @@ export const SharedStockModule: React.FC<SharedStockModuleProps> = ({
          {/* Horizontal Divider */}
          <div className="h-px w-full bg-slate-800/40 mx-auto" />
 
-         {/* Row 2: Contextual Controls (Needs Ordering, Tab Slider, Export) */}
+         {/* Row 2: Contextual Controls (Suggested Order, Tab Slider, Export) */}
          <div className="flex items-center justify-between w-full px-2 pb-1">
             <div className="min-w-[150px] flex justify-start">
                {activeTab === 'inventory' && (
                  <>
                    <button
-                     onClick={() => setShowNeedsOrdering(prev => !prev)}
+                     onClick={() => {
+                       const nextValue = !showSuggestedOrder;
+                       setShowSuggestedOrder(nextValue);
+                       if (nextValue) setShowReadyForOrder(false);
+                     }}
                      className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border shadow-lg ${
-                       showNeedsOrdering
+                       showSuggestedOrder
                          ? 'bg-amber-600 text-white border-amber-500 shadow-amber-900/30'
                          : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-amber-400 hover:border-amber-500/30'
                      }`}
-                     data-tooltip="Show only products that need ordering"
+                     data-tooltip="Show only products with suggested order quantities"
                    >
                      <ShoppingCart size={14} />
-                     Needs Ordering
-                     {needsOrderingCount > 0 && (
+                     Suggested Order
+                     {suggestedOrderCount > 0 && (
                        <span className={`px-1.5 py-0.5 rounded-lg text-[9px] font-black ${
-                         showNeedsOrdering ? 'bg-amber-500/30 text-white' : 'bg-amber-500/20 text-amber-400'
+                         showSuggestedOrder ? 'bg-amber-500/30 text-white' : 'bg-amber-500/20 text-amber-400'
                        }`}>
-                         {needsOrderingCount}
+                         {suggestedOrderCount}
                        </span>
                      )}
                    </button>
                    <button
-                     onClick={() => setShowReadyForOrder(prev => !prev)}
+                     onClick={() => {
+                       const nextValue = !showReadyForOrder;
+                       setShowReadyForOrder(nextValue);
+                       if (nextValue) setShowSuggestedOrder(false);
+                     }}
                      className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border shadow-lg ml-2 ${
                        showReadyForOrder
                          ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-900/30'
