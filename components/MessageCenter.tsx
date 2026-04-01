@@ -342,8 +342,8 @@ export const ChatWindow = ({
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = Array.from(e.clipboardData.items);
     items.forEach(item => {
-      if (item.type.indexOf('image') !== -1) {
-        const file = item.getAsFile();
+      if ((item as any).type.indexOf('image') !== -1) {
+        const file = (item as any).getAsFile();
         if (file) {
           if (file.size > 100 * 1024 * 1024) {
             setErrorMsg("Pasted file exceeds 100MB limit.");
@@ -778,14 +778,14 @@ export const ChatWindow = ({
                     <div key={id} className="bg-slate-950 rounded-xl p-3 border border-slate-800 animate-in slide-in-from-bottom-2">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2 truncate max-w-[80%]">
-                          <Loader2 size={12} className="animate-spin shrink-0" /> Uploading {data.name}
+                          <Loader2 size={12} className="animate-spin shrink-0" /> Uploading {(data as any).name}
                         </span>
-                        <span className="text-[10px] font-black text-white">{data.progress}%</span>
+                        <span className="text-[10px] font-black text-white">{(data as any).progress}%</span>
                       </div>
                       <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-indigo-500 transition-all duration-300 shadow-[0_0_10px_rgba(99,102,241,0.5)]"
-                          style={{ width: `${data.progress}%` }}
+                          style={{ width: `${(data as any).progress}%` }}
                         />
                       </div>
                     </div>
@@ -933,3 +933,4 @@ export const ChatWindow = ({
     </div>
   );
 };
+

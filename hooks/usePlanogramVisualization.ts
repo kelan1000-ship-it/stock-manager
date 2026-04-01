@@ -81,12 +81,7 @@ export function usePlanogramVisualization() {
       // 6. AI Harmonization (Imagen 4)
       // This step takes the raw composite and makes it look "realistic" by harmonizing lighting and shadows.
       console.log("[AI Merchandiser] Performing AI harmonization for realism...");
-      const finalRender = await visualizePlanogram(
-        activePlanogram,
-        inventory,
-        faceContext,
-        compositeBase
-      );
+      const finalRender = await visualizePlanogram(activePlanogram, inventory, faceContext as any, compositeBase);
 
       setAiResult(finalRender || compositeBase);
     } catch (err: any) {
@@ -129,3 +124,7 @@ export function usePlanogramVisualization() {
     handleDownloadImage
   };
 }
+
+
+
+

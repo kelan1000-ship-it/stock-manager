@@ -371,7 +371,7 @@ export const MissingAttributesModal: React.FC<MissingAttributesModalProps> = ({
 
     setIsAILoading(prev => {
         const next = { ...prev };
-        idsToProcess.forEach(id => next[id] = true);
+        idsToProcess.forEach((id: string) => next[id] = true);
         return next;
     });
 
@@ -388,7 +388,7 @@ export const MissingAttributesModal: React.FC<MissingAttributesModalProps> = ({
           price: item.price || undefined
         });
 
-        setDiscoveryResults(prev => ({ ...prev, [id]: result }));
+        setDiscoveryResults(prev => ({ ...prev, [id as string]: result }));
 
         const updates: Partial<Product> = {};
         const pickVal = (val: any) => Array.isArray(val) ? (val.length === 1 ? val[0] : undefined) : val;
@@ -404,7 +404,7 @@ export const MissingAttributesModal: React.FC<MissingAttributesModalProps> = ({
         if (Object.keys(updates).length > 0) {
             setPendingUpdates(prev => ({
               ...prev,
-              [id]: { ...prev[id], ...updates }
+              [id as string]: { ...prev[id as string], ...updates }
             }));
         }
       } catch (err) {
@@ -412,7 +412,7 @@ export const MissingAttributesModal: React.FC<MissingAttributesModalProps> = ({
       } finally {
         setIsAILoading(prev => {
             const next = { ...prev };
-            delete next[id];
+            delete next[id as string];
             return next;
         });
       }
@@ -425,7 +425,7 @@ export const MissingAttributesModal: React.FC<MissingAttributesModalProps> = ({
     onUpdateProducts([{ id, updates }]);
     setPendingUpdates(prev => {
       const next = { ...prev };
-      delete next[id];
+      delete next[id as string];
       return next;
     });
     const nextSelected = new Set(selectedIds);
@@ -449,7 +449,7 @@ export const MissingAttributesModal: React.FC<MissingAttributesModalProps> = ({
   const discardPending = (id: string) => {
     setPendingUpdates(prev => {
       const next = { ...prev };
-      delete next[id];
+      delete next[id as string];
       return next;
     });
   };
@@ -749,3 +749,4 @@ export const MissingAttributesModal: React.FC<MissingAttributesModalProps> = ({
     </div>
   );
 };
+

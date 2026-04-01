@@ -63,7 +63,7 @@ const TaskItem: React.FC<TaskItemProps> = ({
       if (c.id === commentId) {
         const reactions = { ...(c.reactions || {}) };
         const users = reactions[emoji] || [];
-        if (users.includes(currentBranch)) {
+        if ((users as string[]).includes(currentBranch)) {
           reactions[emoji] = users.filter(u => u !== currentBranch);
           if (reactions[emoji].length === 0) delete reactions[emoji];
         } else {
@@ -410,13 +410,13 @@ const TaskItem: React.FC<TaskItemProps> = ({
                               key={emoji}
                               onClick={() => toggleReaction(c.id, emoji)}
                               className={`px-1.5 py-0.5 rounded-full text-[10px] flex items-center gap-1 border transition-colors ${
-                                users.includes(currentBranch)
+                                (users as string[]).includes(currentBranch)
                                   ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300'
                                   : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
                               }`}
                             >
                               <span>{emoji}</span>
-                              {users.length > 1 && <span className="font-bold">{users.length}</span>}
+                              {(users as string[]).length > 1 && <span className="font-bold">{(users as string[]).length}</span>}
                             </button>
                           ))}
                         </div>
@@ -662,3 +662,4 @@ export const TaskManager: React.FC<TaskManagerProps> = ({
     </div>
   );
 };
+

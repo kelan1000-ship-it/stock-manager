@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { ExtractedProductInfo, OrderHistoryEntry, OrderSuggestion, PlanogramLayout, Product, ShopFloor } from "../types";
+import { ExtractedProductInfo, OrderHistoryEntry, OrderSuggestion, PlanogramLayout, PlanogramSlot, Product, ShopFloor } from "../types";
 
 /**
  * Validates the presence of the Gemini API key and returns an AI client instance.
@@ -49,7 +49,7 @@ export const extractProductInfoFromImage = async (base64Image: string, mimeType:
           required: ["barcode", "name", "packSize", "price"]
         }
       },
-    }, { timeout: 30000 });
+    });
 
     console.log(`[extractProductInfoFromImage] Response received:`, response.text);
     return JSON.parse(response.text || '{}');
@@ -71,7 +71,7 @@ export const searchAndGenerateOptions = async (productName: string, packSize: st
       config: {
         tools: [{ googleSearch: {} }],
       },
-    }, { timeout: 30000 });
+    });
 
     const visualDescription = researchResponse.text || productName;
 
@@ -83,10 +83,10 @@ export const searchAndGenerateOptions = async (productName: string, packSize: st
         aspectRatio: '1:1',
         outputMimeType: 'image/jpeg'
       },
-    }, { timeout: 30000 });
+    });
 
     return (generationResponse.generatedImages || []).map(img => {
-      const imgData = img.image?.imageBytes || img.image?.bytes || img.imageBytes || img.bytes;
+      const imgData = (img.image as any)?.imageBytes || (img.image as any)?.bytes || (img as any).imageBytes || (img as any).bytes;
       return imgData ? `data:image/jpeg;base64,${imgData}` : '';
     }).filter(Boolean);
   } catch (error) {
@@ -215,7 +215,7 @@ export const visualizePlanogram = async (
     const textResponse = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
       contents: { parts: [...parts, { text: prompt }] }
-    }, { timeout: 45000 });
+    });
 
     const refinementPrompt = textResponse.text || prompt;
 
@@ -228,14 +228,14 @@ export const visualizePlanogram = async (
         aspectRatio: '3:4',
         outputMimeType: 'image/jpeg'
       }
-    }, { timeout: 60000 });
+    });
 
     console.log(`[visualizePlanogram] Final Render Complete.`);
 
     if (imageResponse.generatedImages && imageResponse.generatedImages.length > 0) {
       const img = imageResponse.generatedImages[0];
       // Robust extraction: try every possible path for the bytes
-      const imgData = img.image?.imageBytes || img.image?.bytes || img.imageBytes || img.bytes || (img.image as any)?.data;
+      const imgData = (img.image as any)?.imageBytes || (img.image as any)?.bytes || (img as any).imageBytes || (img as any).bytes || (img.image as any)?.data;
       if (imgData) {
         return `data:image/jpeg;base64,${imgData}`;
       }
@@ -276,11 +276,11 @@ export const visualizeShopFloor = async (floorPlan: ShopFloor, planograms: Plano
         aspectRatio: '16:9',
         outputMimeType: 'image/jpeg'
       }
-    }, { timeout: 60000 });
+    });
 
     if (response.generatedImages && response.generatedImages.length > 0) {
       const img = response.generatedImages[0];
-      const imgData = img.image?.imageBytes || img.image?.bytes || img.imageBytes || img.bytes || (img.image as any)?.data;
+      const imgData = (img.image as any)?.imageBytes || (img.image as any)?.bytes || (img as any).imageBytes || (img as any).bytes || (img.image as any)?.data;
       if (imgData) {
         return `data:image/jpeg;base64,${imgData}`;
       }
@@ -339,7 +339,7 @@ export const extractMultipleProductsFromImage = async (base64Image: string, mime
           }
         }
       },
-    }, { timeout: 30000 });
+    });
 
     const text = response.text || '[]';
     console.log(`[extractMultipleProductsFromImage] Raw JSON:`, text);
@@ -371,7 +371,7 @@ export const extractBarcodeOnly = async (base64Image: string, mimeType: string):
           },
         ],
       },
-    }, { timeout: 30000 });
+    });
 
     const result = response.text?.trim();
     return (result === "NONE" || !result) ? null : result;
@@ -400,7 +400,7 @@ export const researchBarcodeFromWeb = async (
       config: {
         tools: [{ googleSearch: {} }],
       },
-    }, { timeout: 30000 });
+    });
 
     const urls = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => chunk.web?.uri).filter(Boolean) || [];
     const text = response.text || '';
@@ -462,7 +462,7 @@ export const researchProductDetails = async (
       config: {
         tools: [{ googleSearch: {} }],
       },
-    }, { timeout: 30000 });
+    });
 
     console.log(`[researchProductDetails] Response received:`, response.text);
     
@@ -502,7 +502,7 @@ export const getOrderSuggestion = async (
           required: ["suggestedQuantity", "reasoning"]
         }
       },
-    }, { timeout: 30000 });
+    });
 
     return JSON.parse(response.text || '{"suggestedQuantity": 0, "reasoning": "Error"}');
   } catch (error) {
@@ -590,3 +590,4 @@ export const createAssistantChatSession = (history: any[]) => {
     history: history,
   });
 };
+

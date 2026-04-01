@@ -250,7 +250,7 @@ export async function deleteEposZRead(branch: BranchKey, zReadId: string) {
 
 // ═══ EPOS CONFIG ═══
 
-export function subscribeToEposConfig(branch: BranchKey, callback: (config: EposConfig | null) => void): Unsubscribe {
+export interface EposConfig { [key: string]: any; } export function subscribeToEposConfig(branch: BranchKey, callback: (config: EposConfig | null) => void): Unsubscribe {
   return onSnapshot(doc(db, 'branches', branch, 'config', 'epos'), (snap) => {
     callback(snap.exists() ? ({ ...snap.data(), id: snap.id } as EposConfig) : null);
   }, (error) => { console.error(`Listener error [eposConfig/${branch}]:`, error); });
@@ -351,3 +351,4 @@ export async function saveDayOverride(branch: BranchKey, override: DayOverride) 
 export async function deleteDayOverride(branch: BranchKey, dateStr: string) {
   await deleteDoc(doc(db, 'branches', branch, 'dayOverrides', dateStr));
 }
+

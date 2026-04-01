@@ -13,6 +13,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, '.'),
     }
   },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+  },
   build: {
     rollupOptions: {
       output: {
@@ -27,4 +31,4 @@ export default defineConfig({
       }
     }
   }
-});
+} as any);

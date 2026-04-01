@@ -306,7 +306,7 @@ export function useOrderManagement(
       }
 
       if (qtyBroom > 0) {
-        const broomProduct = findMatchByKey(prev.broom, jointOrder);
+        const broomProduct: Product | undefined = findMatchByKey(prev.broom as Product[], jointOrder) as Product | undefined;
         newBroomOrders.push({
           id: `ord_dist_br_${Date.now()}`,
           productId: broomProduct ? broomProduct.id : jointOrder.productId,

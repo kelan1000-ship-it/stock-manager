@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { Handshake, Package, ShoppingCart, RefreshCw, Download, ChevronLeft, ChevronRight, FileSpreadsheet, Send, X, Barcode, Hash, RotateCcw, Pencil, Copy, Check, CheckSquare, Square } from 'lucide-react';
 import { ProductThumbnail } from './ImageComponents';
 import { LiveVisionScanner } from './BarcodeScanner';
-import { BranchData, BranchKey, Product } from '../types';
+import { BranchData, BranchKey, Product, JointOrder, OrderItem } from '../types';
 import { useSharedStock } from '../hooks/useSharedStock';
 import { SharedStockFilters } from './SharedStockFilters';
 import { SharedInventoryTable } from './SharedInventoryTable';
@@ -206,10 +206,10 @@ export const SharedStockModule: React.FC<SharedStockModuleProps> = ({
     });
   };
 
-  const localItems = branchData[currentBranch] || [];
-  const otherItems = branchData[otherBranch] || [];
-  const jointOrders = branchData.jointOrders || [];
-  const branchOrders = branchData[`${currentBranch}Orders`] || [];
+  const localItems: Product[] = branchData[currentBranch] || [];
+  const otherItems: Product[] = branchData[otherBranch] || [];
+  const jointOrders: JointOrder[] = branchData.jointOrders || [];
+  const branchOrders: OrderItem[] = (branchData as any)[`${currentBranch}Orders`] || [];
 
   const {
     orderDrafts,
