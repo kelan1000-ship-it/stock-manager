@@ -29,6 +29,7 @@ export const GeminiAssistant: React.FC<GeminiAssistantProps> = ({
   const [inputText, setInputText] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -119,7 +120,14 @@ export const GeminiAssistant: React.FC<GeminiAssistantProps> = ({
               {quickActions.map((action, i) => (
                 <button
                   key={i}
-                  onClick={() => onSend(action.text)}
+                  onClick={() => {
+                    if (action.text.endsWith(' ')) {
+                      setInputText(action.text);
+                      setTimeout(() => inputRef.current?.focus(), 50);
+                    } else {
+                      onSend(action.text);
+                    }
+                  }}
                   className="flex items-center gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800 transition-all text-left group"
                 >
                   <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-500 group-hover:text-indigo-400 transition-colors">
@@ -178,6 +186,7 @@ export const GeminiAssistant: React.FC<GeminiAssistantProps> = ({
       <div className="p-6 bg-slate-900 border-t border-slate-800 backdrop-blur-md">
         <form onSubmit={handleSubmit} className="relative group">
           <input 
+            ref={inputRef}
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
