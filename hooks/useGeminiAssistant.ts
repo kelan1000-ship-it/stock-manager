@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { createAssistantChatSession } from '../services/geminiService';
 import { getEposTransactionsSnapshot } from '../services/firestoreService';
 import { Product, BranchData, BranchKey, Transfer } from '../types';
@@ -12,14 +12,32 @@ export interface ChatMessage {
   parts: { text: string }[];
 }
 
+const STORAGE_KEY = 'gemini_chat_history';
+
 export function useGeminiAssistant(
   logic: StockLogicReturn,
   pricingLogic: PricingDeskReturn,
   onOpenTransfer: (product: Product, quantity: number, type: 'send' | 'request') => void
 ) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error('Failed to load chat history', e);
+      return [];
+    }
+  });
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch (e) {
+      console.error('Failed to save chat history', e);
+    }
+  }, [messages]);
 
   const { branchData, currentBranch, sendMessage } = logic;
 
@@ -52,7 +70,7 @@ export function useGeminiAssistant(
       case 'search_inventory': {
         const query = args.query;
         const results = inventory.filter(p => 
-          matchesAnySearchField([p.name, p.barcode, p.productCode], query)
+          matchesAnySearchField([p.name, p.barcode, p.productCode, p.keywords || '', p.subheader || ''], query)
         ).slice(0, 10); // Limit results for context window
 
         return results.map(p => ({
@@ -63,7 +81,9 @@ export function useGeminiAssistant(
           partPacks: p.partPacks,
           looseStockTarget: p.looseStockToKeep,
           price: p.price,
-          location: p.location
+          location: p.location,
+          keywords: p.keywords,
+          subheader: p.subheader
         }));
       }
 
@@ -72,7 +92,7 @@ export function useGeminiAssistant(
         if (!keywords || !Array.isArray(keywords)) return { error: "Invalid keywords array provided." };
         
         const results = inventory.filter(p => {
-          const searchString = `${p.name} ${p.productCode} ${p.barcode}`.toLowerCase();
+          const searchString = `${p.name} ${p.productCode || ''} ${p.barcode || ''} ${p.keywords || ''} ${p.subheader || ''}`.toLowerCase();
           return keywords.some(kw => searchString.includes(kw.toLowerCase()));
         }).slice(0, 30); // Allow up to 30 results for a comprehensive clinical check
 
@@ -81,7 +101,9 @@ export function useGeminiAssistant(
           stock: p.stockInHand,
           price: p.price,
           location: p.location,
-          packSize: p.packSize
+          packSize: p.packSize,
+          keywords: p.keywords,
+          subheader: p.subheader
         }));
       }
 

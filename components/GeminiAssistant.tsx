@@ -4,7 +4,7 @@ import {
   Sparkles, X, Send, Bot, User, Loader2, 
   BarChart3, Search, AlertCircle, ArrowRightLeft, 
   MessageSquare, Trash2, Maximize2, Minimize2,
-  Home, Stethoscope
+  Home, Stethoscope, ChevronLeft
 } from 'lucide-react';
 import { ChatMessage } from '../hooks/useGeminiAssistant';
 import { TooltipWrapper } from './SharedUI';
@@ -18,6 +18,17 @@ interface GeminiAssistantProps {
   onClear: () => void;
 }
 
+const commonAilments = [
+  { name: 'Cough', icon: '🗣️', query: 'Counter advice for: dry and chesty cough' },
+  { name: 'Cold & Flu', icon: '🤧', query: 'Counter advice for: cold and flu symptoms' },
+  { name: 'Hayfever', icon: '🌼', query: 'Counter advice for: hayfever and allergies' },
+  { name: 'Headache', icon: '🤕', query: 'Counter advice for: severe headache' },
+  { name: 'Stomach Cramps', icon: '😖', query: 'Counter advice for: stomach cramps and IBS' },
+  { name: 'Heartburn', icon: '🔥', query: 'Counter advice for: heartburn and acid reflux' },
+  { name: 'Thrush', icon: '🍄', query: 'Counter advice for: oral and vaginal thrush' },
+  { name: 'Diarrhoea', icon: '🚽', query: 'Counter advice for: acute diarrhoea' }
+];
+
 export const GeminiAssistant: React.FC<GeminiAssistantProps> = ({
   isOpen,
   onClose,
@@ -28,6 +39,7 @@ export const GeminiAssistant: React.FC<GeminiAssistantProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showAilments, setShowAilments] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -108,57 +120,97 @@ export const GeminiAssistant: React.FC<GeminiAssistantProps> = ({
       >
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center space-y-8 animate-in fade-in duration-500">
-            <div className="w-20 h-20 rounded-[2rem] bg-slate-800 flex items-center justify-center text-slate-600 border border-slate-700/50">
-              <Bot size={40} />
-            </div>
-            <div className="space-y-2 mb-4">
-              <h4 className="text-white font-black uppercase tracking-tight">How can I help today?</h4>
-              <p className="text-xs text-slate-500 font-bold max-w-[240px]">I can analyze stock, draft transfers, and manage branch communications.</p>
-            </div>
-
-            <button
-              onClick={() => {
-                setInputText('Counter advice for: ');
-                setTimeout(() => inputRef.current?.focus(), 50);
-              }}
-              className="flex items-center gap-4 w-full max-w-[280px] p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-all text-left group mb-2"
-            >
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-                <Stethoscope size={20} />
+            {showAilments ? (
+              <div className="w-full max-w-[320px] animate-in slide-in-from-right-4 duration-300">
+                <div className="flex items-center gap-4 mb-6">
+                  <button onClick={() => setShowAilments(false)} className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors">
+                    <ChevronLeft size={16} />
+                  </button>
+                  <h4 className="text-white font-black uppercase tracking-tight text-lg">Ailments Guide</h4>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {commonAilments.map((ailment, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => onSend(ailment.query)}
+                      className="p-4 rounded-2xl bg-slate-800 border border-slate-700/50 hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-400 transition-all text-left flex flex-col gap-2 group shadow-sm"
+                    >
+                      <span className="text-2xl group-hover:scale-110 transition-transform">{ailment.icon}</span>
+                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-300 group-hover:text-emerald-400">{ailment.name}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div>
-                <h5 className="text-sm font-black text-white uppercase tracking-wide group-hover:text-emerald-300 transition-colors">Counter Assistant</h5>
-                <p className="text-[10px] font-bold text-emerald-500/80 uppercase tracking-widest">Clinical Advice & Stock</p>
-              </div>
-            </button>
+            ) : (
+              <>
+                <div className="w-20 h-20 rounded-[2rem] bg-slate-800 flex items-center justify-center text-slate-600 border border-slate-700/50">
+                  <Bot size={40} />
+                </div>
+                <div className="space-y-2 mb-4">
+                  <h4 className="text-white font-black uppercase tracking-tight">How can I help today?</h4>
+                  <p className="text-xs text-slate-500 font-bold max-w-[240px]">I can analyze stock, draft transfers, and manage branch communications.</p>
+                </div>
 
-            <div className="grid grid-cols-1 gap-2 w-full max-w-[280px]">
-              {quickActions.map((action, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    if (action.text.endsWith(' ')) {
-                      setInputText(action.text);
+                <div className="flex flex-col gap-3 w-full max-w-[280px] mb-2">
+                  <button
+                    onClick={() => {
+                      setInputText('Counter advice for: ');
                       setTimeout(() => inputRef.current?.focus(), 50);
-                    } else {
-                      onSend(action.text);
-                    }
-                  }}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800 transition-all text-left group"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-500 group-hover:text-indigo-400 transition-colors">
-                    <action.icon size={16} />
-                  </div>
-                  {action.label === 'Branch Comms' ? (
-                    <TooltipWrapper tooltip="Branch Communications">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 group-hover:text-white transition-colors">{action.label}</span>
-                    </TooltipWrapper>
-                  ) : (
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 group-hover:text-white transition-colors">{action.label}</span>
-                  )}
-                </button>
-              ))}
-            </div>
+                    }}
+                    className="flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-all text-left group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                      <Stethoscope size={20} />
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-black text-white uppercase tracking-wide group-hover:text-emerald-300 transition-colors">Counter Assistant</h5>
+                      <p className="text-[10px] font-bold text-emerald-500/80 uppercase tracking-widest">Clinical Advice & Stock</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setShowAilments(true)}
+                    className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-indigo-500/30 hover:bg-slate-800 transition-all text-left group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-indigo-400 group-hover:scale-110 transition-all">
+                      <Bot size={20} />
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-black text-white uppercase tracking-wide group-hover:text-indigo-300 transition-colors">Ailments Guide</h5>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Preloaded Conditions</p>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 w-full max-w-[280px]">
+                  {quickActions.map((action, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        if (action.text.endsWith(' ')) {
+                          setInputText(action.text);
+                          setTimeout(() => inputRef.current?.focus(), 50);
+                        } else {
+                          onSend(action.text);
+                        }
+                      }}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800 transition-all text-left group"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-500 group-hover:text-indigo-400 transition-colors">
+                        <action.icon size={16} />
+                      </div>
+                      {action.label === 'Branch Comms' ? (
+                        <TooltipWrapper tooltip="Branch Communications">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 group-hover:text-white transition-colors">{action.label}</span>
+                        </TooltipWrapper>
+                      ) : (
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 group-hover:text-white transition-colors">{action.label}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         ) : (
           messages.map((msg, i) => {

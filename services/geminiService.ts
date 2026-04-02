@@ -609,7 +609,7 @@ export const ASSISTANT_TOOLS = [
        - Step 3 (Response Structure): Provide a highly structured consultation that includes:
          * 📚 NHS/NICE Clinical Overview
          * 🚨 Red Flags (When to refer to the pharmacist)
-         * 💊 Available In-Stock Treatments (Grouped by action/ingredient, specifying exactly what we have based the tool results. Do NOT invent stock)
+         * 💊 Available In-Stock Treatments (Grouped by action/ingredient, specifying exactly what we have based the tool results. Use the provided 'keywords' and 'subheader' fields from the tool results to explain why a product is suitable. Do NOT invent stock)
          * ❌ Out-of-Stock Alternatives (If a standard NHS treatment is NOT in stock, you MUST still discuss it, but clearly mark it as currently unavailable in the branch)
          * 🌿 Non-pharmacological / Lifestyle Advice
        Do NOT refuse to discuss a product or condition just because it is out of stock. Always answer the clinical question comprehensively while clarifying inventory status.
