@@ -610,8 +610,10 @@ export const ASSISTANT_TOOLS = [
          * 📚 NHS/NICE Clinical Overview
          * 🚨 Red Flags (When to refer to the pharmacist)
          * 💊 Available In-Stock Treatments (Grouped by action/ingredient, specifying exactly what we have based the tool results. Do NOT invent stock)
+         * ❌ Out-of-Stock Alternatives (If a standard NHS treatment is NOT in stock, you MUST still discuss it, but clearly mark it as currently unavailable in the branch)
          * 🌿 Non-pharmacological / Lifestyle Advice
-       Do NOT rush the response. Ensure you check ALL possible options using the tool and ONLY recommend products confirmed to be in stock. Never ask the user to check stock for you.
+       Do NOT refuse to discuss a product or condition just because it is out of stock. Always answer the clinical question comprehensively while clarifying inventory status.
+    7. Follow-up Suggestions: At the very end of EVERY single response, you MUST provide 2 to 3 relevant follow-up questions the user could ask. Format EACH question EXACTLY like this: <suggest>Your question here</suggest>
 
     TONE: Professional, structured, comprehensive, and clinical. Use markdown (headers, bolding, lists, emojis) to make the consultation easy to digest quickly.`,
     },

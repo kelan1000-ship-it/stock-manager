@@ -161,27 +161,51 @@ export const GeminiAssistant: React.FC<GeminiAssistantProps> = ({
             </div>
           </div>
         ) : (
-          messages.map((msg, i) => (
-            <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2 duration-300`}>
-              <div className={`flex items-center gap-2 mb-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${msg.role === 'user' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                  {msg.role === 'user' ? <User size={12} /> : <Sparkles size={12} />}
+          messages.map((msg, i) => {
+            const fullText = msg.parts.map((p) => p.text).join('');
+            const suggestions: string[] = [];
+            const cleanText = fullText.replace(/<suggest>(.*?)<\/suggest>/g, (match, p1) => {
+              suggestions.push(p1);
+              return '';
+            }).trim();
+
+            return (
+              <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2 duration-300`}>
+                <div className={`flex items-center gap-2 mb-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${msg.role === 'user' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                    {msg.role === 'user' ? <User size={12} /> : <Sparkles size={12} />}
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
+                    {msg.role === 'user' ? 'You' : 'Gemini'}
+                  </span>
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
-                  {msg.role === 'user' ? 'You' : 'Gemini'}
-                </span>
-              </div>
-              <div className={`relative max-w-[90%] p-4 rounded-2xl text-sm font-bold leading-relaxed shadow-lg ${
-                msg.role === 'user' 
-                  ? 'bg-indigo-600 text-white rounded-tr-none' 
-                  : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700'
-              }`}>
-                <div className="whitespace-pre-wrap break-words">
-                  {msg.parts.map((p, idx) => p.text).join('')}
+                <div className={`relative max-w-[90%] p-4 rounded-2xl text-sm font-bold leading-relaxed shadow-lg ${
+                  msg.role === 'user' 
+                    ? 'bg-indigo-600 text-white rounded-tr-none' 
+                    : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700'
+                }`}>
+                  <div className="whitespace-pre-wrap break-words">
+                    {cleanText}
+                  </div>
                 </div>
+                
+                {suggestions.length > 0 && msg.role === 'model' && (
+                  <div className="flex flex-wrap gap-2 mt-3 ml-2">
+                    {suggestions.map((sug, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => onSend(sug)}
+                        className="text-[10px] font-bold bg-slate-900 text-indigo-400 border border-indigo-500/30 px-3 py-2 rounded-xl hover:bg-indigo-500/20 hover:text-indigo-300 transition-colors text-left shadow-sm flex items-center gap-2 group max-w-[280px]"
+                      >
+                        <Search size={12} className="opacity-50 group-hover:opacity-100" />
+                        <span className="truncate">{sug}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))
+            );
+          })
         )}
         {isLoading && (
           <div className="flex flex-col items-start animate-in fade-in duration-300">
