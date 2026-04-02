@@ -354,7 +354,21 @@ export default function RetailStockManager() {
 
       if (logic.selectedStatuses.length > 0) {
         const status = getProductStatus(i, mainView).text;
-        const isMatched = logic.selectedStatuses.includes(status);
+        let isMatched = logic.selectedStatuses.includes(status);
+
+        if (subFilter === 'expiring' && i.expiryDate) {
+          const exp = new Date(i.expiryDate).getTime();
+          const diffDays = Math.ceil((exp - now.getTime()) / (1000 * 3600 * 24));
+          let expStatus = '';
+          if (diffDays <= 0) expStatus = 'Expired';
+          else if (diffDays <= 30) expStatus = 'Critical Expiry';
+          else if (diffDays <= 90) expStatus = 'Short Expiry';
+          
+          if (expStatus && logic.selectedStatuses.includes(expStatus)) {
+            isMatched = true;
+          }
+        }
+
         if (logic.statusFilterMode === 'show') {
           if (!isMatched) return false;
         } else {

@@ -479,7 +479,7 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
                           )}
                         </div>
                         <div className="max-h-64 overflow-y-auto p-1 space-y-1 scrollbar-hide mt-1">
-                          {STATUS_OPTIONS.map((status) => {
+                          {(logic.subFilter === 'expiring' ? [...STATUS_OPTIONS, 'Short Expiry', 'Critical Expiry', 'Expired'] : STATUS_OPTIONS).map((status) => {
                             const isActive = logic.selectedStatuses.includes(status);
                             return (
                               <button 

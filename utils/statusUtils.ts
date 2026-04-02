@@ -1,6 +1,6 @@
 import { Product } from '../types';
 
-export type ProductStatus = 'Healthy' | 'Low Stock' | 'Critical Reorder' | 'Out of Stock' | 'Excess Stock' | 'Unavailable' | 'Archive' | 'Bin';
+export type ProductStatus = 'Healthy' | 'Low Stock' | 'Critical Reorder' | 'Out of Stock' | 'Excess Stock' | 'Unavailable' | 'Archive' | 'Bin' | 'Short Expiry' | 'Critical Expiry' | 'Expired';
 
 export function getProductStatus(item: Product, mainView?: string): { text: string; color: string; severity: number } {
   if (mainView === 'bin') {
