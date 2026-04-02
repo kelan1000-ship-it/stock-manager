@@ -67,6 +67,24 @@ export function useGeminiAssistant(
         }));
       }
 
+      case 'clinical_inventory_search': {
+        const keywords = args.keywords as string[];
+        if (!keywords || !Array.isArray(keywords)) return { error: "Invalid keywords array provided." };
+        
+        const results = inventory.filter(p => {
+          const searchString = `${p.name} ${p.productCode} ${p.barcode}`.toLowerCase();
+          return keywords.some(kw => searchString.includes(kw.toLowerCase()));
+        }).slice(0, 30); // Allow up to 30 results for a comprehensive clinical check
+
+        return results.map(p => ({
+          name: p.name,
+          stock: p.stockInHand,
+          price: p.price,
+          location: p.location,
+          packSize: p.packSize
+        }));
+      }
+
       case 'check_price_alerts': {
         const alerts = pricingLogic.alerts.slice(0, 10);
         const labelsNeeded = inventory.filter(p => p.labelNeedsUpdate).length;
