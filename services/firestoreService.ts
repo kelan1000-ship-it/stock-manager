@@ -1,6 +1,6 @@
 import {
   collection, doc, setDoc, updateDoc, deleteDoc, writeBatch,
-  onSnapshot, query, Unsubscribe,
+  onSnapshot, query, Unsubscribe, getDocs,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Product, Message, Transfer, MasterProduct, CustomerRequest,
@@ -214,6 +214,11 @@ export async function saveEposTransaction(branch: BranchKey, transaction: EposTr
 
 export async function deleteEposTransaction(branch: BranchKey, transactionId: string) {
   await deleteDoc(doc(db, 'branches', branch, 'eposTransactions', transactionId));
+}
+
+export async function getEposTransactionsSnapshot(branch: BranchKey): Promise<EposTransaction[]> {
+  const snap = await getDocs(collection(db, 'branches', branch, 'eposTransactions'));
+  return snap.docs.map(d => ({ ...d.data(), id: d.id })) as EposTransaction[];
 }
 
 // ═══ EPOS QUICK BUTTONS ═══

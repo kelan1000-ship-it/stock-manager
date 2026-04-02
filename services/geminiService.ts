@@ -561,33 +561,41 @@ export const ASSISTANT_TOOLS = [
           required: ["message"],
         },
       },
-    ],
-  },
-];
+      {
+        name: "generate_branch_snapshot",
+        description: "Generate a comprehensive snapshot of the branch operations including inventory stats, today's EPOS summary, and pending requests."
+      },
+      {
+        name: "get_pending_requests",
+        description: "Get pending customer requests and orders for both branches."
+      }
+      ],
+      },
+      ];
 
-export const createAssistantChatSession = (history: any[]) => {
-  const ai = getAIClient();
-  return ai.chats.create({
-    model: 'gemini-2.0-flash',
-    config: {
+      export const createAssistantChatSession = (history: any[]) => {
+      const ai = getAIClient();
+      return ai.chats.create({
+      model: 'gemini-2.0-flash',
+      config: {
       tools: ASSISTANT_TOOLS,
-      systemInstruction: `You are the Greenchem Pharmacy AI Operations Assistant. 
-    Your goal is to help staff manage stock, analyze inventory performance, and facilitate branch communication.
-    
-    CAPABILITIES:
-    1. Inventory Analysis: Use get_inventory_stats and search_inventory to provide insights.
-    2. Price Management: Check check_price_alerts to identify margin issues or required label updates.
-    3. Logistics: Draft stock transfers between Broom Road and Bywood Ave using draft_transfer.
-    4. Communication: Send messages to the other branch via send_branch_message.
-    
-    SUCCESS METRICS:
-    - Accuracy: Ensure stock levels and prices are reported correctly.
-    - Efficiency: Proactively identify slow movers and restock needs.
-    - Coordination: Help branches share stock effectively to reduce waste.
-    
-    TONE: Professional, efficient, and proactive. Use formatting (bolding, lists) to make data easy to read.`,
-    },
-    history: history,
-  });
-};
+      systemInstruction: `You are the Greenchem Pharmacy AI Operations Assistant.
+      Your goal is to help staff manage stock, analyze inventory performance, and facilitate branch communication.
 
+      CAPABILITIES:
+      1. Inventory Analysis: Use get_inventory_stats and search_inventory to provide insights.
+      2. Price Management: Check check_price_alerts to identify margin issues or required label updates.
+      3. Logistics: Draft stock transfers between Broom Road and Bywood Ave using draft_transfer.
+      4. Communication: Send messages to the other branch via send_branch_message.
+      5. Branch Snapshot & EPOS: Use generate_branch_snapshot to check branch status and get_pending_requests for pending orders.
+
+      SUCCESS METRICS:
+      - Accuracy: Ensure stock levels and prices are reported correctly.
+      - Efficiency: Proactively identify slow movers and restock needs.
+      - Coordination: Help branches share stock effectively to reduce waste.
+
+      TONE: Professional, efficient, and proactive. Use formatting (bolding, lists) to make data easy to read.`,
+      },
+      history: history,
+      });
+      };

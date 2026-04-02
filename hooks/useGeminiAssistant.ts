@@ -1,6 +1,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { createAssistantChatSession } from '../services/geminiService';
+import { getEposTransactionsSnapshot } from '../services/firestoreService';
 import { Product, BranchData, BranchKey, Transfer } from '../types';
 import { StockLogicReturn } from './useStockLogic';
 import { PricingDeskReturn } from './usePricingDesk';
@@ -113,6 +114,45 @@ export function useGeminiAssistant(
       case 'send_branch_message': {
         sendMessage(args.message);
         return { success: true, target: currentBranch === 'bywood' ? 'Broom Road' : 'Bywood Ave' };
+      }
+
+      case 'generate_branch_snapshot': {
+        const bywoodInventory = branchData.bywood || [];
+        const broomInventory = branchData.broom || [];
+        
+        // Try fetching today's EPOS
+        const todayStr = new Date().toISOString().split('T')[0];
+        let eposSummary = "Could not fetch EPOS.";
+        try {
+          const eposTxs = await getEposTransactionsSnapshot(currentBranch);
+          const todayTxs = eposTxs.filter(t => t.timestamp.startsWith(todayStr));
+          const totalRevenue = todayTxs.reduce((sum, t) => sum + t.total, 0);
+          eposSummary = `${todayTxs.length} transactions today, Total: £${totalRevenue.toFixed(2)}`;
+        } catch (e) {
+          console.error("Failed to fetch EPOS snapshot", e);
+        }
+
+        const pendingRequests = {
+          bywood: (branchData.bywoodRequests || []).filter(r => r.status === 'pending').length,
+          broom: (branchData.broomRequests || []).filter(r => r.status === 'pending').length
+        };
+
+        return {
+          currentBranch,
+          inventoryStats: {
+            bywood: { totalItems: bywoodInventory.length },
+            broom: { totalItems: broomInventory.length }
+          },
+          eposToday: eposSummary,
+          pendingRequests
+        };
+      }
+
+      case 'get_pending_requests': {
+        return {
+          bywoodRequests: (branchData.bywoodRequests || []).filter(r => r.status === 'pending').map(r => ({ item: r.itemName, customer: r.customerName })),
+          broomRequests: (branchData.broomRequests || []).filter(r => r.status === 'pending').map(r => ({ item: r.itemName, customer: r.customerName }))
+        };
       }
 
       default:

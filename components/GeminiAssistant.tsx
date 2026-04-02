@@ -3,7 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sparkles, X, Send, Bot, User, Loader2, 
   BarChart3, Search, AlertCircle, ArrowRightLeft, 
-  MessageSquare, Trash2, Maximize2, Minimize2 
+  MessageSquare, Trash2, Maximize2, Minimize2,
+  Home
 } from 'lucide-react';
 import { ChatMessage } from '../hooks/useGeminiAssistant';
 import { TooltipWrapper } from './SharedUI';
@@ -48,9 +49,9 @@ export const GeminiAssistant: React.FC<GeminiAssistantProps> = ({
   };
 
   const quickActions = [
-    { label: 'Inventory Stats', icon: BarChart3, text: 'Give me a summary of the inventory stats' },
+    { label: 'Branch Snapshot', icon: BarChart3, text: 'Generate a branch snapshot' },
     { label: 'Price Alerts', icon: AlertCircle, text: 'Are there any price alerts I should know about?' },
-    { label: 'Search Item', icon: Search, text: 'Search for ' },
+    { label: 'Pending Requests', icon: Search, text: 'What are the pending requests?' },
     { label: 'Branch Comms', icon: MessageSquare, text: 'Send a message to the other branch saying ' },
   ];
 
@@ -68,6 +69,15 @@ export const GeminiAssistant: React.FC<GeminiAssistantProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {messages.length > 0 && (
+            <button 
+              onClick={onClear} 
+              className="px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 transition-colors flex items-center gap-2 text-xs font-bold"
+            >
+              <Home size={14} />
+              <span>HOME</span>
+            </button>
+          )}
           <button 
             onClick={() => setIsExpanded(!isExpanded)} 
             className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 transition-colors hidden md:block"
