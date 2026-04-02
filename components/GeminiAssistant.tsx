@@ -4,7 +4,7 @@ import {
   Sparkles, X, Send, Bot, User, Loader2, 
   BarChart3, Search, AlertCircle, ArrowRightLeft, 
   MessageSquare, Trash2, Maximize2, Minimize2,
-  Home
+  Home, Stethoscope
 } from 'lucide-react';
 import { ChatMessage } from '../hooks/useGeminiAssistant';
 import { TooltipWrapper } from './SharedUI';
@@ -111,10 +111,26 @@ export const GeminiAssistant: React.FC<GeminiAssistantProps> = ({
             <div className="w-20 h-20 rounded-[2rem] bg-slate-800 flex items-center justify-center text-slate-600 border border-slate-700/50">
               <Bot size={40} />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 mb-4">
               <h4 className="text-white font-black uppercase tracking-tight">How can I help today?</h4>
               <p className="text-xs text-slate-500 font-bold max-w-[240px]">I can analyze stock, draft transfers, and manage branch communications.</p>
             </div>
+
+            <button
+              onClick={() => {
+                setInputText('Counter advice for: ');
+                setTimeout(() => inputRef.current?.focus(), 50);
+              }}
+              className="flex items-center gap-4 w-full max-w-[280px] p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-all text-left group mb-2"
+            >
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                <Stethoscope size={20} />
+              </div>
+              <div>
+                <h5 className="text-sm font-black text-white uppercase tracking-wide group-hover:text-emerald-300 transition-colors">Counter Assistant</h5>
+                <p className="text-[10px] font-bold text-emerald-500/80 uppercase tracking-widest">Clinical Advice & Stock</p>
+              </div>
+            </button>
 
             <div className="grid grid-cols-1 gap-2 w-full max-w-[280px]">
               {quickActions.map((action, i) => (
