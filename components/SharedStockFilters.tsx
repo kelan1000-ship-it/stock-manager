@@ -294,6 +294,19 @@ export const SharedStockFilters: React.FC<SharedStockFiltersProps> = ({
                 <X size={16} />
             </button>
         )}
+        {(searchQuery || selectedSuppliers.length > 0 || selectedLocations.length > 0 || selectedTags.length > 0) ? (
+            <button
+                onClick={() => {
+                    setSearchQuery('');
+                    clearSupplierFilters();
+                    clearLocationFilters();
+                    setSelectedTags([]);
+                }}
+                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors ml-1"
+            >
+                Clear All
+            </button>
+        ) : null}
         {onOpenScanner && (
             <>
               <div className="w-px h-6 bg-slate-800 mx-1" />

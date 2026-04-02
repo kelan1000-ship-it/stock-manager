@@ -578,6 +578,20 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
                             <X size={16} />
                         </button>
                     )}
+                    {(logic.searchQuery || selectedSuppliers.length > 0 || selectedLocations.length > 0 || activeFilters.length > 0 || logic.selectedStatuses.length > 0) ? (
+                        <button
+                            onClick={() => {
+                                logic.setSearchQuery('');
+                                clearSupplierFilters();
+                                clearLocationFilters();
+                                clearFilters();
+                                logic.clearStatusFilters();
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors ml-1"
+                        >
+                            Clear All
+                        </button>
+                    ) : null}
                     <div className="w-px h-6 bg-slate-800 mx-1" />
                     <div className="flex items-center gap-1">
                         <button onClick={onOpenPriceChecker} className="p-2 rounded-lg text-[#FFD700] hover:bg-slate-900 hover:text-[#FFC700] transition-all"><span className="font-black text-lg leading-none">£</span></button>
