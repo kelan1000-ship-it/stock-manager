@@ -351,7 +351,7 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
                             <button onClick={clearSupplierFilters} className="text-[9px] font-black uppercase text-rose-400 hover:text-rose-300">Clear</button>
                           )}
                         </div>
-                        <div className="max-h-64 overflow-y-auto p-1 space-y-1 scrollbar-hide mt-1">
+                        <div className="max-h-96 overflow-y-auto p-1 space-y-1 mt-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                           {uniqueSuppliers.length === 0 ? (
                             <p className="p-4 text-center text-[10px] font-bold text-slate-600 uppercase tracking-widest">No suppliers found</p>
                           ) : uniqueSuppliers.map((supplier) => {
@@ -411,7 +411,7 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
                               <button onClick={clearFilters} className="text-[9px] font-black uppercase text-rose-400 hover:text-rose-300">Clear</button>
                             )}
                          </div>
-                         <div className="max-h-64 overflow-y-auto p-1 space-y-1 scrollbar-hide mt-1">
+                         <div className="max-h-96 overflow-y-auto p-1 space-y-1 mt-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                             {allUniqueTags.length === 0 ? (
                               <p className="p-4 text-center text-[10px] font-bold text-slate-600 uppercase tracking-widest">No tags found</p>
                             ) : allUniqueTags.map(tag => {
@@ -478,8 +478,8 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
                             <button onClick={logic.clearStatusFilters} className="text-[9px] font-black uppercase text-rose-400 hover:text-rose-300">Clear</button>
                           )}
                         </div>
-                        <div className="max-h-64 overflow-y-auto p-1 space-y-1 scrollbar-hide mt-1">
-                          {(logic.subFilter === 'expiring' ? [...STATUS_OPTIONS, 'Short Expiry', 'Critical Expiry', 'Expired'] : STATUS_OPTIONS).map((status) => {
+                        <div className="max-h-96 overflow-y-auto p-1 space-y-1 mt-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                          {(logic.subFilter === 'expiring' ? ['Expired', 'Critical Expiry', 'Short Expiry', ...STATUS_OPTIONS] : STATUS_OPTIONS).map((status) => {
                             const isActive = logic.selectedStatuses.includes(status);
                             return (
                               <button 
@@ -536,7 +536,7 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
                             <button onClick={clearLocationFilters} className="text-[9px] font-black uppercase text-rose-400 hover:text-rose-300">Clear</button>
                           )}
                         </div>
-                        <div className="max-h-64 overflow-y-auto p-1 space-y-1 scrollbar-hide mt-1">
+                        <div className="max-h-96 overflow-y-auto p-1 space-y-1 mt-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                           {uniqueLocations.length === 0 ? (
                             <p className="p-4 text-center text-[10px] font-bold text-slate-600 uppercase tracking-widest">No locations found</p>
                           ) : uniqueLocations.map((location) => {
