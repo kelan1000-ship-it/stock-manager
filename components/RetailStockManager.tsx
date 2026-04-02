@@ -388,7 +388,7 @@ export default function RetailStockManager() {
           if (!i.expiryDate) return false;
           const exp = new Date(i.expiryDate);
           const diffDays = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 3600 * 24));
-          if (diffDays > 90 || diffDays <= 0) return false;
+          if (diffDays > 90) return false;
         } else if (subFilter === 'clearance') {
           if (!i.isReducedToClear) return false;
         } else if (subFilter === 'alerts') {

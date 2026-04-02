@@ -61,16 +61,18 @@ export const PriceCheckerModal: React.FC<PriceCheckerModalProps> = ({ isOpen, on
                         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                         const formattedDate = `${exp.getDate().toString().padStart(2, '0')}/${(exp.getMonth() + 1).toString().padStart(2, '0')}/${exp.getFullYear()}`;
                         
-                        let status = { label: 'EXPIRY', color: 'text-slate-500', bg: 'bg-slate-800/50', border: 'border-slate-700/50', iconColor: 'text-slate-400' };
+                        let status = { label: 'EXPIRY', color: 'text-slate-500', bg: 'bg-slate-800/50', border: 'border-slate-700/50', iconColor: 'text-slate-400', animation: '' };
                         
-                        if (diffDays < 28) {
-                             status = { label: 'CRITICAL EXPIRY', color: 'text-rose-500', bg: 'bg-rose-500/10', border: 'border-rose-500/20', iconColor: 'text-rose-500' };
+                        if (diffDays <= 0) {
+                             status = { label: 'EXPIRED', color: 'text-white', bg: 'bg-black', border: 'border-slate-700/50', iconColor: 'text-white', animation: 'animate-pulse' };
+                        } else if (diffDays < 28) {
+                             status = { label: 'CRITICAL EXPIRY', color: 'text-rose-500', bg: 'bg-rose-500/10', border: 'border-rose-500/20', iconColor: 'text-rose-500', animation: '' };
                         } else if (diffDays < 90) {
-                             status = { label: 'SHORT EXPIRY', color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/20', iconColor: 'text-amber-500' };
+                             status = { label: 'SHORT EXPIRY', color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/20', iconColor: 'text-amber-500', animation: '' };
                         }
 
                         return (
-                            <div className={`${status.bg} p-4 rounded-2xl border ${status.border} flex flex-col items-center w-full transition-colors`}>
+                            <div className={`${status.bg} p-4 rounded-2xl border ${status.border} flex flex-col items-center w-full transition-colors ${status.animation}`}>
                                 <div className={`${status.iconColor} mb-2`}>
                                     <Calendar size={20} />
                                 </div>

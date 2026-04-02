@@ -108,7 +108,7 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
       if (!i.expiryDate) return false;
       const exp = new Date(i.expiryDate).getTime();
       const diffDays = Math.ceil((exp - now) / (1000 * 3600 * 24));
-      return diffDays <= 90 && diffDays > 0;
+      return diffDays <= 90;
     }).length;
 
     const clearanceCount = activeMainInventory.filter(i => i.isReducedToClear).length;

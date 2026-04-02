@@ -36,7 +36,7 @@ export function useGeminiAssistant(
           if (!p.expiryDate) return false;
           const exp = new Date(p.expiryDate).getTime();
           const diffDays = Math.ceil((exp - Date.now()) / (1000 * 3600 * 24));
-          return diffDays <= 90 && diffDays > 0;
+          return diffDays <= 90;
         }).length;
         
         return {

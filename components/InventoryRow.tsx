@@ -79,18 +79,18 @@ export const InventoryRow: React.FC<{
   const { isVisible: isBanVisible, coords: banCoords, tooltipHandlers: banHandlers } = useTooltip(300);
   const { isVisible: isExpiryVisible, coords: expiryCoords, tooltipHandlers: expiryHandlers } = useTooltip(300);
 
-  const { isShortExpiry, isCriticalExpiry } = useMemo(() => {
-    if (!item.expiryDate) return { isShortExpiry: false, isCriticalExpiry: false };
+  const { isShortExpiry, isCriticalExpiry, isExpired } = useMemo(() => {
+    if (!item.expiryDate) return { isShortExpiry: false, isCriticalExpiry: false, isExpired: false };
     const expiry = new Date(item.expiryDate);
     const now = new Date();
     const diffTime = expiry.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return {
       isShortExpiry: diffDays <= 90 && diffDays > 0,
-      isCriticalExpiry: diffDays <= 30 && diffDays > 0
-          };
-      }, [item.expiryDate]);
-
+      isCriticalExpiry: diffDays <= 30 && diffDays > 0,
+      isExpired: diffDays <= 0
+    };
+  }, [item.expiryDate]);
   const { isRecent, hoursLeft } = useMemo(() => {
     if (!item.createdAt) return { isRecent: false, hoursLeft: 0 };
     const now = new Date();
@@ -131,7 +131,7 @@ export const InventoryRow: React.FC<{
   }
 
   return (
-    <tr key={item.id} className={`transition-all duration-200 group border-b border-slate-800/50 ${isNoteExpanded ? 'relative z-50 bg-slate-900/30' : ''} ${isCriticalReorder || isCriticalExpiry || alert || isLocalDuplicate ? 'bg-rose-500/[0.03]' : 'hover:bg-slate-800/40'} ${isSelected ? 'bg-emerald-600/5' : ''}`}>
+    <tr key={item.id} className={`transition-all duration-200 group border-b border-slate-800/50 ${isNoteExpanded ? 'relative z-50 bg-slate-900/30' : ''} ${isCriticalReorder || isCriticalExpiry || isExpired || alert || isLocalDuplicate ? 'bg-rose-500/[0.03]' : 'hover:bg-slate-800/40'} ${isSelected ? 'bg-emerald-600/5' : ''}`}>
       <td className="p-4 align-top pt-5">
         <button onClick={onToggleSelection} className={`transition-colors ${isSelected ? 'text-emerald-500' : 'text-slate-700 hover:text-slate-500'}`}>
           {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
@@ -191,9 +191,13 @@ export const InventoryRow: React.FC<{
                 </span>
               )}
 
-              {(isShortExpiry || isCriticalExpiry) && (
+              {(isShortExpiry || isCriticalExpiry || isExpired) && (
                 <div className="relative" {...expiryHandlers}>
-                  {isCriticalExpiry ? (
+                  {isExpired ? (
+                    <span className="px-1.5 py-0.5 rounded bg-black text-white text-[8px] font-black uppercase tracking-tighter flex items-center gap-0.5 animate-pulse border border-slate-700/50">
+                      <ShieldAlert size={10}/> EXPIRED
+                    </span>
+                  ) : isCriticalExpiry ? (
                     <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[8px] font-black uppercase tracking-tighter flex items-center gap-0.5 animate-pulse">
                       <ShieldAlert size={10}/> CRITICAL EXP
                     </span>
@@ -253,7 +257,7 @@ export const InventoryRow: React.FC<{
         <td className="p-4 text-center align-top pt-5">
           <div className="mt-6">
             <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-${statusColor}-500/20 bg-${statusColor}-500/10 text-${statusColor}-500 flex items-center justify-center gap-1 w-fit mx-auto`}>
-              {((isCriticalReorder || isCriticalExpiry) && !isBinView && !isArchiveView) && <AlertCircle size={10} />} {statusText}
+              {((isCriticalReorder || isCriticalExpiry || isExpired) && !isBinView && !isArchiveView) && <AlertCircle size={10} />} {statusText}
             </span>
           </div>
         </td>
