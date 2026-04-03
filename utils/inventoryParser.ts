@@ -50,12 +50,12 @@ export const DEFAULT_HEADERS = [
   'Product Name', 'Subheader', 'Product Group', 'Barcode', 'PIP', 'Pack Size', 'Image URL', 'Stock Type',
   'Stock In Hand', 'Stock to Keep', 'Loose Stock Target', 'Loose Units', 'Supplier', 'Location', 'Expiry Date',
   'Price (£)', 'Cost (£)', 'Reduced to Clear',
-  'Shared Stock', 'Price Synced', 'Threshold Alert', 'Discontinued', 'Notes', 'Tags'
+  'Shared Stock', 'Price Synced', 'Threshold Alert', 'Discontinued', 'Notes', 'Tags', 'Keywords'
 ];
 
 export const FULL_EXPORT_HEADERS = [
   ...DEFAULT_HEADERS,
-  'Keywords', 'Target Price', 'Unavailable', 'Excess Stock', 'Short Expiry',
+  'Target Price', 'Unavailable', 'Excess Stock', 'Short Expiry',
   'Last Updated', 'Created At', 'Last Ordered Date'
 ];
 
@@ -241,7 +241,7 @@ export const compareInventory = (
       'costPrice', 'stockInHand', 'stockToKeep', 'looseStockToKeep', 'partPacks', 'supplier',
       'location', 'isDiscontinued', 'isShared', 'isPriceSynced',
       'enableThresholdAlert', 'expiryDate', 'isReducedToClear', 'stockType',
-      'notes', 'productImage', 'tags'
+      'notes', 'productImage', 'tags', 'keywords'
     ];
     
     fieldsToCompare.forEach((field) => {
