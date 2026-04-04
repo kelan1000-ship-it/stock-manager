@@ -42,7 +42,6 @@ export const ProductBasicInfo: React.FC<ProductBasicInfoProps> = ({
                 onChange={e => setFormData({...formData, name: e.target.value})}
                 className="w-full p-3 pr-10 rounded-xl bg-slate-950 border border-slate-800 font-bold text-white outline-none focus:border-emerald-500 transition-all placeholder-slate-800"
                 placeholder="Product Title"
-                style={{ fontSize: 'var(--product-title-size, 16px)' }}
               />
               <button
                 onClick={() => onAutoFill(formData.name)}
