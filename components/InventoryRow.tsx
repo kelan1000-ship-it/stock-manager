@@ -156,13 +156,13 @@ export const InventoryRow: React.FC<{
           <div className="flex flex-col gap-1.5 flex-1 min-w-0">
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <button 
-                    onClick={() => canEdit && onOpenEdit(item)} 
+                <button
+                    onClick={() => canEdit && onOpenEdit(item)}
                     className={`font-bold text-sm transition-colors truncate text-left tracking-tight text-white capitalize ${canEdit ? 'hover:text-emerald-500 cursor-pointer' : 'cursor-default'}`}
+                    style={{ fontSize: 'var(--product-title-size, 16px)' }}
                 >
                     {item.name}
-                </button>
-                <div className="flex shrink-0 gap-1.5 items-center opacity-70 group-hover:opacity-100 transition-opacity">
+                </button>                <div className="flex shrink-0 gap-1.5 items-center opacity-70 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(item.name); setNameCopied(true); setTimeout(() => setNameCopied(false), 2000); }}
                     className="hover:text-emerald-400 transition-colors cursor-pointer"
