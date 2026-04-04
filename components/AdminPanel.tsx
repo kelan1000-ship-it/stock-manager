@@ -21,7 +21,7 @@ import {
   updateUserRole,
   removeUser,
 } from '../services/authService';
-import { subscribeToEposConfig, saveEposConfig } from '../services/firestoreService';
+import { subscribeToEposConfig, saveEposConfig, subscribeToStockManagerConfig, saveStockManagerConfig } from '../services/firestoreService';
 import { useAuth } from '../contexts/AuthContext';
 import { logPermissionChange } from '../services/auditService';
 
@@ -75,7 +75,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   // Subscribe to Stock Manager Settings
   useEffect(() => {
     if (!isOpen) return;
-    const { subscribeToStockManagerConfig } = require('../services/firestoreService');
     const unsub = subscribeToStockManagerConfig(setStockManagerConfig);
     return () => unsub();
   }, [isOpen]);
@@ -450,7 +449,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                         if (val !== (stockManagerConfig?.productTitleFontSize || 16)) {
                           setActionLoading('stock-manager-config');
                           try {
-                            const { saveStockManagerConfig } = require('../services/firestoreService');
                             await saveStockManagerConfig({
                               id: 'default',
                               productTitleFontSize: val
