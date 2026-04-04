@@ -562,7 +562,7 @@ export const MissingAttributesModal: React.FC<MissingAttributesModalProps> = ({
                             {item.productImage ? <SafeImage src={item.productImage} alt="" className="w-full h-full object-contain p-1" /> : <div className="text-slate-300 font-black text-[10px]">IMG</div>}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-black text-white truncate uppercase">{item.name}</p>
+                            <p className="text-xs font-black text-white truncate uppercase" style={{ fontSize: 'var(--product-title-size, 12px)' }}>{item.name}</p>
                             <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mt-0.5 truncate">{item.supplier || 'No Supplier'}</p>
                           </div>
                         </div>

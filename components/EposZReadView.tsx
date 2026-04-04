@@ -162,7 +162,7 @@ export function EposZReadView({ currentDaySummary, pastZReads, onGenerateZRead, 
             {s.topItems.map((item, i) => (
               <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-100 last:border-0">
                 <span className="text-gray-300 text-xs font-mono w-5">{i + 1}.</span>
-                <span className="text-gray-900 text-sm flex-1">{item.name}</span>
+                <span className="text-gray-900 text-sm flex-1" style={{ fontSize: 'var(--product-title-size, 14px)' }}>{item.name}</span>
                 <span className="text-gray-400 text-xs">×{item.quantity}</span>
                 <span className="text-gray-900 font-bold text-sm">£{item.total.toFixed(2)}</span>
               </div>

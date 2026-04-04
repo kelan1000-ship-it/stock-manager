@@ -381,13 +381,13 @@ export const BulkAddView = ({
                         <td className="px-4 py-6 relative">
                         <div className="relative">
                             <div className="flex items-center gap-3">
-                            <input 
-                                type="text" 
-                                value={item.name} 
-                                onFocus={(e) => { e.target.select(); setActiveSuggestionId(item.tempId); }} 
-                                onChange={(e) => { onUpdateRow(item.tempId, { name: e.target.value }); setActiveSuggestionId(item.tempId); }} 
-                                className={`w-full bg-transparent border-b font-bold text-sm text-white outline-none p-1.5 transition-all ${activeSuggestionId === item.tempId ? 'border-indigo-500' : 'border-slate-800 group-hover:border-slate-700'}`} 
-                                placeholder="Enter Name, Barcode or PIP..." 
+                            <input
+                                type="text"
+                                value={item.name}
+                                onFocus={(e) => { e.target.select(); setActiveSuggestionId(item.tempId); }}
+                                onChange={(e) => { onUpdateRow(item.tempId, { name: e.target.value }); setActiveSuggestionId(item.tempId); }}
+                                className={`w-full bg-transparent border-b font-bold text-sm text-white outline-none p-1.5 transition-all ${activeSuggestionId === item.tempId ? 'border-indigo-500' : 'border-slate-800 group-hover:border-slate-700'}`}
+                                style={{ fontSize: 'var(--product-title-size, 14px)' }}                                placeholder="Enter Name, Barcode or PIP..." 
                             />
                             {suggestions.length > 0 && !exactMatch && (
                                 <button 

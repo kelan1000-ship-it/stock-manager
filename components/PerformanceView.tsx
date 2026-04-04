@@ -99,7 +99,7 @@ export const PerformanceView = ({ items }: { items: Product[] }) => {
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-slate-500 border bg-slate-900 border-slate-800 shrink-0">{idx + 1}</div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-black text-white capitalize leading-tight break-words">{item.name}</p>
+                    <p className="text-sm font-black text-white capitalize leading-tight break-words" style={{ fontSize: 'var(--product-title-size, 14px)' }}>{item.name}</p>
                     <p className="text-[10px] italic text-slate-500 uppercase">{item.packSize} • Qty {item.stockInHand} {item.isArchived && '(Archived)'}</p>
                   </div>
                 </div>

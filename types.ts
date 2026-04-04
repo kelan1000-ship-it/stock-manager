@@ -498,6 +498,11 @@ export interface EposConfig {
   staffDiscountPercent: number;
 }
 
+export interface StockManagerConfig {
+  id: string;              // always 'default'
+  productTitleFontSize: number;
+}
+
 export interface ReconciliationExclusion {
   id: string;
   type: 'barcode' | 'name' | 'rule';

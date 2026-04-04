@@ -50,7 +50,7 @@ export function EposCart({
           >
             <span className="text-gray-300 text-xs font-mono w-5 shrink-0">{idx + 1}.</span>
             <div className="flex-1 min-w-0">
-              <p className="text-gray-900 text-sm font-medium truncate">
+              <p className="text-gray-900 text-sm font-medium truncate" style={{ fontSize: 'var(--product-title-size, 14px)' }}>
                 {item.name}
                 {item.noDiscountAllowed && (
                   <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase text-amber-600 bg-amber-50 px-1 py-0.5 rounded align-middle">

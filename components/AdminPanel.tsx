@@ -42,11 +42,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
 
   // Section Toggles
   const [isEposSettingsOpen, setIsEposSettingsOpen] = useState(false);
+  const [isStockManagerSettingsOpen, setIsStockManagerSettingsOpen] = useState(false);
   const [isAllUsersOpen, setIsAllUsersOpen] = useState(true);
 
   // EPOS Configs
   const [bywoodEposConfig, setBywoodEposConfig] = useState<EposConfig | null>(null);
   const [broomEposConfig, setBroomEposConfig] = useState<EposConfig | null>(null);
+  const [stockManagerConfig, setStockManagerConfig] = useState<any>(null);
 
   // New user form
   const [newEmail, setNewEmail] = useState('');
@@ -63,11 +65,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
     const unsubBywood = subscribeToEposConfig('bywood', setBywoodEposConfig);
     const unsubBroom = subscribeToEposConfig('broom', setBroomEposConfig);
 
-    return () => {
+        return () => {
       unsub();
       unsubBywood();
       unsubBroom();
     };
+  }, [isOpen]);
+
+  // Subscribe to Stock Manager Settings
+  useEffect(() => {
+    if (!isOpen) return;
+    const { subscribeToStockManagerConfig } = require('../services/firestoreService');
+    const unsub = subscribeToStockManagerConfig(setStockManagerConfig);
+    return () => unsub();
   }, [isOpen]);
 
   // Clear messages after timeout
@@ -404,6 +414,62 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+
+          {/* ─── Stock Manager Settings ─────────────────────────── */}
+          <div className="rounded-2xl bg-slate-950 border border-slate-800 overflow-hidden transition-all duration-300">
+            <button
+              onClick={() => setIsStockManagerSettingsOpen(!isStockManagerSettingsOpen)}
+              className="w-full flex items-center justify-between p-5 hover:bg-slate-900/50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                  <Settings size={14} className="text-indigo-400" />
+                </div>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Stock Manager Settings</h3>
+              </div>
+              <ChevronDown size={16} className={`text-slate-500 transition-transform duration-300 ${isStockManagerSettingsOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isStockManagerSettingsOpen && (
+              <div className="px-5 pb-5 pt-0 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="space-y-2 max-w-xs">
+                  <label className="block text-[8px] font-black uppercase tracking-widest text-slate-500">
+                    Product Title Font Size (px)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="10"
+                      max="32"
+                      defaultValue={stockManagerConfig?.productTitleFontSize || 16}
+                      onBlur={async (e) => {
+                        const val = parseInt(e.target.value) || 16;
+                        if (val !== (stockManagerConfig?.productTitleFontSize || 16)) {
+                          setActionLoading('stock-manager-config');
+                          try {
+                            const { saveStockManagerConfig } = require('../services/firestoreService');
+                            await saveStockManagerConfig({
+                              id: 'default',
+                              productTitleFontSize: val
+                            });
+                            setSuccess(`Updated Product Title Font Size`);
+                          } catch (err: any) {
+                            setError(err.message);
+                          } finally {
+                            setActionLoading(null);
+                          }
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700/60 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                    />
+                    {actionLoading === 'stock-manager-config' && (
+                      <Loader2 size={14} className="animate-spin text-indigo-500 shrink-0" />
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

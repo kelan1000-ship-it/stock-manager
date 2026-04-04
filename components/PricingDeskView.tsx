@@ -240,7 +240,7 @@ export const PricingDeskView: React.FC<PricingDeskViewProps> = ({ branchData, se
                     <tr key={`${item.id}-${item.barcode}`} className="transition-colors group hover:bg-white/[0.02]">
                       <td className="p-8">
                         <div className="flex flex-col">
-                          <p className="font-black text-base text-white capitalize tracking-tight mb-1">{item.name}</p>
+                          <p className="font-black text-base text-white capitalize tracking-tight mb-1" style={{ fontSize: 'var(--product-title-size, 16px)' }}>{item.name}</p>
                           <p className="text-[11px] font-mono font-bold text-slate-500 tracking-widest">{item.barcode}</p>
                         </div>
                       </td>

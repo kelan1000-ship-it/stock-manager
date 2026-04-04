@@ -35,13 +35,14 @@ export const ProductBasicInfo: React.FC<ProductBasicInfoProps> = ({
           <div className="col-span-8 group">
             <label className="block text-[8px] font-black uppercase text-slate-500 mb-1 ml-1 tracking-widest">Full Product Name</label>
             <div className="relative">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 list="name-suggestions"
-                value={formData.name} 
+                value={formData.name}
                 onChange={e => setFormData({...formData, name: e.target.value})}
-                className="w-full p-3 pr-10 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-white outline-none focus:border-emerald-500 transition-all placeholder-slate-800" 
-                placeholder="Enter name..." 
+                className="w-full p-3 pr-10 rounded-xl bg-slate-950 border border-slate-800 font-bold text-white outline-none focus:border-emerald-500 transition-all placeholder-slate-800"
+                placeholder="Product Title"
+                style={{ fontSize: 'var(--product-title-size, 16px)' }}
               />
               <button
                 onClick={() => onAutoFill(formData.name)}

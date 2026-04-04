@@ -7,19 +7,27 @@
 // - Wraps the app in AuthProvider for global auth state
 // - Shows error screen if user has no Firestore profile
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import RetailStockManager from './components/RetailStockManager';
 import { LoginScreen } from './components/LoginScreen';
 import { Loader2 } from 'lucide-react';
 import Logo from './Logo';
 import { GlobalTooltip } from './components/GlobalTooltip';
+import { subscribeToStockManagerConfig } from './services/firestoreService';
 
 /**
  * Inner component that reads auth state from context.
  */
 const AppContent: React.FC = () => {
   const { firebaseUser, appUser, loading, error, signOut } = useAuth();
+
+  useEffect(() => {
+    return subscribeToStockManagerConfig((config) => {
+      const fontSize = config?.productTitleFontSize || 16;
+      document.documentElement.style.setProperty('--product-title-size', `${fontSize}px`);
+    });
+  }, []);
 
   // ─── Loading state (checking auth on app launch) ──────────────
   if (loading) {

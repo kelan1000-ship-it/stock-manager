@@ -73,7 +73,7 @@ export const MasterProductForm: React.FC<MasterProductFormProps> = ({ initialDat
     <div className="p-6 bg-slate-800/80 border-b border-emerald-500/30 grid grid-cols-1 md:grid-cols-12 gap-3 animate-in slide-in-from-top-4 relative z-20 shadow-2xl">
         <div className="space-y-1 md:col-span-2">
             <p className="text-[8px] font-black uppercase text-slate-500 ml-1">Product Name <span className="text-rose-500">*</span></p>
-            <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs font-bold outline-none focus:border-emerald-500" placeholder="Name..." />
+            <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-700 font-bold outline-none focus:border-emerald-500" placeholder="Name..." style={{ fontSize: 'var(--product-title-size, 16px)' }} />
         </div>
         <div className="space-y-1 md:col-span-1">
             <p className="text-[8px] font-black uppercase text-slate-500 ml-1">Subheader</p>

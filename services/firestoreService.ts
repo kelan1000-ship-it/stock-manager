@@ -265,6 +265,19 @@ export async function saveEposConfig(branch: BranchKey, config: EposConfig) {
   await setDoc(doc(db, 'branches', branch, 'config', 'epos'), config);
 }
 
+// ═══ STOCK MANAGER CONFIG ═══
+
+export interface StockManagerConfig { productTitleFontSize: number; }
+export function subscribeToStockManagerConfig(callback: (config: StockManagerConfig | null) => void): Unsubscribe {
+  return onSnapshot(doc(db, 'shared', 'data', 'config', 'stockManager'), (snap) => {
+    callback(snap.exists() ? ({ ...snap.data() } as StockManagerConfig) : null);
+  }, (error) => { console.error(`Listener error [stockManagerConfig]:`, error); });
+}
+
+export async function saveStockManagerConfig(config: StockManagerConfig) {
+  await setDoc(doc(db, 'shared', 'data', 'config', 'stockManager'), config, { merge: true });
+}
+
 // ═══ STAFF MEMBERS ═══
 
 export function subscribeToStaffMembers(branch: BranchKey, callback: (s: StaffMember[]) => void, onError?: (error: Error) => void): Unsubscribe {

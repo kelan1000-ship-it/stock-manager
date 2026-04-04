@@ -174,6 +174,7 @@ export const SharedInventoryRow: React.FC<SharedInventoryRowProps> = ({
                 <button
                     onClick={() => onOpenEdit && onOpenEdit(item)}
                     className="text-sm font-black text-white hover:text-indigo-400 transition-colors text-left truncate tracking-tight capitalize"
+                    style={{ fontSize: 'var(--product-title-size, 16px)' }}
                 >
                     {item.name}
                 </button>

@@ -113,7 +113,7 @@ export const LocalDuplicatesModal: React.FC<LocalDuplicatesModalProps> = ({ isOp
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-black text-white capitalize truncate">{item.name}</h4>
+                        <h4 className="text-sm font-black text-white capitalize truncate" style={{ fontSize: 'var(--product-title-size, 14px)' }}>{item.name}</h4>
                         <div className="flex items-center gap-3 mt-1 text-[10px] font-bold text-slate-500 uppercase">
                            <span>{item.packSize}</span>
                            <span className="w-1 h-1 rounded-full bg-slate-700" />

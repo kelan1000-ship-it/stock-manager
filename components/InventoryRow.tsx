@@ -117,7 +117,7 @@ export const InventoryRow: React.FC<{
         <td className="p-4" colSpan={2}>
            <div className="flex items-center gap-4">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${alert.severity === 'high' ? 'bg-rose-500/20 text-rose-500 animate-pulse' : 'bg-amber-500/20 text-amber-500'}`}><AlertTriangle size={20} /></div>
-              <div><button onClick={() => onOpenEdit(item)} className="font-black text-sm hover:text-emerald-500 transition-all text-left text-white capitalize">{item.name}</button><div className="flex items-center gap-2 mt-0.5"><span className="text-[10px] font-mono text-slate-500">{item.barcode}</span><span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded border bg-amber-500/10 border-amber-500/20 text-amber-500">Branch Price Gap</span></div></div>
+              <div><button onClick={() => onOpenEdit(item)} className="font-black text-sm hover:text-emerald-500 transition-all text-left text-white capitalize" style={{ fontSize: 'var(--product-title-size, 16px)' }}>{item.name}</button><div className="flex items-center gap-2 mt-0.5"><span className="text-[10px] font-mono text-slate-500">{item.barcode}</span><span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded border bg-amber-500/10 border-amber-500/20 text-amber-500">Branch Price Gap</span></div></div>
            </div>
         </td>
         <td className="p-4 text-center" colSpan={3}>

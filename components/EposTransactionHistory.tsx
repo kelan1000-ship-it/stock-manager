@@ -192,7 +192,7 @@ export function EposTransactionHistory({ transactions, dateFilter, setDateFilter
                               className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
                             />
                           )}
-                          <span className={`flex-1 text-gray-600 ${item.refunded ? 'line-through' : ''}`}>
+                          <span className={`flex-1 text-gray-600 ${item.refunded ? 'line-through' : ''}`} style={{ fontSize: 'var(--product-title-size, 14px)' }}>
                             {item.name}
                           </span>
                           <span className="text-gray-400 text-xs w-10 text-center">×{item.quantity}</span>
