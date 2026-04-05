@@ -1,16 +1,17 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { X } from 'lucide-react';
 
 interface EposMiscItemModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (name: string, price: number, noVat?: boolean, noDiscountAllowed?: boolean) => void;
+  onAdd: (name: string, price: number, noVat?: boolean, reducedVat?: boolean, noDiscountAllowed?: boolean) => void;
 }
 
 export function EposMiscItemModal({ isOpen, onClose, onAdd }: EposMiscItemModalProps) {
   const [name, setName] = useState('');
   const [priceDigits, setPriceDigits] = useState('');
   const [noVat, setNoVat] = useState(false);
+  const [reducedVat, setReducedVat] = useState(false);
   const [noDiscountAllowed, setNoDiscountAllowed] = useState(false);
 
   if (!isOpen) return null;
@@ -38,10 +39,11 @@ export function EposMiscItemModal({ isOpen, onClose, onAdd }: EposMiscItemModalP
   const handleAdd = () => {
     const p = parseFloat(currentPrice);
     if (isNaN(p) || p <= 0) return;
-    onAdd(name.trim() || 'Misc Item', p, noVat, noDiscountAllowed);
+    onAdd(name.trim() || 'Misc Item', p, noVat, reducedVat, noDiscountAllowed);
     setName('');
     setPriceDigits('');
     setNoVat(false);
+    setReducedVat(false);
     setNoDiscountAllowed(false);
     onClose();
   };

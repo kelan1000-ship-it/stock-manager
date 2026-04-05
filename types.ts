@@ -373,6 +373,7 @@ export interface ProductFormData {
   isExcessStock: boolean;
   keywords: string;
   noVat: boolean;
+  reducedVat: boolean;
 }
 
 export interface RequestFormData {
@@ -435,6 +436,7 @@ export interface EposCartItem {
   refundMethod?: 'cash' | 'card';
   noDiscountAllowed?: boolean;
   noVat?: boolean;
+  reducedVat?: boolean;
 }
 
 export interface EposTransaction {
