@@ -84,8 +84,8 @@ export function EposMiscItemModal({ isOpen, onClose, onAdd }: EposMiscItemModalP
                 className={`py-3 rounded-xl font-bold text-lg transition-colors ${
                   key === 'C' ? 'bg-red-50 text-red-500 hover:bg-red-100' :
                   key === '⌫' ? 'bg-amber-50 text-amber-500 hover:bg-amber-100' :
-                  key === '0' ? 'col-span-2 bg-gray-50 border border-gray-200 text-gray-900 hover:bg-gray-100' :
-                  'bg-gray-50 border border-gray-200 text-gray-900 hover:bg-gray-100'
+                  key === '0' ? 'col-span-2 bg-blue-50 border border-blue-200 text-blue-900 hover:bg-blue-100' :
+                  'bg-blue-50 border border-blue-200 text-blue-900 hover:bg-blue-100'
                 }`}
               >
                 {key}
