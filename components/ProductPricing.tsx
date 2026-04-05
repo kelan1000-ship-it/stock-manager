@@ -1,7 +1,29 @@
 
 import React from 'react';
-import { DollarSign } from 'lucide-react';
+import { DollarSign, Percent } from 'lucide-react';
 import { ProductFormData } from '../types';
+
+const ToggleButton = ({ label, description, icon: Icon, active, onClick, colorClass = "emerald" }: { label: string; description: string; icon: React.ElementType; active: boolean; onClick: () => void; colorClass?: string }) => {
+  const colors = {
+    emerald: "bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20",
+    indigo: "bg-indigo-500/10 border-indigo-500/20 text-indigo-500 hover:bg-indigo-500/20",
+    amber: "bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/20",
+    rose: "bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500/20",
+    violet: "bg-violet-500/10 border-violet-500/20 text-violet-500 hover:bg-violet-500/20",
+    orange: "bg-orange-500/10 border-orange-500/20 text-orange-500 hover:bg-orange-500/20",
+    fuchsia: "bg-fuchsia-500/10 border-fuchsia-500/20 text-fuchsia-500 hover:bg-fuchsia-500/20",
+  };
+  return (
+    <button onClick={onClick} className={`p-4 rounded-2xl border text-left transition-all group ${active ? colors[colorClass as keyof typeof colors] : 'bg-slate-900 border-slate-800 text-slate-500 hover:bg-slate-800'}`}>
+      <div className="flex items-center justify-between mb-2">
+        <Icon size={16} className={active ? '' : 'opacity-50'} />
+        <div className={`w-3 h-3 rounded-full border-2 ${active ? 'bg-current border-current' : 'border-slate-700'}`} />
+      </div>
+      <p className={`font-black text-xs mb-0.5 ${active ? '' : 'text-slate-400'}`}>{label}</p>
+      <p className="text-[9px] opacity-70 leading-tight">{description}</p>
+    </button>
+  );
+};
 
 interface ProductPricingProps {
   formData: ProductFormData;
@@ -92,6 +114,25 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
             </p>
           </div>
         )}
+
+        <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
+          <ToggleButton 
+              label="Zero-Rate VAT" 
+              description="Disable 20% VAT charge"
+              icon={Percent} 
+              active={formData.noVat} 
+              onClick={() => setFormData({...formData, noVat: !formData.noVat, reducedVat: !formData.noVat ? false : formData.reducedVat})} 
+              colorClass="violet" 
+          />
+          <ToggleButton 
+              label="Reduced Rate VAT" 
+              description="5% VAT charge"
+              icon={Percent} 
+              active={formData.reducedVat} 
+              onClick={() => setFormData({...formData, reducedVat: !formData.reducedVat, noVat: !formData.reducedVat ? false : formData.noVat})} 
+              colorClass="fuchsia" 
+          />
+        </div>
 
         <div className="grid grid-cols-2 gap-4 pt-2">
           <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 flex flex-col items-center justify-center text-center">

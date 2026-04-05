@@ -2,7 +2,7 @@
 import React, { useRef, useEffect } from 'react';
 import { 
   Tag as TagIcon, Settings, Notebook, Handshake, Link2, AlertCircle, Ban, 
-  Plus, Palette, X, Zap, Check, Search, Archive, Percent
+  Plus, Palette, X, Zap, Check, Search, Archive
 } from 'lucide-react';
 import { ProductFormData } from '../types';
 import { TagStyle } from '../hooks/useInventoryTags';
@@ -252,22 +252,6 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
                 active={formData.isDiscontinued} 
                 onClick={() => setFormData({...formData, isDiscontinued: !formData.isDiscontinued})} 
                 colorClass="rose" 
-            />
-            <ToggleButton 
-                label="Zero-Rate VAT" 
-                description="Disable 20% VAT charge"
-                icon={Percent} 
-                active={formData.noVat} 
-                onClick={() => setFormData({...formData, noVat: !formData.noVat, reducedVat: !formData.noVat ? false : formData.reducedVat})} 
-                colorClass="violet" 
-            />
-            <ToggleButton 
-                label="Reduced Rate VAT" 
-                description="5% VAT charge"
-                icon={Percent} 
-                active={formData.reducedVat} 
-                onClick={() => setFormData({...formData, reducedVat: !formData.reducedVat, noVat: !formData.reducedVat ? false : formData.noVat})} 
-                colorClass="fuchsia" 
             />
             <ToggleButton 
                 label="Excess Stock" 

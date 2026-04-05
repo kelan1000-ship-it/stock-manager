@@ -227,7 +227,7 @@ export async function printReceipt(
   // VAT
   if (options?.showVat && transaction.vatAmount !== undefined) {
     const vatStr = `£${transaction.vatAmount.toFixed(2)}`;
-    pushLine(padRight('VAT (20%)', PAPER_WIDTH - vatStr.length) + vatStr);
+    pushLine(padRight('VAT', PAPER_WIDTH - vatStr.length) + vatStr);
   }
 
   // Discount
@@ -336,7 +336,7 @@ export function printReceiptViaBrowser(
       : '';
 
     const vatHtml = options?.showVat && transaction.vatAmount !== undefined
-      ? `<tr><td>VAT (20%)</td><td class="right">&pound;${transaction.vatAmount.toFixed(2)}</td></tr>`
+      ? `<tr><td>VAT</td><td class="right">&pound;${transaction.vatAmount.toFixed(2)}</td></tr>`
       : '';
 
     const tenderedHtml = transaction.paymentMethod !== 'card'

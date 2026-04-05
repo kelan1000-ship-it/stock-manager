@@ -147,7 +147,7 @@ export function EposCart({
         </div>
         {vatAmount > 0 && (
           <div className="flex justify-between text-gray-500 text-sm">
-            <span>VAT (20%)</span>
+            <span>VAT</span>
             <span>£{vatAmount.toFixed(2)}</span>
           </div>
         )}
