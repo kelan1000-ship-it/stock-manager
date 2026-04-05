@@ -140,7 +140,7 @@ export function EposQuickButtonEditor({ isOpen, onClose, buttons, onSave, onDele
               )}
               <span className="text-gray-400 text-xs shrink-0">£{(btn.price ?? 0).toFixed(2)}</span>
               <button onClick={() => handleEdit(btn)} className="text-blue-500 text-xs font-bold hover:text-blue-600 shrink-0">Edit</button>
-              <button onClick={() => onDelete(btn.id)} className="p-1 text-gray-400 hover:text-red-500 shrink-0"><Trash2 size={12} /></button>
+              <button onClick={() => { if(window.confirm('Delete this quick button?')) onDelete(btn.id); }} className="p-1 text-gray-400 hover:text-red-500 shrink-0"><Trash2 size={12} /></button>
             </div>
           ))}
         </div>

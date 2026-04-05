@@ -102,7 +102,7 @@ export function EposCart({
             <span className="text-gray-400 text-xs w-16 text-right">@ £{item.unitPrice.toFixed(2)}</span>
             <span className="text-gray-900 font-bold text-sm w-20 text-right">£{item.lineTotal.toFixed(2)}</span>
             <button
-              onClick={() => onRemove(item.id)}
+              onClick={() => { if(window.confirm('Remove this item from the cart?')) onRemove(item.id); }}
               className="p-1 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
             >
               <X size={14} />

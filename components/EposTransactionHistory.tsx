@@ -22,8 +22,10 @@ export function EposTransactionHistory({ transactions, dateFilter, setDateFilter
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleVoid = (id: string) => {
-    const reason = prompt('Reason for voiding this transaction:');
-    if (reason !== null) onVoid(id, reason);
+    if (confirm('Are you sure you want to void this transaction?')) {
+      const reason = prompt('Reason for voiding this transaction:');
+      if (reason !== null) onVoid(id, reason);
+    }
   };
 
   const handleDelete = (id: string) => {
