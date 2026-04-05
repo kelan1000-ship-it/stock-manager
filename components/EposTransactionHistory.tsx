@@ -194,9 +194,26 @@ export function EposTransactionHistory({ transactions, dateFilter, setDateFilter
                               className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
                             />
                           )}
-                          <span className={`flex-1 text-gray-600 ${item.refunded ? 'line-through' : ''}`} style={{ fontSize: 'var(--product-title-size, 14px)' }}>
-                            {item.name}
-                          </span>
+                          <div className="flex-1 min-w-0">
+                            <span className={`text-gray-600 ${item.refunded ? 'line-through' : ''}`} style={{ fontSize: 'var(--product-title-size, 14px)' }}>
+                              {item.name}
+                            </span>
+                            {item.noDiscountAllowed && (
+                              <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase text-amber-600 bg-amber-50 px-1 py-0.5 rounded align-middle">
+                                <Ban size={8} /> No disc.
+                              </span>
+                            )}
+                            {item.noVat && (
+                              <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase text-purple-600 bg-purple-50 px-1 py-0.5 rounded align-middle">
+                                Zero-Rate VAT
+                              </span>
+                            )}
+                            {item.reducedVat && (
+                              <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase text-fuchsia-600 bg-fuchsia-50 px-1 py-0.5 rounded align-middle">
+                                5% VAT
+                              </span>
+                            )}
+                          </div>
                           <span className="text-gray-400 text-xs w-10 text-center">×{item.quantity}</span>
                           <span className="text-gray-400 text-xs w-16 text-right">@ £{item.unitPrice.toFixed(2)}</span>
                           <span className={`font-medium w-16 text-right ${item.refunded ? 'text-red-400 line-through' : 'text-gray-900'}`}>
