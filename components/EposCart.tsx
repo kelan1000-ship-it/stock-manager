@@ -6,6 +6,7 @@ interface EposCartProps {
   items: EposCartItem[];
   subtotal: number;
   total: number;
+  vatAmount: number;
   discountPercent: number;
   setDiscountPercent: (v: number) => void;
   discountAmount: number;
@@ -15,12 +16,11 @@ interface EposCartProps {
   staffDiscountPercent?: number;
 }
 
-export function EposCart({ 
-  items, subtotal, total, discountPercent, setDiscountPercent, 
+export function EposCart({
+  items, subtotal, total, vatAmount, discountPercent, setDiscountPercent,
   discountAmount, onUpdateQuantity, onRemove, isRefundMode,
   staffDiscountPercent = 0
-}: EposCartProps) {
-  if (items.length === 0) {
+}: EposCartProps) {  if (items.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-gray-400 py-12">
         {isRefundMode ? (
@@ -55,6 +55,11 @@ export function EposCart({
                 {item.noDiscountAllowed && (
                   <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase text-amber-600 bg-amber-50 px-1 py-0.5 rounded align-middle">
                     <Ban size={8} /> No disc.
+                  </span>
+                )}
+                {item.noVat && (
+                  <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase text-purple-600 bg-purple-50 px-1 py-0.5 rounded align-middle">
+                    No vat
                   </span>
                 )}
               </p>
@@ -135,6 +140,12 @@ export function EposCart({
             <span className="text-orange-600 font-medium">-£{discountAmount.toFixed(2)}</span>
           )}
         </div>
+        {vatAmount > 0 && (
+          <div className="flex justify-between text-gray-500 text-sm">
+            <span>VAT (20%)</span>
+            <span>£{vatAmount.toFixed(2)}</span>
+          </div>
+        )}
         <div className="flex justify-between text-gray-900 text-xl font-black">
           <span>TOTAL</span>
           <span>£{total.toFixed(2)}</span>

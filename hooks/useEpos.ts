@@ -25,6 +25,15 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
   );
   const discountAmount = discountableSubtotal * (discountPercent / 100);
   const total = subtotal - discountAmount;
+  
+  const vatAmount = useMemo(() => cart.reduce((acc, item) => {
+    if (item.noVat) return acc;
+    const itemFinalTotal = item.noDiscountAllowed 
+      ? item.lineTotal 
+      : item.lineTotal * (1 - (discountPercent / 100));
+    return acc + (itemFinalTotal - (itemFinalTotal / 1.2));
+  }, 0), [cart, discountPercent]);
+
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const tenderedNum = parseFloat(amountTendered) || 0;
   const changeDue = Math.max(0, tenderedNum - total);
@@ -415,7 +424,7 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
   }, [currentBranch, setBranchData]);
 
   return {
-    cart, subtotal, total, itemCount, changeDue, canCompleteSale,
+    cart, subtotal, total, vatAmount, itemCount, changeDue, canCompleteSale,
     discountPercent, setDiscountPercent, discountAmount,
     paymentMethod, setPaymentMethod,
     amountTendered, setAmountTendered,

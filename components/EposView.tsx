@@ -328,6 +328,7 @@ export function EposView({ branchData, setBranchData, currentBranch }: EposViewP
               items={epos.cart}
               subtotal={epos.subtotal}
               total={epos.total}
+              vatAmount={epos.vatAmount}
               discountPercent={epos.discountPercent}
               setDiscountPercent={epos.setDiscountPercent}
               discountAmount={epos.discountAmount}
