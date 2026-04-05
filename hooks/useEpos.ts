@@ -31,6 +31,9 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
     const itemFinalTotal = item.noDiscountAllowed 
       ? item.lineTotal 
       : item.lineTotal * (1 - (discountPercent / 100));
+    if (item.reducedVat) {
+      return acc + (itemFinalTotal - (itemFinalTotal / 1.05));
+    }
     return acc + (itemFinalTotal - (itemFinalTotal / 1.2));
   }, 0), [cart, discountPercent]);
 
@@ -72,12 +75,13 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
         quantity: 1,
         lineTotal: Math.round(unitPrice * 100) / 100,
         isMiscellaneous: false,
-        noVat: product.noVat
+        noVat: product.noVat,
+        reducedVat: product.reducedVat
       }];
     });
   }, []);
 
-  const addMiscItem = useCallback((name: string, price: number, noVat?: boolean, noDiscountAllowed?: boolean) => {
+  const addMiscItem = useCallback((name: string, price: number, noVat?: boolean, reducedVat?: boolean, noDiscountAllowed?: boolean) => {
     setCart(prev => [...prev, {
       id: crypto.randomUUID(),
       productId: null,
@@ -87,6 +91,7 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
       lineTotal: price,
       isMiscellaneous: true,
       noVat,
+      reducedVat,
       noDiscountAllowed
     }]);
   }, []);
@@ -117,7 +122,8 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
             lineTotal: product.price,
             isMiscellaneous: false,
             ...(noDiscountAllowed ? { noDiscountAllowed: true } : {}),
-            noVat: product.noVat ?? noVat
+            noVat: product.noVat ?? noVat,
+            reducedVat: product.reducedVat ?? reducedVat
           }];
         });
         return;
@@ -198,6 +204,9 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
       const itemFinalTotal = item.noDiscountAllowed 
         ? item.lineTotal 
         : item.lineTotal * (1 - (discountPercent / 100));
+      if (item.reducedVat) {
+        return acc + (itemFinalTotal - (itemFinalTotal / 1.05));
+      }
       return acc + (itemFinalTotal - (itemFinalTotal / 1.2));
     }, 0);
 
@@ -302,6 +311,9 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
       const itemFinalTotal = item.noDiscountAllowed 
         ? item.lineTotal 
         : item.lineTotal * (1 - (discountPercent / 100));
+      if (item.reducedVat) {
+        return acc + (itemFinalTotal - (itemFinalTotal / 1.05));
+      }
       return acc + (itemFinalTotal - (itemFinalTotal / 1.2));
     }, 0);
 

@@ -190,6 +190,7 @@ export interface Product {
   keywords?: string;
   createdAt?: string;
   noVat?: boolean;
+  reducedVat?: boolean;
 }
 
 export interface PlanogramSlot {
@@ -490,6 +491,7 @@ export interface EposQuickButton {
   noDiscountAllowed?: boolean;
   variablePrice?: boolean;
   noVat?: boolean;
+  reducedVat?: boolean;
 }
 
 export interface EposConfig {

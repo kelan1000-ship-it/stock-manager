@@ -59,7 +59,12 @@ export function EposCart({
                 )}
                 {item.noVat && (
                   <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase text-purple-600 bg-purple-50 px-1 py-0.5 rounded align-middle">
-                    No vat
+                    Zero-Rate VAT
+                  </span>
+                )}
+                {item.reducedVat && (
+                  <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase text-fuchsia-600 bg-fuchsia-50 px-1 py-0.5 rounded align-middle">
+                    5% VAT
                   </span>
                 )}
               </p>

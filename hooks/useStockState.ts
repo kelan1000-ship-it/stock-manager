@@ -48,7 +48,7 @@ export const initialFormData = {
   thresholdType: 'percentage' as 'percentage' | 'quantity', thresholdValue: 25,
   looseUnitPrice: '',
   stockType: 'retail' as 'retail' | 'dispensary', tags: [],
-  isExcessStock: false, keywords: '', noVat: false
+  isExcessStock: false, keywords: '', noVat: false, reducedVat: false
 };
 
 export const initialRequestFormData = {

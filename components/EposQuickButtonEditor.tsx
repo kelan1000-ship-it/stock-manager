@@ -262,10 +262,19 @@ export function EposQuickButtonEditor({ isOpen, onClose, buttons, onSave, onDele
               <input
                 type="checkbox"
                 checked={editingButton.noVat || false}
-                onChange={(e) => setEditingButton(prev => ({ ...prev!, noVat: e.target.checked }))}
+                onChange={(e) => setEditingButton(prev => ({ ...prev!, noVat: e.target.checked, reducedVat: e.target.checked ? false : prev?.reducedVat }))}
                 className="w-4 h-4 rounded border-gray-300 text-rose-600 focus:ring-rose-500"
               />
-              <span className="text-gray-700 text-sm">No VAT charge</span>
+              <span className="text-gray-700 text-sm">Zero-Rate VAT</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={editingButton.reducedVat || false}
+                onChange={(e) => setEditingButton(prev => ({ ...prev!, reducedVat: e.target.checked, noVat: e.target.checked ? false : prev?.noVat }))}
+                className="w-4 h-4 rounded border-gray-300 text-fuchsia-600 focus:ring-fuchsia-500"
+              />
+              <span className="text-gray-700 text-sm">Reduced Rate VAT (5%)</span>
             </label>
             <div className="flex gap-2">
               <button onClick={handleSave} className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-500 transition-colors">Save</button>

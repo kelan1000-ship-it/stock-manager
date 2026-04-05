@@ -277,10 +277,10 @@ export function EposView({ branchData, setBranchData, currentBranch }: EposViewP
                     key={btn.id}
                     onClick={() => {
                       if (btn.variablePrice) {
-                        setVariablePricePrompt({ label: btn.label, productId: btn.productId, noDiscountAllowed: btn.noDiscountAllowed, noVat: btn.noVat });
+                        setVariablePricePrompt({ label: btn.label, productId: btn.productId, noDiscountAllowed: btn.noDiscountAllowed, noVat: btn.noVat, reducedVat: btn.reducedVat });
                         setVariablePriceInput('');
                       } else {
-                        epos.addQuickButtonItem(btn.label, btn.price, btn.productId, btn.noDiscountAllowed, btn.noVat);
+                        epos.addQuickButtonItem(btn.label, btn.price, btn.productId, btn.noDiscountAllowed, btn.noVat, btn.reducedVat);
                       }
                     }}
                     className={`${btn.color} rounded-xl px-3 py-4 text-white text-left hover:opacity-90 active:scale-95 transition-all shadow-lg flex flex-col`}
@@ -446,7 +446,7 @@ export function EposView({ branchData, setBranchData, currentBranch }: EposViewP
                   if (e.key === 'Enter') {
                     const price = parseFloat(variablePriceInput);
                     if (price > 0) {
-                      epos.addQuickButtonItem(variablePricePrompt.label, price, variablePricePrompt.productId, variablePricePrompt.noDiscountAllowed, variablePricePrompt.noVat);
+                      epos.addQuickButtonItem(variablePricePrompt.label, price, variablePricePrompt.productId, variablePricePrompt.noDiscountAllowed, variablePricePrompt.noVat, variablePricePrompt.reducedVat);
                       setVariablePricePrompt(null);
                     }
                   }
@@ -460,7 +460,7 @@ export function EposView({ branchData, setBranchData, currentBranch }: EposViewP
                 onClick={() => {
                   const price = parseFloat(variablePriceInput);
                   if (price > 0) {
-                    epos.addQuickButtonItem(variablePricePrompt.label, price, variablePricePrompt.productId, variablePricePrompt.noDiscountAllowed, variablePricePrompt.noVat);
+                    epos.addQuickButtonItem(variablePricePrompt.label, price, variablePricePrompt.productId, variablePricePrompt.noDiscountAllowed, variablePricePrompt.noVat, variablePricePrompt.reducedVat);
                     setVariablePricePrompt(null);
                   }
                 }}

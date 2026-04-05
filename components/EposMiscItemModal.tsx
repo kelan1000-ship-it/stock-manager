@@ -97,10 +97,26 @@ export function EposMiscItemModal({ isOpen, onClose, onAdd }: EposMiscItemModalP
             <input
               type="checkbox"
               checked={noVat}
-              onChange={(e) => setNoVat(e.target.checked)}
+              onChange={(e) => {
+                setNoVat(e.target.checked);
+                if (e.target.checked) setReducedVat(false);
+              }}
               className="w-4 h-4 rounded border-gray-300 text-rose-600 focus:ring-rose-500"
             />
-            <span className="text-gray-700 text-sm font-medium">No VAT charge</span>
+            <span className="text-gray-700 text-sm font-medium">Zero-Rate VAT</span>
+          </label>
+
+          <label className="flex items-center gap-2 cursor-pointer pt-1">
+            <input
+              type="checkbox"
+              checked={reducedVat}
+              onChange={(e) => {
+                setReducedVat(e.target.checked);
+                if (e.target.checked) setNoVat(false);
+              }}
+              className="w-4 h-4 rounded border-gray-300 text-fuchsia-600 focus:ring-fuchsia-500"
+            />
+            <span className="text-gray-700 text-sm font-medium">Reduced Rate VAT (5%)</span>
           </label>
 
           <label className="flex items-center gap-2 cursor-pointer">

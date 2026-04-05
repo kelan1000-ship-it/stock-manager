@@ -254,12 +254,20 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
                 colorClass="rose" 
             />
             <ToggleButton 
-                label="No VAT" 
+                label="Zero-Rate VAT" 
                 description="Disable 20% VAT charge"
                 icon={Percent} 
                 active={formData.noVat} 
-                onClick={() => setFormData({...formData, noVat: !formData.noVat})} 
+                onClick={() => setFormData({...formData, noVat: !formData.noVat, reducedVat: !formData.noVat ? false : formData.reducedVat})} 
                 colorClass="violet" 
+            />
+            <ToggleButton 
+                label="Reduced Rate VAT" 
+                description="5% VAT charge"
+                icon={Percent} 
+                active={formData.reducedVat} 
+                onClick={() => setFormData({...formData, reducedVat: !formData.reducedVat, noVat: !formData.reducedVat ? false : formData.noVat})} 
+                colorClass="fuchsia" 
             />
             <ToggleButton 
                 label="Excess Stock" 

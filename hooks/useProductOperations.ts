@@ -96,7 +96,8 @@ export function useProductOperations(
         stockType: formData.stockType,
         notes: formData.notes,
         tags: formData.tags,
-        noVat: formData.noVat
+        noVat: formData.noVat,
+        reducedVat: formData.reducedVat
       });
 
       if (editingId) {
