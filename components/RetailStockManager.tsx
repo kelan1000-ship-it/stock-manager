@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { 
   Plus, LayoutDashboard, Database, ChevronDown, MessageSquare,
   BarChart3, ClipboardList, Layers, Handshake, Sparkles,
-  ArrowRightLeft, Volume2, VolumeX, LogOut, Users, Bell
+  ArrowRightLeft, Volume2, VolumeX, LogOut, Users, Bell, Settings
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { BranchSelector } from './BranchSelector';
@@ -106,6 +106,24 @@ export default function RetailStockManager() {
   const [scanMode, setScanMode] = useState<'default' | 'priceCheck'>('default');
   const [priceCheckProduct, setPriceCheckProduct] = useState<Product | null>(null);
   const [isPriceCheckerOpen, setIsPriceCheckerOpen] = useState(false);
+
+  // Settings Menu State
+  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
+  const settingsDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (settingsDropdownRef.current && !settingsDropdownRef.current.contains(event.target as Node)) {
+        setIsSettingsMenuOpen(false);
+      }
+    };
+    if (isSettingsMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isSettingsMenuOpen]);
 
   const importFileRef = useRef<HTMLInputElement>(null);
   
@@ -724,39 +742,60 @@ export default function RetailStockManager() {
                 {branchData.messages.filter(m => m.sender !== currentBranch && !m.isRead).length > 0 && <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-indigo-500 rounded-full border-2 border-slate-900" />}
               </button>
             </TooltipWrapper>
-            <TooltipWrapper tooltip={isMuted ? "Enable Audio Notifications" : "Mute Notifications"}>
-              <button 
-                onClick={() => {
-                  setIsMuted(!isMuted);
-                  initAudio();
-                }} 
-                className={`p-1.5 sm:p-2.5 rounded-xl border transition-all ${
-                  isMuted 
-                    ? 'border-slate-800 bg-slate-900 text-slate-500 hover:bg-slate-800' 
-                    : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500 shadow-lg shadow-emerald-900/20'
-                }`}
-              >
-                {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-              </button>
-            </TooltipWrapper>
-            {isAdmin && (
-              <TooltipWrapper tooltip="Manage Users">
+            <div className="relative" ref={settingsDropdownRef}>
+              <TooltipWrapper tooltip="Settings">
                 <button
-                  onClick={() => setIsAdminPanelOpen(true)}
-                  className="p-1.5 sm:p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors shadow-lg shadow-amber-900/20"
+                  onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
+                  className="p-1.5 sm:p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors shadow-lg shadow-slate-900/20"
                 >
-                  <Users size={18} />
+                  <Settings size={18} />
                 </button>
               </TooltipWrapper>
-            )}
-            <TooltipWrapper tooltip="Sign Out">
-              <button
-                onClick={signOut}
-                className="p-1.5 sm:p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-500 hover:text-white hover:bg-slate-700 transition-colors"
-              >
-                <LogOut size={18} />
-              </button>
-            </TooltipWrapper>
+              
+              {isSettingsMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 rounded-2xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] border z-[100] p-2 animate-in fade-in zoom-in duration-200 bg-slate-900 border-slate-800 flex flex-col gap-1">
+                  <button
+                    onClick={() => {
+                      setIsMuted(!isMuted);
+                      initAudio();
+                      setIsSettingsMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-3 transition-colors ${
+                      isMuted ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 hover:text-emerald-300'
+                    }`}
+                  >
+                    {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                    {isMuted ? 'Muted Notifications' : 'Audio Enabled'}
+                  </button>
+
+                  {isAdmin && (
+                    <button
+                      onClick={() => {
+                        setIsAdminPanelOpen(true);
+                        setIsSettingsMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-3 transition-colors text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
+                    >
+                      <Users size={16} />
+                      Manage Users
+                    </button>
+                  )}
+
+                  <div className="h-px w-full bg-slate-800 my-1" />
+
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setIsSettingsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-3 transition-colors text-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
+                  >
+                    <LogOut size={16} />
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
