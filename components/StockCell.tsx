@@ -61,14 +61,17 @@ export const StockCell: React.FC<StockCellProps> = ({
         </div>
       )}
       {item.needsStockCheck && onConfirmStockCheck && (
-        <TooltipWrapper tooltip="Confirm Stock Level (Clear Alert)">
-          <button
-            onClick={() => onConfirmStockCheck(item.id)}
-            className="flex flex-col items-center justify-center w-10 h-10 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-600 hover:text-white transition-all group"
-          >
-            <CheckCircle2 size={20} className="group-hover:scale-110 transition-transform" />
-          </button>
-        </TooltipWrapper>
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="text-[7px] font-black text-transparent uppercase select-none">Confirm</span>
+          <TooltipWrapper tooltip="Confirm Stock Level (Clear Alert)">
+            <button
+              onClick={() => onConfirmStockCheck(item.id)}
+              className="flex flex-col items-center justify-center w-10 h-10 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-600 hover:text-white transition-all group shadow-inner"
+            >
+              <CheckCircle2 size={20} className="group-hover:scale-110 transition-transform" />
+            </button>
+          </TooltipWrapper>
+        </div>
       )}
     </div>
   );

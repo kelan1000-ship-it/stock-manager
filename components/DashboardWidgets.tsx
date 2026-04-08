@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { History, Truck, TrendingUp, Package, Star, AlertCircle, X, RefreshCw, Copy, GripHorizontal } from 'lucide-react';
+import { History, Truck, TrendingUp, Package, Star, AlertCircle, X, RefreshCw, Copy, GripHorizontal, ListChecks } from 'lucide-react';
 import { Product } from '../types';
 import { StockLogicReturn } from '../hooks/useStockLogic';
 import { useSlowMoverInsights } from '../hooks/useSlowMoverInsights';
@@ -17,7 +17,7 @@ interface DashboardWidgetsProps {
   currentBranch: string;
 }
 
-type WidgetType = 'restock' | 'ordered' | 'slow-movers' | 'expiring' | 'clearance' | 'alerts' | 'reconciliation' | 'duplicates';
+type WidgetType = 'restock' | 'ordered' | 'slow-movers' | 'expiring' | 'clearance' | 'alerts' | 'reconciliation' | 'duplicates' | 'stock-check';
 
 export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
   activeMainInventory,
@@ -112,8 +112,9 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
     }).length;
 
     const clearanceCount = activeMainInventory.filter(i => i.isReducedToClear).length;
+    const stockCheckCount = activeMainInventory.filter(i => i.needsStockCheck).length;
 
-    return { restockCount, expiringCount, clearanceCount };
+    return { restockCount, expiringCount, clearanceCount, stockCheckCount };
   }, [activeMainInventory, logic.branchData, logic.currentBranch]);
   // Widget Definitions
   const widgetDefinitions: Record<WidgetType, any> = {
@@ -180,6 +181,14 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
       icon: Copy,
       color: 'rose',
       filterKey: 'duplicates'
+    },
+    'stock-check': {
+      label: 'Stock Check',
+      value: stats.stockCheckCount,
+      subValue: 'Pending Verification',
+      icon: ListChecks,
+      color: 'red',
+      filterKey: 'stock-check'
     }
   };
 
