@@ -32,15 +32,6 @@ export const StockCell: React.FC<StockCellProps> = ({
 
   const stockBoxes = (
     <div className="flex items-center justify-center gap-2">
-      {item.needsStockCheck && onConfirmStockCheck && (
-        <button
-          onClick={() => onConfirmStockCheck(item.id)}
-          className="flex flex-col items-center justify-center w-10 h-10 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-600 hover:text-white transition-all group"
-          title="Confirm Stock Level"
-        >
-          <CheckCircle2 size={20} className="group-hover:scale-110 transition-transform" />
-        </button>
-      )}
       <div className="flex flex-col items-center gap-0.5">
          <span className="text-[7px] font-black text-emerald-500/70 uppercase">Full</span>
          <input 
@@ -68,6 +59,16 @@ export const StockCell: React.FC<StockCellProps> = ({
              className={`w-16 h-10 px-0 rounded-lg border text-center font-black text-base text-orange-400 focus:ring-2 ring-orange-500/50 outline-none transition-all bg-slate-800/50 border-orange-500/30 focus:border-orange-500 hover:bg-slate-800 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} 
           />
         </div>
+      )}
+      {item.needsStockCheck && onConfirmStockCheck && (
+        <TooltipWrapper tooltip="Confirm Stock Level (Clear Alert)">
+          <button
+            onClick={() => onConfirmStockCheck(item.id)}
+            className="flex flex-col items-center justify-center w-10 h-10 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-600 hover:text-white transition-all group"
+          >
+            <CheckCircle2 size={20} className="group-hover:scale-110 transition-transform" />
+          </button>
+        </TooltipWrapper>
       )}
     </div>
   );
