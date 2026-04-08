@@ -97,7 +97,8 @@ export function useProductOperations(
         notes: formData.notes,
         tags: formData.tags,
         noVat: formData.noVat,
-        reducedVat: formData.reducedVat
+        reducedVat: formData.reducedVat,
+        skipStockCheck: formData.skipStockCheck
       });
 
       if (editingId) {
@@ -157,7 +158,8 @@ export function useProductOperations(
               priceHistory: newHistory,
               stockHistory: newStockHistory,
               ignoredPriceAlertUntil: hasRRPChanged ? undefined : p.ignoredPriceAlertUntil,
-              labelNeedsUpdate: hasRRPChanged ? true : p.labelNeedsUpdate
+              labelNeedsUpdate: hasRRPChanged ? true : p.labelNeedsUpdate,
+              skipStockCheck: formData.skipStockCheck
             };
           }
           return p;

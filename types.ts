@@ -192,6 +192,7 @@ export interface Product {
   noVat?: boolean;
   reducedVat?: boolean;
   needsStockCheck?: boolean;
+  skipStockCheck?: boolean;
 }
 
 export interface PlanogramSlot {
@@ -375,6 +376,7 @@ export interface ProductFormData {
   keywords: string;
   noVat: boolean;
   reducedVat: boolean;
+  skipStockCheck: boolean;
 }
 
 export interface RequestFormData {

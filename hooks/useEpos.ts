@@ -17,7 +17,6 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
   const [isMiscModalOpen, setIsMiscModalOpen] = useState(false);
   const [discountPercent, setDiscountPercent] = useState(0);
   const [isRefundMode, setIsRefundMode] = useState(false);
-  const [skipStockCheck, setSkipStockCheck] = useState(false);
 
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.lineTotal, 0), [cart]);
   const discountableSubtotal = useMemo(() =>
@@ -59,7 +58,7 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
 
     // Check for stock level
     const stockInHand = isLoose ? (product.partPacks ?? 0) : product.stockInHand;
-    const requiresStockCheck = stockInHand <= 0 && !skipStockCheck;
+    const requiresStockCheck = stockInHand <= 0 && !product.skipStockCheck;
 
     setCart(prev => {
       const existing = prev.find(item => item.productId === cartKey);
@@ -85,7 +84,7 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
         requiresStockCheck
       }];
     });
-  }, [skipStockCheck]);
+  }, []);
 
   const addMiscItem = useCallback((name: string, price: number, noVat?: boolean, reducedVat?: boolean, noDiscountAllowed?: boolean) => {
     setCart(prev => [...prev, {
@@ -107,7 +106,7 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
       const products = branchData[currentBranch] || [];
       const product = products.find(p => p.id === productId);
       if (product) {
-        const requiresStockCheck = product.stockInHand <= 0 && !skipStockCheck;
+        const requiresStockCheck = product.stockInHand <= 0 && !product.skipStockCheck;
         // Add to cart, then flag noDiscountAllowed if needed
         setCart(prev => {
           const existing = prev.find(item => item.productId === product.id);
@@ -149,7 +148,7 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
       ...(noDiscountAllowed ? { noDiscountAllowed: true } : {}),
       noVat
     }]);
-  }, [branchData, currentBranch, skipStockCheck]);
+  }, [branchData, currentBranch]);
 
   const updateQuantity = useCallback((cartItemId: string, newQty: number) => {
     if (newQty <= 0) {
@@ -483,7 +482,6 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
     updateQuantity, removeFromCart, clearCart,
     completeSale, completeRefund,
     isRefundMode, toggleRefundMode,
-    skipStockCheck, setSkipStockCheck,
     updateProductStock,
   };
 }

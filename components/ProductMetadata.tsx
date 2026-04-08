@@ -2,7 +2,7 @@
 import React, { useRef, useEffect } from 'react';
 import { 
   Tag as TagIcon, Settings, Notebook, Handshake, Link2, AlertCircle, Ban, 
-  Plus, Palette, X, Zap, Check, Search, Archive
+  Plus, Palette, X, Zap, Check, Search, Archive, BrainCircuit
 } from 'lucide-react';
 import { ProductFormData } from '../types';
 import { TagStyle } from '../hooks/useInventoryTags';
@@ -260,6 +260,14 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
                 active={formData.isExcessStock} 
                 onClick={() => setFormData({...formData, isExcessStock: !formData.isExcessStock})} 
                 colorClass="orange" 
+            />
+            <ToggleButton 
+                label="Skip Stock Check" 
+                description="Allow 0 inv sales"
+                icon={BrainCircuit} 
+                active={formData.skipStockCheck} 
+                onClick={() => setFormData({...formData, skipStockCheck: !formData.skipStockCheck})} 
+                colorClass="violet" 
             />
           </div>
           
