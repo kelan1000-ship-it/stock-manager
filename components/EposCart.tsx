@@ -1,5 +1,5 @@
 import React from 'react';
-import { Minus, Plus, X, ShoppingCart, Ban, RotateCcw } from 'lucide-react';
+import { Minus, Plus, X, ShoppingCart, Ban, RotateCcw, AlertCircle } from 'lucide-react';
 import { EposCartItem } from '../types';
 
 interface EposCartProps {
@@ -12,13 +12,14 @@ interface EposCartProps {
   discountAmount: number;
   onUpdateQuantity: (id: string, qty: number) => void;
   onRemove: (id: string) => void;
+  onUpdateStock?: (productId: string, newStock: number) => void;
   isRefundMode?: boolean;
   staffDiscountPercent?: number;
 }
 
 export function EposCart({
   items, subtotal, total, vatAmount, discountPercent, setDiscountPercent,
-  discountAmount, onUpdateQuantity, onRemove, isRefundMode,
+  discountAmount, onUpdateQuantity, onRemove, onUpdateStock, isRefundMode,
   staffDiscountPercent = 0
 }: EposCartProps) {  if (items.length === 0) {
     return (
@@ -50,24 +51,50 @@ export function EposCart({
           >
             <span className="text-gray-300 text-xs font-mono w-5 shrink-0">{idx + 1}.</span>
             <div className="flex-1 min-w-0">
-              <p className="text-gray-900 text-sm font-medium truncate" style={{ fontSize: 'var(--product-title-size, 14px)' }}>
-                {item.name}
-                {item.noDiscountAllowed && (
-                  <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase text-amber-600 bg-amber-50 px-1 py-0.5 rounded align-middle">
-                    <Ban size={8} /> No disc.
-                  </span>
+              <div className="flex flex-col">
+                <p className="text-gray-900 text-sm font-medium truncate" style={{ fontSize: 'var(--product-title-size, 14px)' }}>
+                  {item.name}
+                  {item.noDiscountAllowed && (
+                    <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase text-amber-600 bg-amber-50 px-1 py-0.5 rounded align-middle">
+                      <Ban size={8} /> No disc.
+                    </span>
+                  )}
+                  {item.noVat && (
+                    <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase text-purple-600 bg-purple-50 px-1 py-0.5 rounded align-middle">
+                      Zero-Rate VAT
+                    </span>
+                  )}
+                  {item.reducedVat && (
+                    <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase text-fuchsia-600 bg-fuchsia-50 px-1 py-0.5 rounded align-middle">
+                      5% VAT
+                    </span>
+                  )}
+                </p>
+                {item.requiresStockCheck && (
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded animate-pulse">
+                      <AlertCircle size={10} strokeWidth={3} />
+                      Stock Check Required
+                    </span>
+                    {onUpdateStock && item.productId && (
+                      <button
+                        onClick={() => {
+                          const val = window.prompt(`Update stock for ${item.name}:`, '0');
+                          if (val !== null) {
+                            const newStock = parseInt(val);
+                            if (!isNaN(newStock)) {
+                              onUpdateStock(item.productId!.replace(/__loose$/, ''), newStock);
+                            }
+                          }
+                        }}
+                        className="text-[9px] font-bold text-blue-600 hover:text-blue-700 underline"
+                      >
+                        Update Stock
+                      </button>
+                    )}
+                  </div>
                 )}
-                {item.noVat && (
-                  <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase text-purple-600 bg-purple-50 px-1 py-0.5 rounded align-middle">
-                    Zero-Rate VAT
-                  </span>
-                )}
-                {item.reducedVat && (
-                  <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase text-fuchsia-600 bg-fuchsia-50 px-1 py-0.5 rounded align-middle">
-                    5% VAT
-                  </span>
-                )}
-              </p>
+              </div>
               {item.packSize && <p className="text-gray-400 text-xs">{item.packSize}</p>}
             </div>
             <div className="flex items-center gap-1 shrink-0">

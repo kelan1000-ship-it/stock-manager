@@ -191,6 +191,7 @@ export interface Product {
   createdAt?: string;
   noVat?: boolean;
   reducedVat?: boolean;
+  needsStockCheck?: boolean;
 }
 
 export interface PlanogramSlot {
@@ -338,7 +339,7 @@ export type TriState = 'keep' | 'on' | 'off';
 /**
  * Shared type for inventory sub-filtering views.
  */
-export type InventorySubFilter = 'all' | 'restock' | 'ordered' | 'expiring' | 'clearance' | 'alerts' | 'labels' | 'slow-movers' | 'recently-added';
+export type InventorySubFilter = 'all' | 'restock' | 'ordered' | 'expiring' | 'clearance' | 'alerts' | 'labels' | 'slow-movers' | 'recently-added' | 'stock-check';
 
 export interface ProductFormData {
   name: string;
@@ -437,6 +438,7 @@ export interface EposCartItem {
   noDiscountAllowed?: boolean;
   noVat?: boolean;
   reducedVat?: boolean;
+  requiresStockCheck?: boolean;
 }
 
 export interface EposTransaction {

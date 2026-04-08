@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { Monitor, History, FileText, Settings, RotateCcw, Clock, Printer, ChevronDown, Usb, Cable, Banknote } from 'lucide-react';
+import { Monitor, History, FileText, Settings, RotateCcw, Clock, Printer, ChevronDown, Usb, Cable, Banknote, BrainCircuit } from 'lucide-react';
 import { BranchData, BranchKey, Product, EposTransaction, EposConfig } from '../types';
 import { BranchId } from '../types/auth';
 import { useAuth } from '../contexts/AuthContext';
@@ -258,6 +258,35 @@ export function EposView({ branchData, setBranchData, currentBranch }: EposViewP
               onOpenMisc={() => epos.setIsMiscModalOpen(true)}
             />
 
+            {/* Inventory Intelligence */}
+            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 bg-indigo-600 rounded-lg text-white shadow-md">
+                  <BrainCircuit size={14} />
+                </div>
+                <h3 className="text-indigo-900 text-xs font-black uppercase tracking-widest">Inventory Intelligence</h3>
+              </div>
+              
+              <div className="flex items-center justify-between bg-white/60 backdrop-blur-sm border border-indigo-200/50 rounded-xl p-3">
+                <div>
+                  <p className="text-indigo-900 text-xs font-bold">Skip Stock Check</p>
+                  <p className="text-indigo-600/70 text-[10px]">Allow 0 inventory sales without alert</p>
+                </div>
+                <button
+                  onClick={() => epos.setSkipStockCheck(!epos.skipStockCheck)}
+                  className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none ${
+                    epos.skipStockCheck ? 'bg-indigo-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                      epos.skipStockCheck ? 'translate-x-5' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
             {/* Quick Buttons Grid */}
             <div className="flex-1">
               <div className="flex items-center justify-between mb-3">
@@ -334,6 +363,7 @@ export function EposView({ branchData, setBranchData, currentBranch }: EposViewP
               discountAmount={epos.discountAmount}
               onUpdateQuantity={epos.updateQuantity}
               onRemove={epos.removeFromCart}
+              onUpdateStock={epos.updateProductStock}
               isRefundMode={epos.isRefundMode}
               staffDiscountPercent={eposConfig?.staffDiscountPercent || 0}
             />

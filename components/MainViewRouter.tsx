@@ -308,6 +308,7 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
                   <FilterButton label="Clearance" value="clearance" icon={Star} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-amber-600 shadow-amber-900/40" className="w-full justify-center" />
                   <FilterButton label="Expiring" value="expiring" icon={CalendarClock} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-rose-600 shadow-rose-900/40" className="w-full justify-center" />
                   <FilterButton label="Recently Added" value="recently-added" icon={Clock} count={logic.recentlyAddedCount} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-violet-600 shadow-violet-900/40" className="w-full justify-center" />
+                  <FilterButton label="Stock Check" value="stock-check" icon={ListChecks} count={branchData[currentBranch]?.filter(p => p.needsStockCheck).length} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-red-600 shadow-red-900/40" className="w-full justify-center" />
                 </>
               )}
            </div>

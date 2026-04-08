@@ -17,6 +17,7 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
   const [isMiscModalOpen, setIsMiscModalOpen] = useState(false);
   const [discountPercent, setDiscountPercent] = useState(0);
   const [isRefundMode, setIsRefundMode] = useState(false);
+  const [skipStockCheck, setSkipStockCheck] = useState(false);
 
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.lineTotal, 0), [cart]);
   const discountableSubtotal = useMemo(() =>
@@ -56,12 +57,16 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
     const name = isLoose ? `${product.name} (Loose)` : product.name;
     const cartKey = isLoose ? `${product.id}__loose` : product.id;
 
+    // Check for stock level
+    const stockInHand = isLoose ? (product.partPacks ?? 0) : product.stockInHand;
+    const requiresStockCheck = stockInHand <= 0 && !skipStockCheck;
+
     setCart(prev => {
       const existing = prev.find(item => item.productId === cartKey);
       if (existing) {
         return prev.map(item =>
           item.productId === cartKey
-            ? { ...item, quantity: item.quantity + 1, lineTotal: (item.quantity + 1) * item.unitPrice }
+            ? { ...item, quantity: item.quantity + 1, lineTotal: (item.quantity + 1) * item.unitPrice, requiresStockCheck: item.requiresStockCheck || requiresStockCheck }
             : item
         );
       }
@@ -76,10 +81,11 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
         lineTotal: Math.round(unitPrice * 100) / 100,
         isMiscellaneous: false,
         noVat: product.noVat,
-        reducedVat: product.reducedVat
+        reducedVat: product.reducedVat,
+        requiresStockCheck
       }];
     });
-  }, []);
+  }, [skipStockCheck]);
 
   const addMiscItem = useCallback((name: string, price: number, noVat?: boolean, reducedVat?: boolean, noDiscountAllowed?: boolean) => {
     setCart(prev => [...prev, {
@@ -96,18 +102,19 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
     }]);
   }, []);
 
-  const addQuickButtonItem = useCallback((label: string, price: number, productId?: string, noDiscountAllowed?: boolean, noVat?: boolean) => {
+  const addQuickButtonItem = useCallback((label: string, price: number, productId?: string, noDiscountAllowed?: boolean, noVat?: boolean, reducedVat?: boolean) => {
     if (productId) {
       const products = branchData[currentBranch] || [];
       const product = products.find(p => p.id === productId);
       if (product) {
+        const requiresStockCheck = product.stockInHand <= 0 && !skipStockCheck;
         // Add to cart, then flag noDiscountAllowed if needed
         setCart(prev => {
           const existing = prev.find(item => item.productId === product.id);
           if (existing) {
             return prev.map(item =>
               item.productId === product.id
-                ? { ...item, quantity: item.quantity + 1, lineTotal: (item.quantity + 1) * item.unitPrice }
+                ? { ...item, quantity: item.quantity + 1, lineTotal: (item.quantity + 1) * item.unitPrice, requiresStockCheck: item.requiresStockCheck || requiresStockCheck }
                 : item
             );
           }
@@ -123,7 +130,8 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
             isMiscellaneous: false,
             ...(noDiscountAllowed ? { noDiscountAllowed: true } : {}),
             noVat: product.noVat ?? noVat,
-            reducedVat: product.reducedVat ?? reducedVat
+            reducedVat: product.reducedVat ?? reducedVat,
+            requiresStockCheck
           }];
         });
         return;
@@ -141,7 +149,7 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
       ...(noDiscountAllowed ? { noDiscountAllowed: true } : {}),
       noVat
     }]);
-  }, [branchData, currentBranch]);
+  }, [branchData, currentBranch, skipStockCheck]);
 
   const updateQuantity = useCallback((cartItemId: string, newQty: number) => {
     if (newQty <= 0) {
@@ -261,6 +269,9 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
           product.stockHistory = [...(product.stockHistory || []), movement];
         }
         product.lastUpdated = new Date().toISOString();
+        if (cartItem.requiresStockCheck) {
+          product.needsStockCheck = true;
+        }
         products[idx] = product;
       });
       return { ...prev, [currentBranch]: products };
@@ -270,6 +281,32 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
     setLastTransaction(transaction);
     clearCart();
   }, [canCompleteSale, cart, subtotal, total, amountTendered, paymentMethod, currentBranch, operator, setBranchData, clearCart, tenderedNum, discountPercent, discountAmount]);
+
+  const updateProductStock = useCallback((productId: string, newStock: number) => {
+    setBranchData(prev => {
+      const products = [...(prev[currentBranch] || [])];
+      const idx = products.findIndex(p => p.id === productId);
+      if (idx === -1) return prev;
+      
+      const product = { ...products[idx] };
+      const oldStock = product.stockInHand;
+      product.stockInHand = newStock;
+      product.needsStockCheck = false; // Clear flag once updated
+      product.lastUpdated = new Date().toISOString();
+      
+      const movement: StockMovement = {
+        date: new Date().toISOString(),
+        type: 'manual',
+        change: newStock - oldStock,
+        newBalance: newStock,
+        note: `Manual Update via EPOS`,
+      };
+      product.stockHistory = [...(product.stockHistory || []), movement];
+      
+      products[idx] = product;
+      return { ...prev, [currentBranch]: products };
+    });
+  }, [currentBranch, setBranchData]);
 
   const toggleRefundMode = useCallback(() => {
     setIsRefundMode(prev => !prev);
@@ -446,5 +483,7 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
     updateQuantity, removeFromCart, clearCart,
     completeSale, completeRefund,
     isRefundMode, toggleRefundMode,
+    skipStockCheck, setSkipStockCheck,
+    updateProductStock,
   };
 }

@@ -433,6 +433,8 @@ export default function RetailStockManager() {
           if (!i.createdAt) return false;
           const diffHours = (now.getTime() - new Date(i.createdAt).getTime()) / (1000 * 3600);
           if (diffHours > 48 || diffHours < 0) return false;
+        } else if (subFilter === 'stock-check') {
+          if (!i.needsStockCheck) return false;
         }
       }
 
