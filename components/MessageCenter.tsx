@@ -423,12 +423,17 @@ export const ChatWindow = ({
 
         <div className="p-8 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
-             <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 border border-indigo-500/20">
+             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${currentBranch === 'bywood' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20'}`}>
                <MessageSquare size={24} />
              </div>
              <div>
-               <h3 className="font-black text-lg text-white">Branch Communication</h3>
-               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{currentBranch === 'bywood' ? 'Broom Road' : 'Bywood Ave'} Context</p>
+               <div className="flex items-center gap-2">
+                 <h3 className="font-black text-lg text-white">Messaging {currentBranch === 'bywood' ? 'Broom Road' : 'Bywood Ave'}</h3>
+                 <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${currentBranch === 'bywood' ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
+                   TO {currentBranch === 'bywood' ? 'BROOM' : 'BYWOOD'}
+                 </span>
+               </div>
+               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">From {currentBranch === 'bywood' ? 'Bywood Ave' : 'Broom Road'}</p>
              </div>
           </div>
           <div className="flex items-center gap-2 relative">
