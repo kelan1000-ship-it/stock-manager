@@ -66,7 +66,8 @@ export function useStockLogic() {
     toggleArchive,
     restoreProduct,
     handleDeleteProduct,
-    bulkUpdateProducts
+    bulkUpdateProducts,
+    confirmStockCheck
   } = useProductOperations(
     currentBranch,
     setBranchData,
