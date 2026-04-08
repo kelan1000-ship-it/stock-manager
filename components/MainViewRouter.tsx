@@ -3,7 +3,7 @@ import React, { RefObject, useMemo } from 'react';
 import {
   ArchiveRestore, Recycle, LayoutDashboard, RefreshCw, ShoppingBag, AlertCircle, Printer,
   CalendarClock, Star, ChevronDown, Check, Tag as TagIcon, Search, ScanLine,
-  ClipboardList, ArrowRight, Plus, Truck, X, Activity, Clock, MapPin, Archive
+  ClipboardList, ArrowRight, Plus, Truck, X, Activity, Clock, MapPin, Archive, ListChecks
 } from 'lucide-react';
 import { PerformanceView } from './PerformanceView';
 import { RequestsView } from './RequestsView';
