@@ -28,6 +28,7 @@ export const InventoryRow: React.FC<{
   onOpenEdit: (p: Product) => void;
   onOpenTransfer: (p: Product) => void;
   onOpenHistory: (p: Product) => void;
+  onConfirmStockCheck?: (id: string) => void;
   isToOrderActive?: boolean;
   isSelected: boolean;
   onToggleSelection: () => void;
@@ -39,7 +40,7 @@ export const InventoryRow: React.FC<{
   isGroupChild?: boolean;
   columns: ColumnVisibility;
 }> = ({
-  item, logic, pricingLogic, tagSettings, onOpenEdit, onOpenTransfer, onOpenHistory, isSelected, onToggleSelection, manualQty, onManualQtyChange, onPreviewImage, isNoteExpanded, onToggleNote, isGroupChild, columns
+  item, logic, pricingLogic, tagSettings, onOpenEdit, onOpenTransfer, onOpenHistory, onConfirmStockCheck, isSelected, onToggleSelection, manualQty, onManualQtyChange, onPreviewImage, isNoteExpanded, onToggleNote, isGroupChild, columns
 }) => {
   const [nameCopied, setNameCopied] = useState(false);
   const { checkPermission } = useAuth();
@@ -245,15 +246,15 @@ export const InventoryRow: React.FC<{
       
       {columns.stock && (
         <StockCell 
-          item={item} 
-          onUpdateStockInHand={logic.updateProductStockInHand} 
-          onUpdateStockToKeep={logic.updateProductStockToKeep} 
-          onUpdateLooseStockToKeep={logic.updateProductLooseStockToKeep}
-          onUpdatePartPacks={logic.updateProductPartPacks} 
-          readOnly={!canEdit} 
+            item={item} 
+            onUpdateStockInHand={logic.updateProductStockInHand} 
+            onUpdateStockToKeep={logic.updateProductStockToKeep} 
+            onUpdateLooseStockToKeep={logic.updateProductLooseStockToKeep}
+            onUpdatePartPacks={logic.updateProductPartPacks}
+            onConfirmStockCheck={onConfirmStockCheck}
+            readOnly={!canEdit} 
         />
-      )}
-      
+      )}      
       {columns.order && (
         <OrderCell item={item} activeOrder={activeOrder} statusColor={statusColor} manualQty={currentRestockQty} onManualQtyChange={onManualQtyChange} onSendToOrder={logic.sendToOrder} onUpdateOrderQuantity={logic.updateOrderQuantity} onConfirmOrder={logic.confirmOrder} onReceiveOrder={logic.receiveOrder} onRemoveOrder={logic.removeOrder} onMarkAsBackorder={logic.markAsBackorder} onMarkAsActiveOrder={logic.markAsActiveOrder} onViewShared={() => { logic.setSearchQuery(item.barcode || item.name); logic.setMainView('shared-stock'); }} readOnly={!canOrder} />
       )}

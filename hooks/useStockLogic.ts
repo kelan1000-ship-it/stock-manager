@@ -654,6 +654,7 @@ export function useStockLogic() {
     updateOrderQuantity,
     toggleArchive,
     restoreProduct,
+    confirmStockCheck,
     handleDeleteProduct,
     bulkUpdateProducts,
     

@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import { Product } from '../types';
 import { TooltipWrapper } from './SharedUI';
 
@@ -9,6 +10,7 @@ interface StockCellProps {
   onUpdateStockToKeep: (id: string, val: number) => void;
   onUpdateLooseStockToKeep: (id: string, val: number) => void;
   onUpdatePartPacks: (id: string, val: number) => void;
+  onConfirmStockCheck?: (id: string) => void;
   readOnly?: boolean;
 }
 
@@ -18,6 +20,7 @@ export const StockCell: React.FC<StockCellProps> = ({
   onUpdateStockToKeep, 
   onUpdateLooseStockToKeep,
   onUpdatePartPacks,
+  onConfirmStockCheck,
   readOnly
 }) => {
   const packSizeNum = parseInt(item.packSize) || 1;
@@ -29,6 +32,15 @@ export const StockCell: React.FC<StockCellProps> = ({
 
   const stockBoxes = (
     <div className="flex items-center justify-center gap-2">
+      {item.needsStockCheck && onConfirmStockCheck && (
+        <button
+          onClick={() => onConfirmStockCheck(item.id)}
+          className="flex flex-col items-center justify-center w-10 h-10 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-600 hover:text-white transition-all group"
+          title="Confirm Stock Level"
+        >
+          <CheckCircle2 size={20} className="group-hover:scale-110 transition-transform" />
+        </button>
+      )}
       <div className="flex flex-col items-center gap-0.5">
          <span className="text-[7px] font-black text-emerald-500/70 uppercase">Full</span>
          <input 

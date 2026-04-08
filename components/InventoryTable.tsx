@@ -30,6 +30,7 @@ interface InventoryTableProps {
   onOpenEdit: (p: Product) => void;
   onOpenTransfer: (p: Product) => void;
   onOpenHistory: (p: Product) => void;
+  onConfirmStockCheck?: (id: string) => void;
   columns: ColumnVisibility;
   isSortingDisabled?: boolean;
 }
@@ -210,6 +211,7 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
   onOpenEdit,
   onOpenTransfer,
   onOpenHistory,
+  onConfirmStockCheck,
   columns,
   isSortingDisabled = false
 }) => {
@@ -394,6 +396,7 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                           onOpenEdit={onOpenEdit}
                           onOpenTransfer={onOpenTransfer}
                           onOpenHistory={onOpenHistory}
+                          onConfirmStockCheck={onConfirmStockCheck}
                           isSelected={selectedIds.has(item.id)}
                           onToggleSelection={() => onToggleSelection(item.id)}
                           manualQty={manualRestockQtys[item.id]}
@@ -419,6 +422,7 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                         onOpenEdit={onOpenEdit}
                         onOpenTransfer={onOpenTransfer}
                         onOpenHistory={onOpenHistory}
+                        onConfirmStockCheck={onConfirmStockCheck}
                         isSelected={selectedIds.has(row.data.id)}
                         onToggleSelection={() => onToggleSelection(row.data.id)}
                         manualQty={manualRestockQtys[row.data.id]}

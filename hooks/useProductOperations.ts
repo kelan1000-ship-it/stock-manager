@@ -388,6 +388,13 @@ export function useProductOperations(
     }));
   }, [currentBranch, setBranchData]);
 
+  const confirmStockCheck = useCallback((id: string) => {
+    setBranchData(prev => ({
+      ...prev,
+      [currentBranch]: prev[currentBranch].map(p => p.id === id ? { ...p, needsStockCheck: false, lastUpdated: new Date().toISOString() } : p)
+    }));
+  }, [currentBranch, setBranchData]);
+
   const handleDeleteProduct = useCallback((id: string, permanent: boolean) => {
     setBranchData(prev => ({
       ...prev,
@@ -435,6 +442,7 @@ export function useProductOperations(
     updateProductPartPacks,
     toggleArchive,
     restoreProduct,
+    confirmStockCheck,
     handleDeleteProduct,
     bulkUpdateProducts
   };

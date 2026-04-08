@@ -297,18 +297,18 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
            </div>
            
            {/* Grid Layout for Filter Tabs - Spreads evenly */}
-           <div className={`grid gap-3 w-full ${mainView === 'inventory' ? 'grid-cols-2 md:grid-cols-4 lg:grid-cols-8' : 'grid-cols-1'}`}>
-              <FilterButton label="All Items" value="all" icon={LayoutDashboard} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} className="w-full justify-center" />
+           <div className={`grid gap-3 w-full ${mainView === 'inventory' ? 'grid-cols-2 md:grid-cols-4 lg:grid-cols-9' : 'grid-cols-1'}`}>
+              <FilterButton label="All Items" value="all" icon={LayoutDashboard} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} className="w-full justify-center px-2" />
               {mainView === 'inventory' && (
                 <>
-                  <FilterButton label="Restock" value="restock" icon={RefreshCw} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} className="w-full justify-center" />
-                  <FilterButton label="Ordered" value="ordered" icon={ShoppingBag} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} className="w-full justify-center" />
-                  <FilterButton label="Price Alerts" value="alerts" icon={AlertCircle} count={pricingLogic.alerts.length} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-blue-600 shadow-blue-900/40" className="w-full justify-center" />
-                  <FilterButton label="Labels" value="labels" icon={Printer} count={pricingLogic.labelQueue.length} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-blue-600 shadow-blue-900/40" className="w-full justify-center" />
-                  <FilterButton label="Clearance" value="clearance" icon={Star} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-amber-600 shadow-amber-900/40" className="w-full justify-center" />
-                  <FilterButton label="Expiring" value="expiring" icon={CalendarClock} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-rose-600 shadow-rose-900/40" className="w-full justify-center" />
-                  <FilterButton label="Recently Added" value="recently-added" icon={Clock} count={logic.recentlyAddedCount} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-violet-600 shadow-violet-900/40" className="w-full justify-center" />
-                  <FilterButton label="Stock Check" value="stock-check" icon={ListChecks} count={branchData[currentBranch]?.filter(p => p.needsStockCheck).length} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-red-600 shadow-red-900/40" className="w-full justify-center" />
+                  <FilterButton label="Restock" value="restock" icon={RefreshCw} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} className="w-full justify-center px-2" />
+                  <FilterButton label="Ordered" value="ordered" icon={ShoppingBag} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} className="w-full justify-center px-2" />
+                  <FilterButton label="Price Alerts" value="alerts" icon={AlertCircle} count={pricingLogic.alerts.length} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-blue-600 shadow-blue-900/40" className="w-full justify-center px-2" />
+                  <FilterButton label="Labels" value="labels" icon={Printer} count={pricingLogic.labelQueue.length} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-blue-600 shadow-blue-900/40" className="w-full justify-center px-2" />
+                  <FilterButton label="Stock Check" value="stock-check" icon={ListChecks} count={branchData[currentBranch]?.filter(p => p.needsStockCheck).length} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-red-600 shadow-red-900/40" className="w-full justify-center px-2" />
+                  <FilterButton label="Clearance" value="clearance" icon={Star} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-amber-600 shadow-amber-900/40" className="w-full justify-center px-2" />
+                  <FilterButton label="Expiring" value="expiring" icon={CalendarClock} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-rose-600 shadow-rose-900/40" className="w-full justify-center px-2" />
+                  <FilterButton label="Recently Added" value="recently-added" icon={Clock} count={logic.recentlyAddedCount} activeValue={logic.subFilter as InventorySubFilter} onClick={logic.setSubFilter} activeColorClass="bg-violet-600 shadow-violet-900/40" className="w-full justify-center px-2" />
                 </>
               )}
            </div>
@@ -649,11 +649,12 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
               pricingLogic={pricingLogic}
               tagSettings={tagSettings}
               onOpenEdit={openProductEdit}
-              onOpenTransfer={openTransferForm}
+              onOpenTransfer={openTransferView}
               onOpenHistory={openHistoryView}
+              onConfirmStockCheck={logic.confirmStockCheck}
               columns={columns}
               isSortingDisabled={logic.subFilter === 'recently-added'}
-            />
+              />
           </div>
         )}
       </div>
