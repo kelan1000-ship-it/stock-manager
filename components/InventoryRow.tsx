@@ -215,7 +215,7 @@ export const InventoryRow: React.FC<{
 
               {item.isReducedToClear && <span className="px-1.5 py-0.5 rounded border text-[8px] font-black uppercase tracking-tighter bg-orange-500/10 border-orange-500/20 text-orange-500">Reduced</span>}
               {item.needsStockCheck && (
-                <span className="px-1.5 py-0.5 rounded border text-[8px] font-black uppercase tracking-tighter flex items-center gap-0.5 animate-pulse bg-rose-600/10 border-rose-500/30 text-rose-500">
+                <span className="px-1.5 py-0.5 rounded border text-[8px] font-black uppercase tracking-tighter flex items-center gap-0.5 animate-pulse bg-amber-600/10 border-amber-500/30 text-amber-500">
                   <ListChecks size={10}/> Stock Check
                 </span>
               )}

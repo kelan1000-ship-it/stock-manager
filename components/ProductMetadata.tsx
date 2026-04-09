@@ -267,7 +267,7 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
                 icon={BrainCircuit} 
                 active={formData.skipStockCheck} 
                 onClick={() => setFormData({...formData, skipStockCheck: !formData.skipStockCheck})} 
-                colorClass="violet" 
+                colorClass="orange" 
             />
           </div>
           
