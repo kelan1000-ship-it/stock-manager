@@ -187,7 +187,7 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
       value: stats.stockCheckCount,
       subValue: 'Pending Verification',
       icon: ListChecks,
-      color: 'amber',
+      color: 'orange',
       filterKey: 'stock-check'
     }
   };

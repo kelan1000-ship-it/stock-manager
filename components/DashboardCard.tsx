@@ -7,7 +7,7 @@ interface DashboardCardProps {
   value: string | number;
   subValue?: string;
   icon: LucideIcon;
-  color: 'amber' | 'indigo' | 'blue' | 'emerald' | 'rose' | 'slate';
+  color: 'amber' | 'orange' | 'indigo' | 'blue' | 'emerald' | 'rose' | 'slate';
   isActive?: boolean;
   onClick?: () => void;
   onRemove?: () => void;
@@ -22,6 +22,11 @@ export const DashboardCard: React.FC<DashboardCardProps> = ({
       active: 'bg-amber-600/10 border-amber-500/30',
       hover: 'hover:border-amber-500/30',
       icon: 'bg-amber-500/10 border-amber-500/20 text-amber-500'
+    },
+    orange: {
+      active: 'bg-orange-600/10 border-orange-500/30',
+      hover: 'hover:border-orange-500/30',
+      icon: 'bg-orange-500/10 border-orange-500/20 text-orange-500'
     },
     indigo: {
       active: 'bg-indigo-600/10 border-indigo-500/30',
