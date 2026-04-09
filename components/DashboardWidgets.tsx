@@ -52,7 +52,7 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
 
   // State for the 4 grid slots. Null means empty/placeholder.
   const STORAGE_KEY_PREFIX = 'greenchem-dashboard-slots-';
-  const DEFAULT_SLOTS: (WidgetType | null)[] = ['restock', 'ordered', 'slow-movers', 'expiring'];
+  const DEFAULT_SLOTS: (WidgetType | null)[] = ['restock', 'ordered', 'stock-check', 'expiring'];
 
   const [activeSlots, setActiveSlots] = useState<(WidgetType | null)[]>(() => {
     try {
