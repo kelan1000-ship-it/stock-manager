@@ -336,6 +336,7 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
                       >
                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-colors ${
                             w.color === 'amber' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
+                            w.color === 'orange' ? 'bg-orange-500/10 border-orange-500/20 text-orange-500' :
                             w.color === 'indigo' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-500' :
                             w.color === 'blue' ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' :
                             w.color === 'emerald' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' :
