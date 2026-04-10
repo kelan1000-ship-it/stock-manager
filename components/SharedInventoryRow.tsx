@@ -420,6 +420,23 @@ export const SharedInventoryRow: React.FC<SharedInventoryRowProps> = ({
                   <span className="text-[8px] font-black uppercase text-rose-500 tracking-widest">Unavailable</span>
                </div>
             )}
+            {!match?.isDiscontinued && match && (
+                <div className={`flex items-center gap-1 mt-1 rounded-lg p-1 border transition-all ${confirmations[partnerBranchKey] ? 'bg-emerald-900/10 border-emerald-500/20' : 'bg-slate-900/50 border-slate-800/50'}`}>
+                    {confirmations[partnerBranchKey] ? (
+                        <>
+                            <span className="text-[8px] font-black uppercase text-emerald-500/70 px-1">Ready</span>
+                            <div className="w-10 h-6 flex items-center justify-center font-black text-white/50 text-xs">{draft[partnerBranchKey] || 0}</div>
+                        </>
+                    ) : (
+                        <>
+                            <span className="text-[8px] font-black uppercase text-amber-500/50 px-1">Order</span>
+                            <div className="w-10 h-6 bg-slate-800/50 rounded border border-slate-700/50 flex items-center justify-center font-bold text-amber-500/50 text-xs">
+                                {draft[partnerBranchKey] || 0}
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
         </div>
       </td>
 
