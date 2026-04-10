@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   ChevronLeft, ChevronRight, Download, UserPlus, LogOut, Clock, Calendar,
-  Palmtree, Trash2, Plus, ChevronDown, ChevronUp, X, Edit2, Settings
+  Palmtree, Trash2, Plus, ChevronDown, ChevronUp, X, Edit2, Settings, Stethoscope
 } from 'lucide-react';
 import { BranchKey, StaffMember, StaffShift, StaffHoliday, StaffHoursViewMode, ShiftPreset } from '../types';
 import { useStaffHours } from '../hooks/useStaffHours';
@@ -448,11 +448,23 @@ export function StaffHoursView({ currentBranch, operator }: StaffHoursViewProps)
                     >
                       {row.staffName}
                     </td>
-                    {h.daysInRange.map(d => (
-                      <td key={d} className="text-center py-2 px-2 text-gray-500">
-                        {row.dayHours[d] ? row.dayHours[d].toFixed(1) : '-'}
-                      </td>
-                    ))}
+                    {h.daysInRange.map(d => {
+                      const holiday = h.holidays.find(hol => hol.staffId === row.staffId && hol.startDate <= d && hol.endDate >= d);
+                      const hrs = row.dayHours[d];
+                      const showPalmtree = holiday?.type === 'annual';
+                      const showStethoscope = holiday?.type === 'sick';
+                      const hasVisual = showPalmtree || showStethoscope;
+
+                      return (
+                        <td key={d} className="text-center py-2 px-2 text-gray-500">
+                          <div className="flex items-center justify-center gap-1">
+                            {hrs ? hrs.toFixed(1) : (hasVisual ? null : '-')}
+                            {showPalmtree && <Palmtree size={12} className="text-amber-500" />}
+                            {showStethoscope && <Stethoscope size={12} className="text-rose-500" />}
+                          </div>
+                        </td>
+                      );
+                    })}
                     <td className="text-center py-2 pl-4 font-black text-gray-900">{row.totalHours.toFixed(1)}</td>
                   </tr>
                 ))}
