@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { Search, Package, X } from 'lucide-react';
 import { Product } from '../types';
 
@@ -8,12 +9,12 @@ function parsePackSize(ps: string): number {
 }
 
 interface EposProductSearchProps {
-  products: Product[];
   onAddToCart: (product: Product, opts?: { asLoose?: boolean }) => void;
   onOpenMisc: () => void;
 }
 
-export function EposProductSearch({ products, onAddToCart, onOpenMisc }: EposProductSearchProps) {
+export function EposProductSearch({ onAddToCart, onOpenMisc }: EposProductSearchProps) {
+  const items = useSelector((state: any) => state.stock.items);
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [packChoiceProduct, setPackChoiceProduct] = useState<Product | null>(null);
@@ -21,8 +22,8 @@ export function EposProductSearch({ products, onAddToCart, onOpenMisc }: EposPro
   const containerRef = useRef<HTMLDivElement>(null);
 
   const activeProducts = useMemo(() =>
-    products.filter(p => !p.deletedAt && !p.isArchived),
-    [products]
+    items.filter((p: Product) => !p.deletedAt && !p.isArchived),
+    [items]
   );
 
   const results = useMemo(() => {

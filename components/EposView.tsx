@@ -151,7 +151,6 @@ export function EposView({ branchData, setBranchData, currentBranch }: EposViewP
   }, []);
 
   const operator = firebaseUser?.email || 'unknown';
-  const products = useMemo(() => branchData[currentBranch] || [], [branchData, currentBranch]);
 
   const epos = useEpos({ branchData, setBranchData, currentBranch, operator });
   const txHistory = useEposTransactions(currentBranch, setBranchData);
@@ -253,7 +252,6 @@ export function EposView({ branchData, setBranchData, currentBranch }: EposViewP
           {/* Left panel - Search + Quick Buttons */}
           <div className="space-y-5 flex flex-col pr-0" style={{ width: `${100 - cartWidthPercent}%` }}>
             <EposProductSearch
-              products={products}
               onAddToCart={epos.addToCart}
               onOpenMisc={() => epos.setIsMiscModalOpen(true)}
             />
@@ -404,7 +402,6 @@ export function EposView({ branchData, setBranchData, currentBranch }: EposViewP
         onSave={quickButtons.saveButton}
         onDelete={quickButtons.removeButton}
         onReorder={quickButtons.reorderButtons}
-        products={products}
       />
 
       {/* Receipt Prompt Modal */}

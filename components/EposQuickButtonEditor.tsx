@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import { X, Plus, Trash2, GripVertical } from 'lucide-react';
 import { EposQuickButton, Product } from '../types';
 
@@ -9,7 +10,6 @@ interface EposQuickButtonEditorProps {
   onSave: (button: EposQuickButton) => void;
   onDelete: (id: string) => void;
   onReorder: (buttons: EposQuickButton[]) => void;
-  products: Product[];
 }
 
 const COLORS = [
@@ -17,12 +17,18 @@ const COLORS = [
   'bg-amber-600', 'bg-cyan-600', 'bg-pink-600', 'bg-indigo-600',
 ];
 
-export function EposQuickButtonEditor({ isOpen, onClose, buttons, onSave, onDelete, onReorder, products }: EposQuickButtonEditorProps) {
+export function EposQuickButtonEditor({ isOpen, onClose, buttons, onSave, onDelete, onReorder }: EposQuickButtonEditorProps) {
+  const items = useSelector((state: any) => state.stock.items);
   const [editingButton, setEditingButton] = useState<Partial<EposQuickButton> | null>(null);
   const [productSearch, setProductSearch] = useState('');
   const [localPriceInput, setLocalPriceInput] = useState('');
   const dragIdx = useRef<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
+  const activeProducts = useMemo(() => 
+    items.filter((p: Product) => !p.deletedAt && !p.isArchived),
+    [items]
+  );
 
   if (!isOpen) return null;
 
@@ -99,8 +105,6 @@ export function EposQuickButtonEditor({ isOpen, onClose, buttons, onSave, onDele
     dragIdx.current = null;
     setDragOverIdx(null);
   };
-
-  const activeProducts = products.filter(p => !p.deletedAt && !p.isArchived);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>

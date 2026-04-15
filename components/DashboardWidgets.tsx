@@ -1,5 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { History, Truck, TrendingUp, Package, Star, AlertCircle, X, RefreshCw, Copy, GripHorizontal, ListChecks } from 'lucide-react';
 import { Product } from '../types';
 import { StockLogicReturn } from '../hooks/useStockLogic';
@@ -8,7 +9,6 @@ import { useInventoryReconciliation } from '../hooks/useInventoryReconciliation'
 import { DashboardCard } from './DashboardCard';
 
 interface DashboardWidgetsProps {
-  activeMainInventory: Product[];
   activeOrdersCount: number;
   logic: StockLogicReturn;
   pricingAlertCount: number;
@@ -20,7 +20,6 @@ interface DashboardWidgetsProps {
 type WidgetType = 'restock' | 'ordered' | 'slow-movers' | 'expiring' | 'clearance' | 'alerts' | 'reconciliation' | 'duplicates' | 'stock-check';
 
 export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
-  activeMainInventory,
   activeOrdersCount,
   logic,
   pricingAlertCount,
@@ -28,6 +27,12 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
   onOpenDuplicates,
   currentBranch
 }) => {
+  const items = useSelector((state: any) => state.stock.items);
+
+  const activeMainInventory = useMemo(() => {
+    return items.filter((p: Product) => !p.isArchived && !p.deletedAt);
+  }, [items]);
+
   const { totalSlowMovers } = useSlowMoverInsights(activeMainInventory);
   
   // Reconciliation Logic for Widget Stats

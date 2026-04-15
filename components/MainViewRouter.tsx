@@ -215,22 +215,6 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
       />    );
   }
 
-  // Derived state for Active Main Inventory stats (excluding Archive/Bin)
-  const activeMainInventory = useMemo(() => {
-    return (branchData[currentBranch] || []).filter((p: Product) => !p.isArchived && !p.deletedAt);
-  }, [branchData, currentBranch]);
-
-  const activeOrdersCount = useMemo(() => {
-    const activeOrderKey = currentBranch === 'bywood' ? 'bywoodOrders' : 'broomOrders';
-    const orders = branchData[activeOrderKey] || [];
-    const activeIds = new Set(activeMainInventory.map((p: Product) => p.id));
-    const orderedItems = orders.filter((o: { productId: string; status?: string }) =>
-      activeIds.has(o.productId) &&
-      o.status === 'ordered'
-    );
-    return new Set(orderedItems.map((o: { productId: string }) => o.productId)).size;
-  }, [branchData, currentBranch, activeMainInventory]);
-
   if (mainView === 'inventory' || mainView === 'archive' || mainView === 'bin') {
     return (
       <div className="space-y-8">
@@ -280,8 +264,6 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
 
         {/* Dashboard Widgets Section */}
         <DashboardWidgets
-          activeMainInventory={activeMainInventory}
-          activeOrdersCount={activeOrdersCount}
           logic={logic}
           pricingAlertCount={pricingLogic.alerts.length}
           onOpenReconciliation={onOpenReconciliation}
