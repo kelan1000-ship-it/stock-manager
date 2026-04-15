@@ -1,17 +1,18 @@
 
 import React, { useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import { X, AlertTriangle, Trash2, Package, Copy, CheckCircle2 } from 'lucide-react';
 import { Product } from '../types';
 
 interface LocalDuplicatesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  inventory: Product[];
   onDelete: (id: string) => void;
   theme: 'dark';
 }
 
-export const LocalDuplicatesModal: React.FC<LocalDuplicatesModalProps> = ({ isOpen, onClose, inventory, onDelete, theme }) => {
+export const LocalDuplicatesModal: React.FC<LocalDuplicatesModalProps> = ({ isOpen, onClose, onDelete, theme }) => {
+  const inventory = useSelector((state: any) => state.stock.items);
   const duplicates = useMemo(() => {
     const groups: { type: string; key: string; items: Product[] }[] = [];
     const seenIds = new Set<string>();

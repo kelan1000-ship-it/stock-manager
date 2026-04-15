@@ -1,5 +1,6 @@
 
 import React, { useRef, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { 
   X, Plus, ScanLine, Loader2, Sparkles, ShoppingBag, Pill, Check, Upload, Camera, Database, Copy
 } from 'lucide-react';
@@ -32,7 +33,6 @@ interface ProductFormPanelProps {
   theme: 'dark';
   isEditing: boolean;
   editingId: string | null;
-  inventory: Product[];
   copyToBoth: boolean;
   setCopyToBoth: (v: boolean) => void;
   isAILoading: boolean;
@@ -47,9 +47,10 @@ interface ProductFormPanelProps {
 export const ProductFormPanel = ({ 
   isOpen, onClose, formData, setFormData, onSave, onScan, onFullScan, 
   onFindMasterRecord, onSuggestMaster, onUpdateMasterProduct, onAutoFill, tagSettings, onUpdateTagSettings, 
-  theme, isEditing, editingId, inventory, copyToBoth, setCopyToBoth, isAILoading, 
+  theme, isEditing, editingId, copyToBoth, setCopyToBoth, isAILoading, 
   uniqueNames, uniqueSuppliers, uniqueLocations, uniquePackSizes, uniqueParentGroups, allUniqueTags 
 }: ProductFormPanelProps) => {
+  const inventory = useSelector((state: any) => state.stock.items);
   const [isAICameraOpen, setIsAICameraOpen] = React.useState(false);
   const masterSearchRef = useRef<HTMLDivElement>(null);
 
@@ -159,12 +160,16 @@ export const ProductFormPanel = ({
                       <div className="p-4 bg-slate-950/50 border-b border-slate-800 flex items-center justify-between"><span className="text-[10px] font-black uppercase text-indigo-400 tracking-widest flex items-center gap-2"><Database size={14} /> Verified Database Matches ({suggestions.length})</span></div>
                       <div className="max-h-[400px] overflow-y-auto scrollbar-hide">
                         {suggestions.map((p: MasterProduct) => (
-                          <button key={p.id} onClick={() => handleSelectMasterProduct(p)} className="w-full p-5 flex items-center gap-5 hover:bg-indigo-600/10 transition-all text-left border-b border-slate-800/50 last:border-0 group">
+                          <div 
+                            key={p.id} 
+                            onClick={() => handleSelectMasterProduct(p)} 
+                            className="w-full p-5 flex items-center gap-5 hover:bg-indigo-600/10 transition-all text-left border-b border-slate-800/50 last:border-0 group cursor-pointer role-button"
+                          >
                             <div className="w-14 h-14 rounded-2xl bg-white overflow-hidden shrink-0 border border-slate-800 shadow-sm p-1">
                                 <ProductThumbnail src={p.image} alt={p.name} stockType="retail" />
                             </div>
                             <div className="flex-1 min-w-0"><p className="text-sm font-black text-white group-hover:text-indigo-300 transition-colors uppercase truncate">{p.name}</p><div className="flex items-center gap-3 mt-1"><span className="text-[9px] italic text-slate-500 uppercase tracking-widest bg-slate-950 px-2 py-0.5 rounded border border-slate-800">{p.packSize || 'N/A'}</span><span className="text-[9px] font-mono font-bold text-slate-500">{p.barcode || p.productCode}</span></div></div>
-                          </button>
+                          </div>
                         ))}
                       </div>
                     </div>

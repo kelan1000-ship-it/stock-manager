@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useSelector } from 'react-redux';
 import { storageService } from '../services/storageService';
 import { 
   Layers, Plus, Save, Download, ShoppingCart, Filter, X, Search,
@@ -17,7 +18,6 @@ import { matchesAnySearchField } from '../utils/stringUtils';
 interface PlanogramViewProps {
   activePlanogram: PlanogramLayout | null;
   activeFloorPlan: ShopFloor | null;
-  inventory: Product[];
   onUpdateSlot: (slotId: number, productId: string | null, faceId?: string) => void;
   onUpdateSlotPurpose?: (slotId: number, purpose: 'product' | 'gap' | 'shelf_end' | undefined, faceId?: string) => void;
   onSwapSlots: (sourceId: number, targetId: number, sourceFaceId?: string, targetFaceId?: string) => void;
@@ -44,16 +44,18 @@ interface PlanogramViewProps {
   }
 
   export const PlanogramView: React.FC<PlanogramViewProps> = ({
-  activePlanogram, activeFloorPlan, inventory, onUpdateSlot, onUpdateSlotPurpose, onSwapSlots, onAddPlanogram, onUpdatePlanogramDetails,
+  activePlanogram, activeFloorPlan, onUpdateSlot, onUpdateSlotPurpose, onSwapSlots, onAddPlanogram, onUpdatePlanogramDetails,
   planograms, onSelectPlanogram, currentBranch, onUpdateImage, onSaveAiVisualisation,
   addShelfToFloor, updateFloorItem, removeFloorItem, onUpdateProduct, onAddFace, onRemoveFace, onDeletePlanogram,
   onSaveConfiguration, onLoadConfiguration, onDeleteConfiguration, onRenameConfiguration, onOpenProductEdit
   }) => {
-  const [activeTab, setActiveTab] = useState<'shelf' | 'floor'>('shelf');
+  const inventory = useSelector((state: any) => state.stock.items);
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
+  const [activeTab, setActiveTab] = useState<'picker' | 'shelves' | 'floor' | 'config'>('picker');
+
   const [search, setSearch] = useState('');
   const [pickerSearch, setPickerSearch] = useState('');
   const [isAdding, setIsAdding] = useState(false);
-  const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d');
 
   // New Planogram Form State
   const [newPName, setNewPName] = useState('');

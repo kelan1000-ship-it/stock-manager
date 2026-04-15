@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import { 
   Table, CheckCircle, Info, Upload, X, Database, RefreshCw, 
   FileDown, Download, FileUp, AlertCircle, Notebook, Archive, Recycle, 
@@ -278,7 +279,6 @@ export const ManageDataDropdown = ({
 interface MissingAttributesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  inventory: Product[];
   onUpdateProducts: (updates: { id: string; updates: Partial<Product> }[]) => void;
   theme: 'dark';
 }
@@ -286,10 +286,10 @@ interface MissingAttributesModalProps {
 export const MissingAttributesModal: React.FC<MissingAttributesModalProps> = ({
   isOpen,
   onClose,
-  inventory,
   onUpdateProducts,
   theme
 }) => {
+  const inventory = useSelector((state: any) => state.stock.items);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pendingUpdates, setPendingUpdates] = useState<Record<string, Partial<Product>>>({});
   const [discoveryResults, setDiscoveryResults] = useState<Record<string, any>>({});

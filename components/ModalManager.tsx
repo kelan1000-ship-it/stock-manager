@@ -101,26 +101,26 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
 
   return (
     <>
-      <ProductFormPanel 
-        isOpen={logic.isAdding} 
-        onClose={logic.resetForm} 
-        formData={logic.formData} 
-        setFormData={logic.setFormData} 
-        onSave={logic.handleSaveProduct} 
-        onScan={() => logic.setIsVisionScanning(true)} 
-        onFullScan={logic.handleFullAIScan}
+      <ProductFormPanel
+        isOpen={logic.isAdding}
+        onClose={logic.resetForm}
+        formData={logic.formData}
+        setFormData={logic.setFormData}
+        onSave={logic.handleSaveProduct}
+        onScan={() => { logic.setScanMode('default'); logic.setIsVisionScanning(true); }}
+        onFullScan={logic.handleAIVisionResults}
         onFindMasterRecord={logic.findMasterRecord}
         onSuggestMaster={logic.suggestFromMaster}
         onUpdateMasterProduct={logic.updateMasterProduct}
-        onAutoFill={logic.handleAIProductLookup}
+        onAutoFill={logic.autoFillFromMaster}
         tagSettings={tagSettings}
         onUpdateTagSettings={updateTagSettings}
-        theme={theme} 
+        theme={theme}
         isEditing={!!logic.editingId}
         editingId={logic.editingId}
-        inventory={branchData[currentBranch] || []}
         copyToBoth={logic.copyToBothBranches}
         setCopyToBoth={logic.setCopyToBothBranches}
+
         isAILoading={logic.isAILoading}
         uniqueNames={logic.uniqueProductNames}
         uniqueSuppliers={logic.uniqueSuppliers}
@@ -274,7 +274,6 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
         <MissingAttributesModal
           isOpen={logic.isMissingAttributesOpen}
           onClose={() => logic.setIsMissingAttributesOpen(false)}
-          inventory={branchData[currentBranch] || []}
           onUpdateProducts={logic.bulkUpdateProducts}
           theme={theme}
         />

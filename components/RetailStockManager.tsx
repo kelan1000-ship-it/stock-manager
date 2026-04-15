@@ -1037,7 +1037,6 @@ function RetailStockManagerInner() {
       <LocalDuplicatesModal
         isOpen={isLocalDuplicatesOpen}
         onClose={() => setIsLocalDuplicatesOpen(false)}
-        inventory={branchData[currentBranch] || []}
         onDelete={(id) => logic.handleDeleteProduct(id, false)}
         theme={theme}
       />

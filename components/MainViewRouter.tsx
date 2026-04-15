@@ -189,7 +189,6 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
       <PlanogramView
         activePlanogram={planogramLogic.activePlanogram}
         activeFloorPlan={planogramLogic.activeFloorPlan}
-        inventory={branchData[currentBranch] || []}
         onUpdateSlot={planogramLogic.updateSlot}
         onUpdateSlotPurpose={planogramLogic.updateSlotPurpose}
         onSwapSlots={planogramLogic.swapSlots}
