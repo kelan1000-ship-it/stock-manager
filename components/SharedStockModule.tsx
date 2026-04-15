@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import * as XLSX from 'xlsx';
 import { Handshake, Package, ShoppingCart, RefreshCw, Download, ChevronLeft, ChevronRight, FileSpreadsheet, Send, X, Barcode, Hash, RotateCcw, Pencil, Copy, Check, CheckSquare, Square } from 'lucide-react';
 import { ProductThumbnail } from './ImageComponents';
@@ -206,7 +207,7 @@ export const SharedStockModule: React.FC<SharedStockModuleProps> = ({
     });
   };
 
-  const localItems: Product[] = branchData[currentBranch] || [];
+  const localItems = useSelector((state: any) => state.stock.items);
   const otherItems: Product[] = branchData[otherBranch] || [];
   const jointOrders: JointOrder[] = branchData.jointOrders || [];
   const branchOrders: OrderItem[] = (branchData as any)[`${currentBranch}Orders`] || [];
