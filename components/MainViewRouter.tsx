@@ -31,7 +31,6 @@ interface MainViewRouterProps {
   pricingLogic: PricingDeskReturn;
   planogramLogic: PlanogramReturn;
   noteLogic: { isNoteExpanded: (id: string) => boolean; toggleNote: (id: string) => void; };
-  sortedItems: Product[];
   effectiveSortConfig: { key: string; direction: 'asc' | 'desc' }[];
   sortedRequests: CustomerRequest[];
   liveOrderTotal: number;
@@ -90,7 +89,7 @@ interface MainViewRouterProps {
 
 export const MainViewRouter: React.FC<MainViewRouterProps> = ({
   mainView, logic, branchData, currentBranch, setBranchData, pricingLogic, planogramLogic, noteLogic,
-  sortedItems, effectiveSortConfig, sortedRequests, liveOrderTotal, manualRestockQtys, updateManualQty,
+  effectiveSortConfig, sortedRequests, liveOrderTotal, manualRestockQtys, updateManualQty,
   requestSortConfig, setRequestSortConfig, requestTab, setRequestTab,
   selectedIds, toggleSelection, toggleAll, isAllSelected,
   uniqueSuppliers, selectedSuppliers, supplierFilterMode, toggleSupplierFilter, clearSupplierFilters, toggleSupplierFilterMode,
@@ -634,7 +633,6 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
             )}
             
             <InventoryTable 
-              items={sortedItems}
               sortConfig={effectiveSortConfig}
               onSort={(k: string, multi: boolean) => logic.handleSort(k, multi)}
               selectedIds={selectedIds}

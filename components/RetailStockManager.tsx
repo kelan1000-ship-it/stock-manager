@@ -59,17 +59,11 @@ export const SOUND_CONFIG = {
 export type SoundType = keyof typeof SOUND_CONFIG;
 
 function RetailStockManagerInner() {
+  const dispatch = useDispatch();
   const { isAdmin, signOut, checkPermission } = useAuth();
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [appMode, setAppMode] = useState<'stock-manager' | 'epos'>('stock-manager');
   const logic = useStockLogic();
-
-  // Redux Sync Effect
-  const dispatch = useDispatch();
-  const currentInventory = logic.branchData[logic.currentBranch] || [];
-  useEffect(() => {
-    dispatch(setStock(currentInventory));
-  }, [currentInventory, dispatch]);
 
   const pricingLogic = usePricingDesk(logic.branchData, logic.setBranchData, logic.currentBranch);
   const geminiAssistant = useGeminiAssistant(logic, pricingLogic, (product, qty, type) => {
@@ -526,6 +520,11 @@ function RetailStockManagerInner() {
     return sorted;
   }, [filteredItems, effectiveSortConfig]);
 
+  // Redux Sync Effect
+  useEffect(() => {
+    dispatch(setStock(sortedItems));
+  }, [sortedItems, dispatch]);
+
   const liveOrderTotal = useMemo(() => {
     const orderKey = currentBranch === 'bywood' ? 'bywoodOrders' : 'broomOrders';
     const activeOrders = branchData[orderKey] || [];
@@ -899,7 +898,6 @@ function RetailStockManagerInner() {
                   pricingLogic={pricingLogic}
                   planogramLogic={planogramLogic}
                   noteLogic={noteLogic}
-                            sortedItems={sortedItems}
                             effectiveSortConfig={effectiveSortConfig}
                             sortedRequests={sortedRequests}
                             liveOrderTotal={liveOrderTotal}
