@@ -1,5 +1,8 @@
 
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { Provider, useDispatch } from 'react-redux';
+import { store } from './store';
+import { setStock } from './stockSlice';
 import { 
   Plus, LayoutDashboard, Database, ChevronDown, MessageSquare,
   BarChart3, ClipboardList, Layers, Handshake, Sparkles,
@@ -55,11 +58,19 @@ export const SOUND_CONFIG = {
 
 export type SoundType = keyof typeof SOUND_CONFIG;
 
-export default function RetailStockManager() {
+function RetailStockManagerInner() {
   const { isAdmin, signOut, checkPermission } = useAuth();
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [appMode, setAppMode] = useState<'stock-manager' | 'epos'>('stock-manager');
   const logic = useStockLogic();
+
+  // Redux Sync Effect
+  const dispatch = useDispatch();
+  const currentInventory = logic.branchData[logic.currentBranch] || [];
+  useEffect(() => {
+    dispatch(setStock(currentInventory));
+  }, [currentInventory, dispatch]);
+
   const pricingLogic = usePricingDesk(logic.branchData, logic.setBranchData, logic.currentBranch);
   const geminiAssistant = useGeminiAssistant(logic, pricingLogic, (product, qty, type) => {
     setSelectedTransferProduct(product);
@@ -1065,7 +1076,14 @@ export default function RetailStockManager() {
               isLoading={geminiAssistant.isLoading}
               onClear={geminiAssistant.clearChat}
             />
-          </div>
-        );
-      }
-      
+            </div>
+            );
+            }
+
+            export default function RetailStockManager() {
+            return (
+            <Provider store={store}>
+            <RetailStockManagerInner />
+            </Provider>
+            );
+            }

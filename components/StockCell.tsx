@@ -1,5 +1,7 @@
 
 import React from 'react';
+import { useDispatch } from 'react-redux';
+import { updateStockItem } from './stockSlice';
 import { CheckCircle2 } from 'lucide-react';
 import { Product } from '../types';
 import { TooltipWrapper } from './SharedUI';
@@ -23,6 +25,7 @@ export const StockCell: React.FC<StockCellProps> = ({
   onConfirmStockCheck,
   readOnly
 }) => {
+  const dispatch = useDispatch();
   const packSizeNum = parseInt(item.packSize) || 1;
   const isDispensary = item.stockType === 'dispensary';
   const totalUnits = (item.stockInHand * packSizeNum) + (item.partPacks || 0);
@@ -41,7 +44,11 @@ export const StockCell: React.FC<StockCellProps> = ({
             disabled={readOnly}
             onFocus={(e) => !readOnly && e.target.select()} 
             onWheel={(e) => e.currentTarget.blur()} 
-            onChange={(e) => onUpdateStockInHand(item.id, Math.max(0, parseInt(e.target.value) || 0))} 
+            onChange={(e) => {
+              const val = Math.max(0, parseInt(e.target.value) || 0);
+              onUpdateStockInHand(item.id, val);
+              dispatch(updateStockItem({ id: item.id, stockInHand: val }));
+            }} 
             className={`w-16 h-10 px-0 rounded-lg border text-center font-black text-base focus:ring-2 ring-emerald-500/50 outline-none transition-all bg-slate-800/50 border-slate-700 text-white hover:bg-slate-800 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} 
          />
       </div>
@@ -55,7 +62,11 @@ export const StockCell: React.FC<StockCellProps> = ({
              disabled={readOnly}
              onFocus={(e) => !readOnly && e.target.select()} 
              onWheel={(e) => e.currentTarget.blur()} 
-             onChange={(e) => onUpdatePartPacks(item.id, Math.max(0, parseInt(e.target.value) || 0))} 
+             onChange={(e) => {
+               const val = Math.max(0, parseInt(e.target.value) || 0);
+               onUpdatePartPacks(item.id, val);
+               dispatch(updateStockItem({ id: item.id, partPacks: val }));
+             }} 
              className={`w-16 h-10 px-0 rounded-lg border text-center font-black text-base text-orange-400 focus:ring-2 ring-orange-500/50 outline-none transition-all bg-slate-800/50 border-orange-500/30 focus:border-orange-500 hover:bg-slate-800 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} 
           />
         </div>
@@ -95,7 +106,11 @@ export const StockCell: React.FC<StockCellProps> = ({
               disabled={readOnly}
               onFocus={(e) => !readOnly && e.target.select()} 
               onWheel={(e) => e.currentTarget.blur()} 
-              onChange={(e) => onUpdateStockToKeep(item.id, Math.max(0, parseInt(e.target.value) || 0))} 
+              onChange={(e) => {
+                const val = Math.max(0, parseInt(e.target.value) || 0);
+                onUpdateStockToKeep(item.id, val);
+                dispatch(updateStockItem({ id: item.id, stockToKeep: val }));
+              }} 
               className={`w-10 p-0.5 rounded bg-transparent border-b text-[9px] font-bold text-slate-400 text-center outline-none border-slate-800 hover:border-slate-600 focus:border-slate-500 transition-colors ${readOnly ? 'opacity-50 cursor-not-allowed' : ''}`} 
             />
           </div>
@@ -109,7 +124,11 @@ export const StockCell: React.FC<StockCellProps> = ({
                 disabled={readOnly}
                 onFocus={(e) => !readOnly && e.target.select()} 
                 onWheel={(e) => e.currentTarget.blur()} 
-                onChange={(e) => onUpdateLooseStockToKeep(item.id, Math.max(0, parseInt(e.target.value) || 0))} 
+                onChange={(e) => {
+                  const val = Math.max(0, parseInt(e.target.value) || 0);
+                  onUpdateLooseStockToKeep(item.id, val);
+                  dispatch(updateStockItem({ id: item.id, looseStockToKeep: val }));
+                }} 
                 className={`w-10 p-0.5 rounded bg-transparent border-b text-[9px] font-bold text-orange-500/70 text-center outline-none border-slate-800 hover:border-slate-600 focus:border-orange-500 transition-colors ${readOnly ? 'opacity-50 cursor-not-allowed' : ''}`} 
               />
             </div>

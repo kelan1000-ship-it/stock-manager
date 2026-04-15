@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
+import { updateStockItem } from './stockSlice';
 import { AlertTriangle } from 'lucide-react';
 import { Product } from '../types';
 import { Tooltip } from './SharedUI';
@@ -21,6 +23,7 @@ export const PriceCell: React.FC<PriceCellProps> = ({
   onUpdateItem,
   readOnly
 }) => {
+  const dispatch = useDispatch();
   const [localPriceInput, setLocalPriceInput] = useState(item.price.toFixed(2));
   const [localCostInput, setLocalCostInput] = useState(item.costPrice.toFixed(2));
   
@@ -45,6 +48,7 @@ export const PriceCell: React.FC<PriceCellProps> = ({
     
     if (Math.abs(newPriceVal - item.price) > 0.001) {
       onUpdatePrice(item.id, newPriceVal);
+      dispatch(updateStockItem({ id: item.id, price: newPriceVal }));
     }
   };
 
@@ -59,6 +63,7 @@ export const PriceCell: React.FC<PriceCellProps> = ({
 
     if (Math.abs(newCostVal - item.costPrice) > 0.001) {
       onUpdateItem(item.id, { costPrice: newCostVal });
+      dispatch(updateStockItem({ id: item.id, costPrice: newCostVal }));
     }
   };
 
