@@ -49,7 +49,9 @@ interface PlanogramViewProps {
   addShelfToFloor, updateFloorItem, removeFloorItem, onUpdateProduct, onAddFace, onRemoveFace, onDeletePlanogram,
   onSaveConfiguration, onLoadConfiguration, onDeleteConfiguration, onRenameConfiguration, onOpenProductEdit
   }) => {
-  const inventory = useSelector((state: any) => state.stock.items);
+  const inventory = useSelector((state: any) => 
+    (currentBranch === 'bywood' ? state.stock.bywood : state.stock.broom) || []
+  );
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
   const [activeTab, setActiveTab] = useState<'picker' | 'shelves' | 'floor' | 'config'>('picker');
 

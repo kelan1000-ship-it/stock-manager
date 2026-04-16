@@ -7,9 +7,10 @@ interface EposQuickButtonEditorProps {
   isOpen: boolean;
   onClose: () => void;
   buttons: EposQuickButton[];
-  onSave: (button: EposQuickButton) => void;
-  onDelete: (id: string) => void;
-  onReorder: (buttons: EposQuickButton[]) => void;
+  onSave: (btn: Partial<EposQuickButton>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  onReorder: (newOrder: EposQuickButton[]) => Promise<void>;
+  currentBranch: BranchKey;
 }
 
 const COLORS = [
@@ -17,8 +18,11 @@ const COLORS = [
   'bg-amber-600', 'bg-cyan-600', 'bg-pink-600', 'bg-indigo-600',
 ];
 
-export function EposQuickButtonEditor({ isOpen, onClose, buttons, onSave, onDelete, onReorder }: EposQuickButtonEditorProps) {
-  const items = useSelector((state: any) => state.stock.items);
+export function EposQuickButtonEditor({ isOpen, onClose, buttons, onSave, onDelete, onReorder, currentBranch }: EposQuickButtonEditorProps) {
+  const items = useSelector((state: any) => 
+    (currentBranch === 'bywood' ? state.stock.bywood : state.stock.broom) || []
+  );
+
   const [editingButton, setEditingButton] = useState<Partial<EposQuickButton> | null>(null);
   const [productSearch, setProductSearch] = useState('');
   const [localPriceInput, setLocalPriceInput] = useState('');

@@ -207,7 +207,9 @@ export const SharedStockModule: React.FC<SharedStockModuleProps> = ({
     });
   };
 
-  const localItems = useSelector((state: any) => state.stock.items);
+  const localItems = useSelector((state: any) => 
+    (currentBranch === 'bywood' ? state.stock.bywood : state.stock.broom) || []
+  );
   const otherItems: Product[] = branchData[otherBranch] || [];
   const jointOrders: JointOrder[] = branchData.jointOrders || [];
   const branchOrders: OrderItem[] = (branchData as any)[`${currentBranch}Orders`] || [];

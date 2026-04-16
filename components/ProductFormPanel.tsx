@@ -42,15 +42,19 @@ interface ProductFormPanelProps {
   uniquePackSizes: string[];
   uniqueParentGroups: string[];
   allUniqueTags: string[];
+  currentBranch: BranchKey;
 }
 
 export const ProductFormPanel = ({ 
   isOpen, onClose, formData, setFormData, onSave, onScan, onFullScan, 
   onFindMasterRecord, onSuggestMaster, onUpdateMasterProduct, onAutoFill, tagSettings, onUpdateTagSettings, 
   theme, isEditing, editingId, copyToBoth, setCopyToBoth, isAILoading, 
-  uniqueNames, uniqueSuppliers, uniqueLocations, uniquePackSizes, uniqueParentGroups, allUniqueTags 
+  uniqueNames, uniqueSuppliers, uniqueLocations, uniquePackSizes, uniqueParentGroups, allUniqueTags,
+  currentBranch
 }: ProductFormPanelProps) => {
-  const inventory = useSelector((state: any) => state.stock.items);
+  const inventory = useSelector((state: any) => 
+    (currentBranch === 'bywood' ? state.stock.bywood : state.stock.broom) || []
+  );
   const [isAICameraOpen, setIsAICameraOpen] = React.useState(false);
   const masterSearchRef = useRef<HTMLDivElement>(null);
 

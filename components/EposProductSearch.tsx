@@ -11,10 +11,13 @@ function parsePackSize(ps: string): number {
 interface EposProductSearchProps {
   onAddToCart: (product: Product, opts?: { asLoose?: boolean }) => void;
   onOpenMisc: () => void;
+  currentBranch: BranchKey;
 }
 
-export function EposProductSearch({ onAddToCart, onOpenMisc }: EposProductSearchProps) {
-  const items = useSelector((state: any) => state.stock.items);
+export function EposProductSearch({ onAddToCart, onOpenMisc, currentBranch }: EposProductSearchProps) {
+  const items = useSelector((state: any) => 
+    (currentBranch === 'bywood' ? state.stock.bywood : state.stock.broom) || []
+  );
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [packChoiceProduct, setPackChoiceProduct] = useState<Product | null>(null);

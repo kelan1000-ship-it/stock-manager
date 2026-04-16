@@ -115,19 +115,19 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
         onAutoFill={logic.autoFillFromMaster}
         tagSettings={tagSettings}
         onUpdateTagSettings={updateTagSettings}
-        theme={theme}
-        isEditing={!!logic.editingId}
+        theme={currentBranch === 'bywood' ? 'emerald' : 'indigo'}
+        isEditing={logic.isEditing}
         editingId={logic.editingId}
-        copyToBoth={logic.copyToBothBranches}
-        setCopyToBoth={logic.setCopyToBothBranches}
-
+        copyToBoth={logic.copyToBoth}
+        setCopyToBoth={logic.setCopyToBoth}
         isAILoading={logic.isAILoading}
-        uniqueNames={logic.uniqueProductNames}
+        uniqueNames={logic.uniqueNames}
         uniqueSuppliers={logic.uniqueSuppliers}
         uniqueLocations={logic.uniqueLocations}
         uniquePackSizes={logic.uniquePackSizes}
         uniqueParentGroups={logic.uniqueParentGroups}
-        allUniqueTags={allUniqueTags}
+        allUniqueTags={logic.allUniqueTags}
+        currentBranch={currentBranch}
       />
 
       <RequestFormPanel 
@@ -276,6 +276,7 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
           onClose={() => logic.setIsMissingAttributesOpen(false)}
           onUpdateProducts={logic.bulkUpdateProducts}
           theme={theme}
+          currentBranch={currentBranch}
         />
       )}
     </>

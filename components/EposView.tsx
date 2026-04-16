@@ -254,6 +254,7 @@ export function EposView({ branchData, setBranchData, currentBranch }: EposViewP
             <EposProductSearch
               onAddToCart={epos.addToCart}
               onOpenMisc={() => epos.setIsMiscModalOpen(true)}
+              currentBranch={currentBranch}
             />
 
             {/* Quick Buttons Grid */}
@@ -402,6 +403,7 @@ export function EposView({ branchData, setBranchData, currentBranch }: EposViewP
         onSave={quickButtons.saveButton}
         onDelete={quickButtons.removeButton}
         onReorder={quickButtons.reorderButtons}
+        currentBranch={currentBranch}
       />
 
       {/* Receipt Prompt Modal */}

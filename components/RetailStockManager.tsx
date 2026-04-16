@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { Provider, useDispatch } from 'react-redux';
 import { store } from './store';
-import { setStock } from './stockSlice';
+import { setStock, startInventoryListeners } from './stockSlice';
 import { 
   Plus, LayoutDashboard, Database, ChevronDown, MessageSquare,
   BarChart3, ClipboardList, Layers, Handshake, Sparkles,
@@ -115,6 +115,10 @@ function RetailStockManagerInner() {
   // Settings Menu State
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
   const settingsDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    dispatch(startInventoryListeners());
+  }, [dispatch]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -522,8 +526,8 @@ function RetailStockManagerInner() {
 
   // Redux Sync Effect
   useEffect(() => {
-    dispatch(setStock(sortedItems));
-  }, [sortedItems, dispatch]);
+    dispatch(setStock({ branch: currentBranch, products: sortedItems }));
+  }, [sortedItems, currentBranch, dispatch]);
 
   const liveOrderTotal = useMemo(() => {
     const orderKey = currentBranch === 'bywood' ? 'bywoodOrders' : 'broomOrders';
@@ -1039,6 +1043,7 @@ function RetailStockManagerInner() {
         onClose={() => setIsLocalDuplicatesOpen(false)}
         onDelete={(id) => logic.handleDeleteProduct(id, false)}
         theme={theme}
+        currentBranch={currentBranch}
       />
 
       <PriceCheckerModal 

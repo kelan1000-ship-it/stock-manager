@@ -279,17 +279,22 @@ export const ManageDataDropdown = ({
 interface MissingAttributesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpdateProducts: (updates: { id: string; updates: Partial<Product> }[]) => void;
+  onUpdateProducts: (updates: Record<string, Partial<Product>>) => void;
   theme: 'dark';
+  currentBranch: BranchKey;
 }
 
 export const MissingAttributesModal: React.FC<MissingAttributesModalProps> = ({
   isOpen,
   onClose,
   onUpdateProducts,
-  theme
+  theme,
+  currentBranch
 }) => {
-  const inventory = useSelector((state: any) => state.stock.items);
+  const inventory = useSelector((state: any) => 
+    (currentBranch === 'bywood' ? state.stock.bywood : state.stock.broom) || []
+  );
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pendingUpdates, setPendingUpdates] = useState<Record<string, Partial<Product>>>({});
   const [discoveryResults, setDiscoveryResults] = useState<Record<string, any>>({});

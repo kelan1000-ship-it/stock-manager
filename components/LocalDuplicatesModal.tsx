@@ -9,10 +9,13 @@ interface LocalDuplicatesModalProps {
   onClose: () => void;
   onDelete: (id: string) => void;
   theme: 'dark';
+  currentBranch: BranchKey;
 }
 
-export const LocalDuplicatesModal: React.FC<LocalDuplicatesModalProps> = ({ isOpen, onClose, onDelete, theme }) => {
-  const inventory = useSelector((state: any) => state.stock.items);
+export const LocalDuplicatesModal: React.FC<LocalDuplicatesModalProps> = ({ isOpen, onClose, onDelete, theme, currentBranch }) => {
+  const inventory = useSelector((state: any) => 
+    (currentBranch === 'bywood' ? state.stock.bywood : state.stock.broom) || []
+  );
   const duplicates = useMemo(() => {
     const groups: { type: string; key: string; items: Product[] }[] = [];
     const seenIds = new Set<string>();

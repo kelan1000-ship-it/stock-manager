@@ -214,7 +214,9 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
   columns,
   isSortingDisabled = false
 }) => {
-  const items = useSelector((state: any) => state.stock.items);
+  const items = useSelector((state: any) => 
+    (logic.currentBranch === 'bywood' ? state.stock.bywood : state.stock.broom) || []
+  );
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);

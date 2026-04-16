@@ -27,7 +27,9 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
   onOpenDuplicates,
   currentBranch
 }) => {
-  const items = useSelector((state: any) => state.stock.items);
+  const items = useSelector((state: any) => 
+    (currentBranch === 'bywood' ? state.stock.bywood : state.stock.broom) || []
+  );
 
   const activeMainInventory = useMemo(() => {
     return items.filter((p: Product) => !p.isArchived && !p.deletedAt);
