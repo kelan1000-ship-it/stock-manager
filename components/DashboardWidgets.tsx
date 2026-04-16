@@ -9,7 +9,6 @@ import { useInventoryReconciliation } from '../hooks/useInventoryReconciliation'
 import { DashboardCard } from './DashboardCard';
 
 interface DashboardWidgetsProps {
-  activeOrdersCount: number;
   logic: StockLogicReturn;
   pricingAlertCount: number;
   onOpenReconciliation: () => void;
@@ -20,7 +19,6 @@ interface DashboardWidgetsProps {
 type WidgetType = 'restock' | 'ordered' | 'slow-movers' | 'expiring' | 'clearance' | 'alerts' | 'reconciliation' | 'duplicates' | 'stock-check';
 
 export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
-  activeOrdersCount,
   logic,
   pricingAlertCount,
   onOpenReconciliation,
@@ -34,6 +32,18 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
   const activeMainInventory = useMemo(() => {
     return items.filter((p: Product) => !p.isArchived && !p.deletedAt);
   }, [items]);
+
+  const activeOrders = useSelector((state: any) => {
+    const orderKey = currentBranch === 'bywood' ? 'bywoodOrders' : 'broomOrders';
+    return (state.stock[orderKey] || []) as any[];
+  });
+
+  const activeOrdersCount = useMemo(() => {
+    const orderedProductIds = new Set(
+      activeOrders.filter(o => o.status === 'ordered').map(o => o.productId)
+    );
+    return activeMainInventory.filter(p => orderedProductIds.has(p.id)).length;
+  }, [activeOrders, activeMainInventory]);
 
   const { totalSlowMovers } = useSlowMoverInsights(activeMainInventory);
   
