@@ -51,7 +51,7 @@ const stockSlice = createSlice({
   initialState,
   reducers: {
     setBranchData: (state, action: PayloadAction<Partial<BranchData>>) => {
-      return { ...state, ...action.payload };
+      Object.assign(state, action.payload);
     },
     setInventory: (state, action: PayloadAction<{ branch: BranchKey; products: Product[] }>) => {
       if (action.payload.branch === 'bywood') {
