@@ -51,9 +51,11 @@ const stockSlice = createSlice({
   initialState,
   reducers: {
     setBranchData: (state, action: PayloadAction<Partial<BranchData>>) => {
+      console.log('Slice updating with setBranchData:', Object.keys(action.payload));
       Object.assign(state, action.payload);
     },
     setInventory: (state, action: PayloadAction<{ branch: BranchKey; products: Product[] }>) => {
+      console.log(`Slice updating with setInventory for ${action.payload.branch}:`, action.payload.products.length);
       if (action.payload.branch === 'bywood') {
         state.bywood = action.payload.products;
       } else {
