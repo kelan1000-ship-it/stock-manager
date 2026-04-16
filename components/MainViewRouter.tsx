@@ -103,7 +103,7 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
   onOpenReconciliation, onOpenDuplicates
 }) => {  
   if (mainView === 'performance') {
-    return <PerformanceView items={branchData[currentBranch] || []} />;
+    return <PerformanceView />;
   }
 
   if (mainView === 'supplier-management') {

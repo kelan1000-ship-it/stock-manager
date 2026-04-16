@@ -1,19 +1,19 @@
-import React, { useState } from 'react';
-import { 
-  X, ArrowRight, ArrowLeft, CheckCircle2, AlertTriangle, 
+import React, { useState, useMemo, useCallback } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import {
+  X, ArrowRight, ArrowLeft, CheckCircle2, AlertTriangle,
   Database, Package, PoundSterling, RefreshCw, Layers,
   ChevronRight, ChevronLeft, ArrowRightLeft, ShieldAlert, Check, Search, Plus, CloudUpload, Filter, Trash2, Settings2
 } from 'lucide-react';
 import { useInventoryReconciliation, MismatchedItem } from '../hooks/useInventoryReconciliation';
-import { BranchData, BranchKey, ReconciliationExclusion, Product } from '../types';
+import { BranchData, ReconciliationExclusion, Product } from '../types';
+import { StockState, setBranchData as setReduxBranchData } from './stockSlice';
 import { SafeImage } from './SafeImage';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ReconciliationViewProps {
   isOpen: boolean;
   onClose: () => void;
-  branchData: BranchData;
-  setBranchData: React.Dispatch<React.SetStateAction<BranchData>>;
-  currentBranch: BranchKey;
   theme: 'dark';
 }
 
@@ -22,11 +22,27 @@ import { matchesAnySearchField } from '../utils/stringUtils';
 export const ReconciliationView: React.FC<ReconciliationViewProps> = ({
   isOpen,
   onClose,
-  branchData,
-  setBranchData,
-  currentBranch,
   theme
 }) => {
+  const dispatch = useDispatch();
+  const { currentBranch } = useAuth();
+  const stock = useSelector((state: { stock: StockState }) => state.stock);
+  const branchData: BranchData = useMemo(() => ({
+    bywood: stock.bywood, broom: stock.broom,
+    messages: stock.messages, transfers: stock.transfers,
+    bywoodRequests: stock.bywoodRequests, broomRequests: stock.broomRequests,
+    bywoodRequests_archived: stock.bywoodRequests_archived, broomRequests_archived: stock.broomRequests_archived,
+    bywoodOrders: stock.bywoodOrders, broomOrders: stock.broomOrders, jointOrders: stock.jointOrders,
+    masterInventory: stock.masterInventory,
+    bywoodPlanograms: stock.bywoodPlanograms, broomPlanograms: stock.broomPlanograms,
+    bywoodFloorPlans: stock.bywoodFloorPlans, broomFloorPlans: stock.broomFloorPlans,
+    suppliers: stock.suppliers, tasks: stock.tasks,
+    screenshotHistory: stock.screenshotHistory, sharedOrderDrafts: stock.sharedOrderDrafts,
+  }), [stock]);
+  const setBranchData = useCallback((update: React.SetStateAction<BranchData>) => {
+    const nextData = typeof update === 'function' ? update(branchData) : update;
+    dispatch(setReduxBranchData(nextData));
+  }, [branchData, dispatch]);
   const [activeTab, setActiveTab] = useState<'mismatches' | 'unlisted' | 'ignored'>('mismatches');
   const [isExclusionOpen, setIsExclusionOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);

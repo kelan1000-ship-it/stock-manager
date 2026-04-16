@@ -205,13 +205,11 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
         defaultTab={transferFormDefaultTab}
       />
 
-      <HistoryView 
-        isOpen={isHistoryOpen} 
-        onClose={() => setIsHistoryOpen(false)} 
-        product={selectedHistoryProduct} 
-        branchData={branchData}
-        currentBranch={currentBranch}
-        theme={theme} 
+      <HistoryView
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        product={selectedHistoryProduct}
+        theme={theme}
       />
 
       {logic.isVisionScanning && (
@@ -242,13 +240,10 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
         />
       )}
       {isReconciliationOpen && (
-        <ReconciliationView 
-          isOpen={isReconciliationOpen} 
-          onClose={() => setIsReconciliationOpen(false)} 
-          branchData={branchData} 
-          setBranchData={setBranchData} 
-          currentBranch={currentBranch} 
-          theme={theme} 
+        <ReconciliationView
+          isOpen={isReconciliationOpen}
+          onClose={() => setIsReconciliationOpen(false)}
+          theme={theme}
         />
       )}
 

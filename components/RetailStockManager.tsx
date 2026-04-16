@@ -816,7 +816,7 @@ function RetailStockManagerInner() {
       </header>
 
       {appMode === 'epos' ? (
-        <EposView branchData={branchData} setBranchData={setBranchData} currentBranch={currentBranch} />
+        <EposView key={currentBranch} branchData={branchData} setBranchData={setBranchData} currentBranch={currentBranch} />
       ) : (
       <main className="w-full max-w-[99%] mx-auto p-2 sm:p-4 md:p-6 space-y-8">
         <div className="flex items-center justify-between gap-4 flex-wrap">

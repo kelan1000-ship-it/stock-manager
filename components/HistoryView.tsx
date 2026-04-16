@@ -1,19 +1,34 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import { X, History, TrendingUp, ShoppingBag, Clock, AlertTriangle, Loader2, Calendar, ArrowUpRight, ArrowDownLeft, RefreshCw, Box, Layers, Store } from 'lucide-react';
-import { Product, BranchData, BranchKey } from '../types';
+import { Product, BranchData } from '../types';
+import { StockState } from './stockSlice';
 import { useHistory } from '../hooks/useHistory';
+import { useAuth } from '../contexts/AuthContext';
 
 interface HistoryViewProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product | null;
-  branchData: BranchData;
-  currentBranch: BranchKey;
   theme: 'dark';
 }
 
-export const HistoryView: React.FC<HistoryViewProps> = ({ isOpen, onClose, product, branchData, currentBranch }) => {
+export const HistoryView: React.FC<HistoryViewProps> = ({ isOpen, onClose, product }) => {
+  const { currentBranch } = useAuth();
+  const stock = useSelector((state: { stock: StockState }) => state.stock);
+  const branchData: BranchData = {
+    bywood: stock.bywood, broom: stock.broom,
+    messages: stock.messages, transfers: stock.transfers,
+    bywoodRequests: stock.bywoodRequests, broomRequests: stock.broomRequests,
+    bywoodRequests_archived: stock.bywoodRequests_archived, broomRequests_archived: stock.broomRequests_archived,
+    bywoodOrders: stock.bywoodOrders, broomOrders: stock.broomOrders, jointOrders: stock.jointOrders,
+    masterInventory: stock.masterInventory,
+    bywoodPlanograms: stock.bywoodPlanograms, broomPlanograms: stock.broomPlanograms,
+    bywoodFloorPlans: stock.bywoodFloorPlans, broomFloorPlans: stock.broomFloorPlans,
+    suppliers: stock.suppliers, tasks: stock.tasks,
+    screenshotHistory: stock.screenshotHistory, sharedOrderDrafts: stock.sharedOrderDrafts,
+  };
   const [activeTab, setActiveTab] = useState<'price' | 'orders' | 'movements' | 'combined'>('price');
   const { priceAdjustments, orderHistory, stockMovements, isLoading, error, fetchHistory, clearHistory } = useHistory();
 

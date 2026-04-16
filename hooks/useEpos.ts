@@ -1,6 +1,17 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { EposCartItem, EposTransaction, Product, BranchKey, BranchData, StockMovement } from '../types';
-import { saveEposTransaction, deleteEposTransaction } from '../services/firestoreService';
+import { saveEposTransaction, deleteEposTransaction, saveEposDraft, deleteEposDraft, subscribeToEposDraft } from '../services/firestoreService';
+
+// Module-level cache — survives component unmount/remount within the same browser session.
+// This is the primary mechanism for view-switch persistence (synchronous, zero-latency).
+// Firestore is secondary and handles cross-device sync only.
+type SessionDraft = {
+  cart: EposCartItem[];
+  discountPercent: number;
+  paymentMethod: 'cash' | 'card' | 'mixed';
+  amountTendered: string;
+};
+const sessionCache = new Map<string, SessionDraft>();
 
 interface UseEposParams {
   branchData: BranchData;
@@ -10,13 +21,47 @@ interface UseEposParams {
 }
 
 export function useEpos({ branchData, setBranchData, currentBranch, operator }: UseEposParams) {
-  const [cart, setCart] = useState<EposCartItem[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'mixed'>('cash');
-  const [amountTendered, setAmountTendered] = useState('');
+  // Initialise directly from module cache — synchronous, no async race conditions
+  const [cart, setCart] = useState<EposCartItem[]>(() => sessionCache.get(currentBranch)?.cart ?? []);
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'mixed'>(() => sessionCache.get(currentBranch)?.paymentMethod ?? 'cash');
+  const [amountTendered, setAmountTendered] = useState(() => sessionCache.get(currentBranch)?.amountTendered ?? '');
+  const [discountPercent, setDiscountPercent] = useState(() => sessionCache.get(currentBranch)?.discountPercent ?? 0);
   const [lastTransaction, setLastTransaction] = useState<EposTransaction | null>(null);
   const [isMiscModalOpen, setIsMiscModalOpen] = useState(false);
-  const [discountPercent, setDiscountPercent] = useState(0);
   const [isRefundMode, setIsRefundMode] = useState(false);
+
+  // Keep module cache current on every change
+  useEffect(() => {
+    if (cart.length > 0) {
+      sessionCache.set(currentBranch, { cart, discountPercent, paymentMethod, amountTendered });
+    }
+  }, [cart, discountPercent, paymentMethod, amountTendered, currentBranch]);
+
+  // Subscribe to Firestore for cross-device restore only (skipped if session cache already has items)
+  const firestoreRestoredRef = useRef(false);
+  useEffect(() => {
+    const unsub = subscribeToEposDraft(currentBranch, (draft) => {
+      if (!firestoreRestoredRef.current) {
+        firestoreRestoredRef.current = true;
+        if (!sessionCache.has(currentBranch) && draft && draft.cart.length > 0) {
+          setCart(draft.cart);
+          setDiscountPercent(draft.discountPercent);
+          setPaymentMethod(draft.paymentMethod);
+          setAmountTendered(draft.amountTendered);
+        }
+      }
+    });
+    return unsub;
+  }, [currentBranch]);
+
+  // Debounced Firestore save for cross-device persistence
+  useEffect(() => {
+    if (cart.length === 0) return;
+    const timer = setTimeout(() => {
+      saveEposDraft(currentBranch, { cart, discountPercent, paymentMethod, amountTendered, updatedAt: new Date().toISOString(), operator });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [cart, discountPercent, paymentMethod, amountTendered, currentBranch, operator]);
 
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.lineTotal, 0), [cart]);
   const discountableSubtotal = useMemo(() =>
@@ -171,7 +216,9 @@ export function useEpos({ branchData, setBranchData, currentBranch, operator }: 
     setAmountTendered('');
     setPaymentMethod('cash');
     setDiscountPercent(0);
-  }, []);
+    sessionCache.delete(currentBranch);
+    deleteEposDraft(currentBranch);
+  }, [currentBranch]);
 
   const completeSale = useCallback(async () => {
     if (!canCompleteSale) return;

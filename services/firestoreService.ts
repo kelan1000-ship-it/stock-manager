@@ -5,9 +5,18 @@ import {
 import { db } from './firebase';
 import { Product, Message, Transfer, MasterProduct, CustomerRequest,
          OrderItem, JointOrder, SharedOrderDraft, PlanogramLayout, ShopFloor, BranchKey, Supplier, BranchTask,
-         EposTransaction, EposQuickButton, EposZRead,
+         EposTransaction, EposQuickButton, EposZRead, EposCartItem,
          StaffMember, StaffShift, StaffHoliday, ShiftPreset,
          StoreHoursConfig, DayOverride } from '../types';
+
+export interface EposDraft {
+  cart: EposCartItem[];
+  discountPercent: number;
+  paymentMethod: 'cash' | 'card' | 'mixed';
+  amountTendered: string;
+  updatedAt: string;
+  operator: string;
+}
 
 // ═══ TASKS ═══
 
@@ -265,6 +274,22 @@ export async function saveEposZRead(branch: BranchKey, zRead: EposZRead) {
 
 export async function deleteEposZRead(branch: BranchKey, zReadId: string) {
   await deleteDoc(doc(db, 'branches', branch, 'eposZReads', zReadId));
+}
+
+// ═══ EPOS DRAFT (cart persistence) ═══
+
+export function subscribeToEposDraft(branch: BranchKey, callback: (draft: EposDraft | null) => void): Unsubscribe {
+  return onSnapshot(doc(db, 'branches', branch, 'eposDraft', 'current'), (snap) => {
+    callback(snap.exists() ? (snap.data() as EposDraft) : null);
+  }, (error) => { console.error(`Listener error [eposDraft/${branch}]:`, error); });
+}
+
+export async function saveEposDraft(branch: BranchKey, draft: EposDraft) {
+  await setDoc(doc(db, 'branches', branch, 'eposDraft', 'current'), draft);
+}
+
+export async function deleteEposDraft(branch: BranchKey) {
+  await deleteDoc(doc(db, 'branches', branch, 'eposDraft', 'current'));
 }
 
 // ═══ EPOS CONFIG ═══

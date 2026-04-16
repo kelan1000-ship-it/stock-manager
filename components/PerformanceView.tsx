@@ -1,16 +1,18 @@
 import React, { useMemo } from 'react';
-import { 
+import { useSelector } from 'react-redux';
+import {
   TrendingUp, Target, Activity, Tag, PieChart, LineChart, Timer, Gauge, AlertTriangle, CheckCircle2
 } from 'lucide-react';
 import { Product } from '../types';
+import { StockState } from './stockSlice';
 import { StatCard } from './ManagerComponents';
 import { useSlowMoverInsights } from '../hooks/useSlowMoverInsights';
+import { useAuth } from '../contexts/AuthContext';
 
-/**
- * Performance Dashboard View
- */
-export const PerformanceView = ({ items }: { items: Product[] }) => {
+export const PerformanceView = () => {
   const theme = 'dark';
+  const { currentBranch } = useAuth();
+  const items = useSelector((state: { stock: StockState }) => state.stock[currentBranch] as Product[]) || [];
 
   // Include active AND archived items in performance data, but exclude deleted items
   const activeItems = useMemo(() => {

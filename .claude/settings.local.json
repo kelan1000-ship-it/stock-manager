@@ -5,7 +5,11 @@
       "Bash(git init:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(xargs -I {} bash -c \"echo '=== {} ===' && head -20 {}\")",
+      "Bash(grep -rn \"branchData={branchData}\" components/ModalManager.tsx components/MainViewRouter.tsx)",
+      "Bash(grep -rn \"items={branchData\" components/)",
+      "Bash(grep -rn \"<PerformanceView\" components/)"
     ]
   }
 }
