@@ -14,7 +14,6 @@ import { TagStyle } from '../hooks/useInventoryTags';
 interface ModalManagerProps {
   logic: StockLogicReturn;
   branchData: BranchData;
-  setBranchData: React.Dispatch<React.SetStateAction<BranchData>>;
   currentBranch: BranchKey;
   theme: 'dark';
   isChatOpen: boolean;
@@ -44,7 +43,6 @@ interface ModalManagerProps {
 export const ModalManager: React.FC<ModalManagerProps> = ({
   logic,
   branchData,
-  setBranchData,
   currentBranch,
   theme,
   isChatOpen,
@@ -79,25 +77,18 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
 
   useEffect(() => {
     if (isChatOpen) {
-      let overrides: string[] = [];
-      try {
-        const stored = localStorage.getItem('manualUnreadMessages');
-        overrides = JSON.parse(stored || '[]');
-        if (!Array.isArray(overrides)) overrides = [];
-      } catch (e) {
-        overrides = [];
-      }
-
-      const unreadIds = branchData.messages
-        .filter(m => m.sender !== currentBranch && !m.isRead)
-        .filter(m => !overrides.includes(m.id)) // Respect manual overrides for this session
+      const ignored = JSON.parse(sessionStorage.getItem('ignoredUnread') || '[]');
+      const unreadIds = (branchData.messages || [])
+        .filter(m => m.sender !== currentBranch && !m.isRead && !ignored.includes(m.id))
         .map(m => m.id);
-      
+
       if (unreadIds.length > 0) {
         logic.updateMessageReadStatus(unreadIds);
       }
+    } else {
+      sessionStorage.removeItem('ignoredUnread');
     }
-  }, [isChatOpen, branchData.messages, currentBranch, logic.updateMessageReadStatus]);
+  }, [isChatOpen, currentBranch, logic.updateMessageReadStatus, branchData.messages?.length]);
 
   return (
     <>
@@ -115,7 +106,7 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
         onAutoFill={logic.autoFillFromMaster}
         tagSettings={tagSettings}
         onUpdateTagSettings={updateTagSettings}
-        theme={currentBranch === 'bywood' ? 'emerald' : 'indigo'}
+        theme={'dark'}
         isEditing={logic.isEditing}
         editingId={logic.editingId}
         copyToBoth={logic.copyToBoth}
@@ -126,7 +117,7 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
         uniqueLocations={logic.uniqueLocations}
         uniquePackSizes={logic.uniquePackSizes}
         uniqueParentGroups={logic.uniqueParentGroups}
-        allUniqueTags={logic.allUniqueTags}
+        allUniqueTags={allUniqueTags}
         currentBranch={currentBranch}
       />
 
@@ -142,17 +133,9 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
         onSuggestProduct={logic.suggestFromMaster}
       />
 
-      <ChatWindow 
-        isOpen={isChatOpen} 
-        onClose={() => setIsChatOpen(false)} 
-        messages={branchData.messages} 
-        onSend={logic.sendMessage} 
-        onSendNudge={logic.sendNudge}
-        onToggleReadStatus={logic.toggleMessageReadStatus}
-        onDeleteMessage={logic.deleteMessage}
-        onClearAllMessages={logic.clearAllMessages}
-        onToggleReaction={logic.toggleReaction}
-        currentBranch={currentBranch} 
+      <ChatWindow
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
         theme={theme}
         messageTone={messageTone}
         setMessageTone={setMessageTone}
@@ -162,7 +145,6 @@ export const ModalManager: React.FC<ModalManagerProps> = ({
         onUpdateTask={logic.updateTask}
         onDeleteTask={logic.deleteTask}
       />
-
       <TransferInbox
         isOpen={isTransferInboxOpen}
         onClose={() => setIsTransferInboxOpen(false)}

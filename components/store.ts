@@ -8,7 +8,10 @@ export const store = configureStore({
     // Add other reducers here as the integration progresses
   },
   middleware: (getDefaultMiddleware) => 
-    getDefaultMiddleware().concat(firestoreMiddleware),
+    getDefaultMiddleware({
+      serializableCheck: false,
+      immutableCheck: false,
+    }).concat(firestoreMiddleware),
 });
 
 export default store;

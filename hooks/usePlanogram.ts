@@ -38,7 +38,7 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
       };
       updates[branchPlanogramsKey] = [defaultLayout] as any;
       setActivePlanogramId(defaultLayout.id);
-    } else if (!activePlanogramId) {
+    } else if (!activePlanogramId || !currentPlanograms.some(p => p.id === activePlanogramId)) {
       setActivePlanogramId(currentPlanograms[0]?.id || null);
     }
 

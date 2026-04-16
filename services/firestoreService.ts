@@ -82,6 +82,20 @@ export async function saveMessage(message: Message) {
   await setDoc(doc(db, 'shared', 'data', 'messages', message.id), message);
 }
 
+export async function updateMessage(messageId: string, updates: Partial<Message>) {
+  await updateDoc(doc(db, 'shared', 'data', 'messages', messageId), updates);
+}
+
+export async function batchUpdateMessages(messageIds: string[], updates: Partial<Message>) {
+  for (let i = 0; i < messageIds.length; i += 450) {
+    const batch = writeBatch(db);
+    messageIds.slice(i, i + 450).forEach(id => {
+      batch.update(doc(db, 'shared', 'data', 'messages', id), updates as any);
+    });
+    await batch.commit();
+  }
+}
+
 // ═══ TRANSFERS ═══
 
 export function subscribeToTransfers(callback: (t: Transfer[]) => void, onError?: (error: Error) => void): Unsubscribe {

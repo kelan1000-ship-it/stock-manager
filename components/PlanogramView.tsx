@@ -53,7 +53,7 @@ interface PlanogramViewProps {
     (currentBranch === 'bywood' ? state.stock.bywood : state.stock.broom) || []
   );
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
-  const [activeTab, setActiveTab] = useState<'picker' | 'shelves' | 'floor' | 'config'>('picker');
+  const [activeTab, setActiveTab] = useState<'picker' | 'shelves' | 'floor' | 'config'>('shelf');
 
   const [search, setSearch] = useState('');
   const [pickerSearch, setPickerSearch] = useState('');

@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { 
   MessageSquare, X, Send, Upload, Check, 
   FileDown, Trash2, Settings, Volume2, Copy, Bell,
   Mail, ClipboardList, Camera, History, ExternalLink,
   AlertTriangle, Loader2, CornerUpLeft
 } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
 import { Message, BranchKey, BranchTask, ScreenshotPersistenceMethod } from '../types';
 import { TooltipWrapper } from './SharedUI';
 import { TaskManager } from './TaskManager';
@@ -13,18 +14,183 @@ import {
 } from '../services/screenshotService';
 import { uploadImage, uploadFileResumable } from '../services/storageService';
 import { formatFileSize } from '../utils/stringUtils';
+import { saveMessage, updateMessage } from '../services/firestoreService';
+import { StockState } from './stockSlice';
+
+// Memoized Message Item to prevent unnecessary re-renders
+const MessageItem = React.memo(({ 
+  msg, isMe, isUnread, onToggleReaction, onToggleReadStatus, onDeleteMessage, onDismissNudge, currentBranch, scrollToMessage, viewText, downloadFile, setReplyingTo, textInputRef, highlightedMsgId 
+}: any) => {
+  return (
+    <div 
+      id={msg.id}
+      className={`relative flex flex-col ${isMe ? 'items-end' : 'items-start'} group/msg animate-in fade-in slide-in-from-bottom-2 duration-300 transition-all ${
+        highlightedMsgId === msg.id ? 'ring-2 ring-indigo-500 ring-offset-4 ring-offset-slate-900 rounded-2xl scale-[1.02] z-10' : ''
+      }`}
+    >
+      
+      <div className={`absolute -top-4 ${isMe ? 'right-2' : 'left-2'} opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1 bg-slate-800 p-1 rounded-xl shadow-xl border border-slate-700 z-20`}>
+        {onToggleReaction && ['👍', '❤️', '😂', '😮', '😢', '❌'].map(emoji => (
+          <button
+            key={emoji}
+            onClick={() => onToggleReaction(msg.id, emoji)}
+            className="w-7 h-7 flex items-center justify-center text-sm hover:scale-125 transition-transform hover:bg-slate-700 rounded-full"
+          >
+            {emoji}
+          </button>
+        ))}
+        <div className="w-[1px] h-4 bg-slate-700 mx-1" />
+        <button
+          onClick={() => {
+            setReplyingTo(msg);
+            textInputRef.current?.focus();
+          }}
+          className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+          data-tooltip="Reply"
+        >
+          <CornerUpLeft size={14} />
+        </button>
+        <button
+          onClick={() => navigator.clipboard.writeText(msg.text || msg.fileName || '')}
+          className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+        >
+          <Copy size={14} />
+        </button>
+        {onDeleteMessage && (
+          <button
+            onClick={() => {
+              if (window.confirm("Delete this message?")) {
+                onDeleteMessage(msg.id);
+              }
+            }}
+            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-700 rounded-lg transition-colors"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+
+      <div className={`relative max-w-[85%] p-4 rounded-[1.5rem] text-sm font-bold leading-relaxed shadow-lg transition-all ${
+        msg.isNudge ? (isMe ? 'bg-amber-600 text-white rounded-tr-none border-2 border-amber-400 animate-pulse' : 'bg-amber-500/20 text-amber-200 rounded-tl-none border-2 border-amber-500/50 animate-pulse cursor-pointer hover:opacity-90') :
+        (isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 
+        (isUnread ? 'bg-slate-800 text-white rounded-tl-none border border-indigo-500/30 ring-1 ring-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'bg-slate-800 text-slate-300 rounded-tl-none border border-slate-700'))
+      }`}
+      onClick={() => {
+        if (!isMe && msg.isNudge && onDismissNudge) {
+          onDismissNudge(msg.id);
+        }
+      }}
+      >
+        {msg.replyToId && (
+          <div 
+            onClick={(e) => {
+              e.stopPropagation();
+              scrollToMessage(msg.replyToId!);
+            }}
+            className={`mb-3 p-3 rounded-xl border-l-4 bg-black/20 flex flex-col gap-1 cursor-pointer hover:bg-black/30 transition-all active:scale-[0.98] group/reply-preview ${isMe ? 'border-indigo-400' : 'border-slate-500'}`}
+            data-tooltip="Jump to original message"
+          >
+            <p className="text-[10px] font-black uppercase tracking-widest text-white/60 flex items-center gap-2 group-hover/reply-preview:text-indigo-400 transition-colors">
+               <CornerUpLeft size={10} /> {msg.replyToSender === 'bywood' ? 'Bywood Ave' : 'Broom Road'}
+            </p>
+            <p className="text-xs italic line-clamp-2 text-white/80">{msg.replyToText}</p>
+          </div>
+        )}
+        {msg.isNudge && (
+          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/20">
+            <Bell size={14} className="animate-shake" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-white/90">Urgent Nudge</span>
+            {!isMe && (
+              <span className="ml-auto text-[9px] uppercase font-black text-amber-200/70 tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                Click to dismiss
+              </span>
+            )}
+          </div>
+        )}
+        {msg.fileData ? (
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                <FileDown size={20} className="text-white" />
+              </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-bold truncate text-white">{msg.fileName}</p>
+                                        <p className="text-[10px] text-white/50">{formatFileSize(msg.fileSize || 0)}</p>
+                                      </div>                            <button
+                onClick={() => downloadFile(msg)}
+                className="px-4 py-2 rounded-xl bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider hover:bg-indigo-400 transition-colors shadow-lg shadow-indigo-500/20"
+              >
+                Download
+              </button>
+            </div>
+            {(msg.fileType?.startsWith('image/') || msg.fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) && (
+              <div 
+                className="mt-3 rounded-xl overflow-hidden border border-white/10 cursor-pointer group/img-preview relative"
+                onClick={() => viewText(msg.id)}
+              >
+                <img src={msg.fileData} alt={msg.fileName} className="w-full h-auto max-h-64 object-cover transition-transform group-hover/img-preview:scale-105" />
+                <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/img-preview:opacity-100 transition-opacity flex items-center justify-center">
+                   <span className="bg-slate-900/80 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest">Click to Preview</span>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : msg.taskId ? (
+          <div 
+            className="mt-1 p-3 bg-slate-900/50 border border-indigo-500/30 rounded-xl cursor-pointer hover:bg-slate-900 transition-colors flex items-center gap-3"
+          >
+            <ClipboardList className="text-indigo-400" size={20} />
+            <div>
+              <p className="text-xs font-black text-white uppercase tracking-widest">Task Linked</p>
+            </div>
+          </div>
+        ) : (
+          <span>{msg.text}</span>
+        )}
+      </div>
+      
+      {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+        <div className={`flex flex-wrap gap-1 mt-1.5 px-1 w-full ${isMe ? 'justify-end' : 'justify-start'}`}>
+          {Object.entries(msg.reactions).map(([emoji, users]) => (
+            <button
+              key={emoji}
+              onClick={() => onToggleReaction?.(msg.id, emoji)}
+              className={`px-1.5 py-0.5 rounded-full text-[10px] flex items-center gap-1 border transition-colors ${
+                users.includes(currentBranch) 
+                  ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300' 
+                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
+              }`}
+            >
+              <span>{emoji}</span>
+              {users.length > 1 && <span className="font-bold">{users.length}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 mt-1 px-1">
+          <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">
+              {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+          </span>
+          
+          {!isMe && (
+              <button
+                  onClick={() => onToggleReadStatus && onToggleReadStatus(msg.id)}
+                  className={`p-1 rounded-md transition-all opacity-0 group-hover/msg:opacity-100 flex items-center gap-1.5 ${isUnread ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-slate-800 text-slate-500 hover:bg-indigo-600/10 hover:text-indigo-400'}`}
+              >
+                  {isUnread ? <Check size={10} strokeWidth={4} /> : <Mail size={10} />}
+                  <span className="text-[8px] font-black uppercase tracking-tighter">
+                      {isUnread ? 'Read' : 'Mark Unread'}
+                  </span>
+              </button>
+          )}      </div>
+    </div>
+  );
+});
 
 export const ChatWindow = ({ 
   isOpen, 
   onClose, 
-  messages, 
-  onSend, 
-  onSendNudge,
-  onToggleReadStatus,
-  onDeleteMessage,
-  onClearAllMessages,
-  onToggleReaction,
-  currentBranch, 
   theme,
   messageTone,
   setMessageTone,
@@ -36,19 +202,6 @@ export const ChatWindow = ({
 }: { 
   isOpen: boolean; 
   onClose: () => void; 
-  messages: Message[]; 
-  onSend: (
-    text: string, 
-    file?: { fileName: string; fileSize: number; fileType: string; fileData: string }, 
-    taskId?: string,
-    reply?: { id: string; text: string; sender: BranchKey }
-  ) => void;
-  onSendNudge?: (text: string) => void;
-  onToggleReadStatus?: (id: string) => void;
-  onDeleteMessage?: (id: string) => void;
-  onClearAllMessages?: () => void;
-  onToggleReaction?: (id: string, emoji: string) => void;
-  currentBranch: BranchKey; 
   theme: 'dark';
   messageTone?: string;
   setMessageTone?: (tone: string) => void;
@@ -58,6 +211,21 @@ export const ChatWindow = ({
   onUpdateTask?: (id: string, updates: Partial<BranchTask>) => void;
   onDeleteTask?: (id: string) => void;
 }) => {
+  const dispatch = useDispatch();
+  const currentBranch = useSelector((state: { stock: StockState }) => state.stock.currentBranch);
+  const allMessages = useSelector((state: { stock: StockState }) => state.stock.messages);
+  
+  const dragCounter = useRef(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastIsOpen = useRef(false);
+  const lastActiveTab = useRef<'chat' | 'tasks' | 'history'>('chat');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
+
+  // Emergency Limit: Only look at the last 30 messages to prevent UI lockup
+  const messages = useMemo(() => (allMessages || []).slice(-30), [allMessages]);
+
+  const [isLoaded, setIsLoaded] = useState(false);
   const [inputText, setInputText] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [textPreviewId, setTextPreviewId] = useState<string | null>(null);
@@ -72,16 +240,17 @@ export const ChatWindow = ({
   const [uploadProgress, setUploadProgress] = useState<Record<string, { name: string, progress: number }>>({});
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
-  
-  const [width, setWidth] = useState(() => Number(localStorage.getItem('chat-window-width')) || 448);
+  const [width, setWidth] = useState(() => Number(localStorage.getItem('chat-window-width')) || 640);
   const [isResizing, setIsResizing] = useState(false);
 
-  const dragCounter = useRef(0);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const lastIsOpen = useRef(false);
-  const lastActiveTab = useRef(activeTab);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const textInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => setIsLoaded(true), 150);
+      return () => clearTimeout(timer);
+    } else {
+      setIsLoaded(false);
+    }
+  }, [isOpen]);
 
   const scrollToMessage = useCallback((id: string) => {
     const element = document.getElementById(id);
@@ -92,64 +261,20 @@ export const ChatWindow = ({
     }
   }, []);
 
-  const TONES = [
-    { id: 'message_default', name: 'Default Chime' },
-    { id: 'message_bell', name: 'Crystal Bell' },
-    { id: 'message_pop', name: 'Soft Pop' },
-    { id: 'message_alert', name: 'Digital Alert' },
-    { id: 'message_echo', name: 'Echo Triplet' }
-  ];
-
-  const PERSISTENCE_METHODS: { id: ScreenshotPersistenceMethod; name: string; description: string }[] = [
-    { id: 'history', name: 'History List', description: 'Save to a local history tab' },
-    { id: 'modal', name: 'Modal Display', description: 'Show immediately in a popup' },
-    { id: 'temp_file', name: 'Temp File', description: 'Download as a temporary file' }
-  ];
-
-  useEffect(() => {
-    localStorage.setItem('screenshot_persistence_method', persistenceMethod);
-  }, [persistenceMethod]);
-
-  // Load screenshots from IndexedDB
-  useEffect(() => {
-    const loadHistory = async () => {
-      try {
-        const data = await getScreenshots();
-        setScreenshotHistory(data);
-        
-        if (localStorage.getItem('screenshot_history')) {
-          localStorage.removeItem('screenshot_history');
-        }
-      } catch (e) {
-        console.error("Failed to load screenshot history from IndexedDB", e);
-      }
-    };
-    if (isOpen) loadHistory();
-  }, [isOpen]);
-
-  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({
-        top: scrollContainerRef.current.scrollHeight,
-        behavior
-      });
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
-  };
+  }, []);
 
-  useEffect(() => {
-    if (isOpen && activeTab === 'chat') {
-      const justOpened = !lastIsOpen.current;
-      const tabSwitched = lastActiveTab.current !== 'chat';
-
-      if (justOpened || tabSwitched) {
-        setTimeout(() => scrollToBottom("auto"), 50);
-      } else {
-        scrollToBottom("smooth");
-      }
+  useLayoutEffect(() => {
+    if (isOpen && activeTab === 'chat' && isLoaded) {
+      scrollToBottom(lastIsOpen.current ? "smooth" : "auto");
+      lastIsOpen.current = true;
+    } else if (!isOpen) {
+      lastIsOpen.current = false;
     }
-    lastIsOpen.current = isOpen;
-    lastActiveTab.current = activeTab;
-  }, [messages, isOpen, activeTab]);
+  }, [messages.length, isOpen, activeTab, isLoaded, scrollToBottom]);
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -184,7 +309,37 @@ export const ChatWindow = ({
     };
   }, [isResizing, resize, stopResizing]);
 
-  const handleSend = (e?: React.FormEvent) => {
+  useEffect(() => {
+    localStorage.setItem('screenshot_persistence_method', persistenceMethod);
+  }, [persistenceMethod]);
+
+  // Load screenshots from IndexedDB
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const data = await getScreenshots();
+        setScreenshotHistory(data);
+        
+        if (localStorage.getItem('screenshot_history')) {
+          localStorage.removeItem('screenshot_history');
+        }
+      } catch (e) {
+        console.error("Failed to load screenshot history from IndexedDB", e);
+      }
+    };
+    if (isOpen) loadHistory();
+  }, [isOpen]);
+
+  const visibleMessages = useMemo(() => 
+    messages
+      .filter(m => !(m.deletedBy || []).includes(currentBranch))
+      .slice(-100)
+  , [messages, currentBranch]);
+
+  if (!currentBranch) return null;
+  if (!isOpen) return null;
+
+  const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!inputText.trim()) return;
     
@@ -194,9 +349,26 @@ export const ChatWindow = ({
       sender: replyingTo.sender
     } : undefined;
 
-    onSend(inputText, undefined, undefined, replyData);
-    setInputText('');
-    setReplyingTo(null);
+    const newMsg: Message = {
+      id: `msg_${Date.now()}`,
+      sender: currentBranch,
+      text: inputText,
+      timestamp: new Date().toISOString(),
+      isRead: false,
+      deletedBy: [],
+      replyToId: replyData?.id,
+      replyToText: replyData?.text,
+      replyToSender: replyData?.sender
+    };
+
+    try {
+      await saveMessage(newMsg);
+      setInputText('');
+      setReplyingTo(null);
+    } catch (err) {
+      console.error("Failed to send message", err);
+      setErrorMsg("Failed to deliver message.");
+    }
   };
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -227,12 +399,20 @@ export const ChatWindow = ({
         setUploadProgress(prev => ({ ...prev, [taskId]: { ...prev[taskId], progress } }));
       });
 
-      onSend(`📎 ${file.name}`, {
+      const newMsg: Message = {
+        id: `msg_${Date.now()}`,
+        sender: currentBranch,
+        text: `📎 ${file.name}`,
+        timestamp: new Date().toISOString(),
+        isRead: false,
+        deletedBy: [],
         fileName: file.name,
         fileSize: file.size,
         fileType: file.type,
         fileData: downloadUrl
-      });
+      };
+      
+      await saveMessage(newMsg);
       
       setTimeout(() => {
         setUploadProgress(prev => {
@@ -380,9 +560,95 @@ export const ChatWindow = ({
     });
   };
 
-  const visibleMessages = messages.filter(m => !(m.deletedBy || []).includes(currentBranch));
+  const TONES = [
+    { id: 'message_default', name: 'Default Chime' },
+    { id: 'message_bell', name: 'Crystal Bell' },
+    { id: 'message_pop', name: 'Soft Pop' },
+    { id: 'message_alert', name: 'Digital Alert' },
+    { id: 'message_echo', name: 'Echo Triplet' }
+  ];
 
-  if (!isOpen) return null;
+  const PERSISTENCE_METHODS: { id: ScreenshotPersistenceMethod; name: string; description: string }[] = [
+    { id: 'history', name: 'History List', description: 'Save to a local history tab' },
+    { id: 'modal', name: 'Modal Display', description: 'Show immediately in a popup' },
+    { id: 'temp_file', name: 'Temp File', description: 'Download as a temporary file' }
+  ];
+
+  const onDismissNudge = async (id: string) => {
+    const msg = allMessages.find(m => m.id === id);
+    if (msg && msg.isNudge) {
+      try {
+        await updateMessage(id, { isNudge: false });
+      } catch (err) {
+        console.error("Failed to dismiss nudge", err);
+      }
+    }
+  };
+
+  const onToggleReadStatus = async (id: string) => {
+    const msg = allMessages.find(m => m.id === id);
+    if (msg) {
+      try {
+        const isCurrentlyRead = msg.isRead;
+        if (isCurrentlyRead) {
+          // User is marking it as UNREAD. Add to session ignored list.
+          const ignored = JSON.parse(sessionStorage.getItem('ignoredUnread') || '[]');
+          if (!ignored.includes(id)) {
+            sessionStorage.setItem('ignoredUnread', JSON.stringify([...ignored, id]));
+          }
+        } else {
+          // User is marking it as READ. Remove from session ignored list.
+          const ignored = JSON.parse(sessionStorage.getItem('ignoredUnread') || '[]');
+          sessionStorage.setItem('ignoredUnread', JSON.stringify(ignored.filter((i: string) => i !== id)));
+        }
+        await updateMessage(id, { isRead: !msg.isRead });
+      } catch (err) {
+        console.error("Failed to update read status", err);
+      }
+    }
+  };
+  const onDeleteMessage = async (id: string) => {
+    const msg = allMessages.find(m => m.id === id);
+    if (msg) {
+      try {
+        const deletedBy = msg.deletedBy || [];
+        if (!deletedBy.includes(currentBranch)) {
+          await updateMessage(id, { deletedBy: [...deletedBy, currentBranch] });
+        }
+      } catch (err) {
+        console.error("Failed to delete message", err);
+      }
+    }
+  };
+  const onClearAllMessages = async () => {
+    try {
+      const msgsToUpdate = messages.filter(m => !(m.deletedBy || []).includes(currentBranch));
+      for (const msg of msgsToUpdate) {
+        const deletedBy = msg.deletedBy || [];
+        await updateMessage(msg.id, { deletedBy: [...deletedBy, currentBranch] });
+      }
+    } catch (err) {
+      console.error("Failed to clear messages", err);
+    }
+  };
+  const onToggleReaction = async (id: string, emoji: string) => {
+    const msg = allMessages.find(m => m.id === id);
+    if (msg) {
+      try {
+        const reactions = { ...(msg.reactions || {}) };
+        const users = reactions[emoji] || [];
+        if (users.includes(currentBranch)) {
+          reactions[emoji] = users.filter(u => u !== currentBranch);
+          if (reactions[emoji].length === 0) delete reactions[emoji];
+        } else {
+          reactions[emoji] = [...users, currentBranch];
+        }
+        await updateMessage(id, { reactions });
+      } catch (err) {
+        console.error("Failed to toggle reaction", err);
+      }
+    }
+  };
 
   return (
     <div className={`fixed inset-0 z-[100] flex justify-end ${isResizing ? 'cursor-col-resize select-none' : ''}`}>
@@ -557,202 +823,35 @@ export const ChatWindow = ({
               ref={scrollContainerRef}
               className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-950/30 scrollbar-hide"
             >
-              {visibleMessages.length === 0 ? (
+              {!isLoaded ? (
+                <div className="h-full flex flex-col items-center justify-center opacity-30">
+                  <Loader2 className="animate-spin text-indigo-400 mb-4" size={32} />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Initialising Secure Channel...</p>
+                </div>
+              ) : visibleMessages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center opacity-30 text-center px-8">
                   <MessageSquare size={64} className="mb-4 text-indigo-400" />
                   <p className="text-sm font-black uppercase tracking-widest text-slate-500">No active communication logs</p>
                 </div>
-              ) : visibleMessages.map((msg: Message) => {
-                const isMe = msg.sender === currentBranch;
-                const isUnread = !isMe && !msg.isRead;
-                
-                return (
-                  <div 
-                    id={msg.id}
-                    key={msg.id} 
-                    className={`relative flex flex-col ${isMe ? 'items-end' : 'items-start'} group/msg animate-in fade-in slide-in-from-bottom-2 duration-300 transition-all ${
-                      highlightedMsgId === msg.id ? 'ring-2 ring-indigo-500 ring-offset-4 ring-offset-slate-900 rounded-2xl scale-[1.02] z-10' : ''
-                    }`}
-                  >
-                    
-                    <div className={`absolute -top-4 ${isMe ? 'right-2' : 'left-2'} opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1 bg-slate-800 p-1 rounded-xl shadow-xl border border-slate-700 z-20`}>
-                      {onToggleReaction && ['👍', '❤️', '😂', '😮', '😢', '❌'].map(emoji => (
-                        <button
-                          key={emoji}
-                          onClick={() => onToggleReaction(msg.id, emoji)}
-                          className="w-7 h-7 flex items-center justify-center text-sm hover:scale-125 transition-transform hover:bg-slate-700 rounded-full"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                      <div className="w-[1px] h-4 bg-slate-700 mx-1" />
-                      <button
-                        onClick={() => {
-                          setReplyingTo(msg);
-                          textInputRef.current?.focus();
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
-                        data-tooltip="Reply"
-                      >
-                        <CornerUpLeft size={14} />
-                      </button>
-                      <button
-                        onClick={() => navigator.clipboard.writeText(msg.text || msg.fileName || '')}
-                        className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
-                      >
-                        <Copy size={14} />
-                      </button>
-                      {onDeleteMessage && (
-                        <button
-                          onClick={() => {
-                            if (window.confirm("Delete this message?")) {
-                              onDeleteMessage(msg.id);
-                            }
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-700 rounded-lg transition-colors"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className={`relative max-w-[85%] p-4 rounded-[1.5rem] text-sm font-bold leading-relaxed shadow-lg transition-all ${
-                      msg.isNudge ? (isMe ? 'bg-amber-600 text-white rounded-tr-none border-2 border-amber-400 animate-pulse' : 'bg-amber-500/20 text-amber-200 rounded-tl-none border-2 border-amber-500/50 animate-pulse') :
-                      (isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 
-                      (isUnread ? 'bg-slate-800 text-white rounded-tl-none border border-indigo-500/30 ring-1 ring-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'bg-slate-800 text-slate-300 rounded-tl-none border border-slate-700'))
-                    }`}>
-                      {msg.replyToId && (
-                        <div 
-                          onClick={() => scrollToMessage(msg.replyToId!)}
-                          className={`mb-3 p-3 rounded-xl border-l-4 bg-black/20 flex flex-col gap-1 cursor-pointer hover:bg-black/30 transition-all active:scale-[0.98] group/reply-preview ${isMe ? 'border-indigo-400' : 'border-slate-500'}`}
-                          data-tooltip="Jump to original message"
-                        >
-                          <p className="text-[10px] font-black uppercase tracking-widest text-white/60 flex items-center gap-2 group-hover/reply-preview:text-indigo-400 transition-colors">
-                             <CornerUpLeft size={10} /> {msg.replyToSender === 'bywood' ? 'Bywood Ave' : 'Broom Road'}
-                          </p>
-                          <p className="text-xs italic line-clamp-2 text-white/80">{msg.replyToText}</p>
-                        </div>
-                      )}
-                      {msg.isNudge && (
-                        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/20">
-                          <Bell size={14} className="animate-shake" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-white/90">Urgent Nudge</span>
-                        </div>
-                      )}
-                      {msg.fileData ? (
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-                              <FileDown size={20} className="text-white" />
-                            </div>
-                                                    <div className="flex-1 min-w-0">
-                                                      <p className="text-xs font-bold truncate text-white">{msg.fileName}</p>
-                                                      <p className="text-[10px] text-white/50">{formatFileSize(msg.fileSize || 0)}</p>
-                                                    </div>                            <button
-                              onClick={() => downloadFile(msg)}
-                              className="px-4 py-2 rounded-xl bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider hover:bg-indigo-400 transition-colors shadow-lg shadow-indigo-500/20"
-                            >
-                              Download
-                            </button>
-                          </div>
-                          {(msg.fileType?.startsWith('image/') || msg.fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) && (
-                            <div 
-                              className="mt-3 rounded-xl overflow-hidden border border-white/10 cursor-pointer group/img-preview relative"
-                              onClick={() => viewText(msg.id)}
-                            >
-                              <img src={msg.fileData} alt={msg.fileName} className="w-full h-auto max-h-64 object-cover transition-transform group-hover/img-preview:scale-105" />
-                              <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/img-preview:opacity-100 transition-opacity flex items-center justify-center">
-                                 <span className="bg-slate-900/80 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest">Click to Preview</span>
-                              </div>
-                            </div>
-                          )}
-                          {textPreviewId === msg.id && (
-                            <div className="fixed inset-0 z-[150] flex items-center justify-center p-8 bg-slate-950/90 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200" onClick={() => setTextPreviewId(null)}>
-                               <div className="relative max-w-5xl w-full max-h-[90vh] bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-                                  <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-                                     <h4 className="font-black uppercase tracking-widest text-slate-400 text-xs flex items-center gap-3">
-                                       <FileDown size={16} /> {msg.fileName || (screenshotHistory.find(h => h.id === textPreviewId)?.fileName)}
-                                     </h4>
-                                     <div className="flex items-center gap-2">
-                                        <button onClick={() => {
-                                          const data = msg.fileData || (screenshotHistory.find(h => h.id === textPreviewId)?.data);
-                                          const name = msg.fileName || (screenshotHistory.find(h => h.id === textPreviewId)?.fileName);
-                                          if (data) save_to_temp(data, name || 'download');
-                                        }} className="p-3 rounded-2xl bg-indigo-600 text-white hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20"><FileDown size={20} /></button>
-                                        <button onClick={() => setTextPreviewId(null)} className="p-3 rounded-2xl bg-slate-800 text-slate-400 hover:text-white transition-colors"><X size={20} /></button>
-                                     </div>
-                                  </div>
-                                  <div className="flex-1 overflow-auto p-8">
-                                    {msg.fileType?.startsWith('image/') || msg.fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i) || msg.id.startsWith('temp_') || msg.id.startsWith('scr_') ? (
-                                      <img src={msg.fileData || (screenshotHistory.find(h => h.id === textPreviewId)?.data)} alt={msg.fileName} className="max-w-full h-auto mx-auto rounded-xl shadow-2xl" />
-                                    ) : (
-                                      <pre 
-                                        className="p-6 rounded-2xl bg-slate-950/50 border border-slate-800 text-sm font-mono text-slate-300 leading-relaxed" 
-                                        style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
-                                      >
-                                        {decodeFileText(msg.fileData || '')}
-                                      </pre>
-                                    )}
-                                  </div>
-                               </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : msg.taskId ? (
-                        <div 
-                          className="mt-1 p-3 bg-slate-900/50 border border-indigo-500/30 rounded-xl cursor-pointer hover:bg-slate-900 transition-colors flex items-center gap-3"
-                          onClick={() => { setActiveTab('tasks'); setActiveTaskId(msg.taskId!); }}
-                        >
-                          <ClipboardList className="text-indigo-400" size={20} />
-                          <div>
-                            <p className="text-xs font-black text-white uppercase tracking-widest">{tasks?.find(t => t.id === msg.taskId)?.title || 'Unknown Task'}</p>
-                            <p className="text-[9px] font-bold text-slate-500 uppercase">Click to view details</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <span>{msg.text}</span>
-                      )}
-                    </div>
-                    
-                    {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                      <div className={`flex flex-wrap gap-1 mt-1.5 px-1 w-full ${isMe ? 'justify-end' : 'justify-start'}`}>
-                        {Object.entries(msg.reactions).map(([emoji, users]) => (
-                          <button
-                            key={emoji}
-                            onClick={() => onToggleReaction?.(msg.id, emoji)}
-                            className={`px-1.5 py-0.5 rounded-full text-[10px] flex items-center gap-1 border transition-colors ${
-                              users.includes(currentBranch) 
-                                ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300' 
-                                : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
-                            }`}
-                          >
-                            <span>{emoji}</span>
-                            {users.length > 1 && <span className="font-bold">{users.length}</span>}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2 mt-1 px-1">
-                        <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">
-                            {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                        </span>
-                        
-                        {!isMe && onToggleReadStatus && (
-                            <button 
-                                onClick={() => onToggleReadStatus(msg.id)}
-                                className={`p-1 rounded-md transition-all opacity-0 group-hover/msg:opacity-100 flex items-center gap-1.5 ${isUnread ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-slate-800 text-slate-500 hover:bg-indigo-600/10 hover:text-indigo-400'}`}
-                            >
-                                {isUnread ? <Check size={10} strokeWidth={4} /> : <Mail size={10} />}
-                                <span className="text-[8px] font-black uppercase tracking-tighter">
-                                    {isUnread ? 'Read' : 'Mark Unread'}
-                                </span>
-                            </button>
-                        )}
-                    </div>
-                  </div>
-                );
-              })}
+              ) : visibleMessages.map((msg: Message) => (
+                <MessageItem
+                  key={msg.id}
+                  msg={msg}
+                  isMe={msg.sender === currentBranch}
+                  isUnread={msg.sender !== currentBranch && !msg.isRead}
+                  onToggleReaction={onToggleReaction}
+                  onToggleReadStatus={onToggleReadStatus}
+                  onDeleteMessage={onDeleteMessage}
+                  onDismissNudge={onDismissNudge}
+                  currentBranch={currentBranch}
+                  scrollToMessage={scrollToMessage}
+                  viewText={viewText}
+                  downloadFile={downloadFile}
+                  setReplyingTo={setReplyingTo}
+                  textInputRef={textInputRef}
+                  highlightedMsgId={highlightedMsgId}
+                />
+              ))}
             </div>
 
             <div className="p-6 bg-slate-900 border-t border-slate-800 shrink-0">
@@ -810,7 +909,7 @@ export const ChatWindow = ({
                   <Upload size={20} />
                 </button>
                 <input 
-                  type="file"
+                  type="file" 
                   ref={fileInputRef}
                   className="hidden"
                   onChange={(e) => {
@@ -842,22 +941,30 @@ export const ChatWindow = ({
                     <Send size={18} />
                   </button>
                 </div>
-                {onSendNudge && (
+                {!replyingTo && (
                   <button 
                     type="button"
-                    onClick={() => {
-                      console.log("[ChatWindow] Nudge button triggered");
+                    onClick={async () => {
+                      const nudgeMsg: Message = {
+                        id: `msg_${Date.now()}`,
+                        sender: currentBranch,
+                        text: inputText || "🔔 Attention required! (Manual Nudge)",
+                        timestamp: new Date().toISOString(),
+                        isRead: false,
+                        isNudge: true,
+                        deletedBy: []
+                      };
                       try {
-                        onSendNudge(inputText || "🔔 Attention required! (Manual Nudge)");
+                        await saveMessage(nudgeMsg);
                         setInputText('');
-                      } catch (e) {
-                        console.error("[ChatWindow] Nudge execution failed:", e);
+                      } catch (err) {
+                        console.error("Failed to send nudge", err);
                       }
                     }}
-                    className="p-2.5 rounded-xl bg-slate-800/50 text-slate-500 hover:bg-amber-500 hover:text-slate-950 hover:shadow-amber-500/20 transition-all active:scale-95 group/nudge-btn shrink-0"
+                    className="p-3 rounded-xl bg-slate-800 text-slate-400 hover:text-amber-500 hover:bg-slate-700 transition-all shrink-0 group/nudge"
                     data-tooltip="Send Immediate Nudge"
                   >
-                    <Bell size={18} className="group-hover/nudge-btn:animate-shake" />
+                    <Bell size={20} className="group-hover/nudge:animate-shake" />
                   </button>
                 )}
               </form>
@@ -874,10 +981,23 @@ export const ChatWindow = ({
                 currentBranch={currentBranch}
                 theme={theme}
                 activeTaskId={activeTaskId}
-                onShareTask={(taskId) => {
+                onShareTask={async (taskId) => {
                   const task = tasks.find(t => t.id === taskId);
-                  onSend(`📌 Shared Task: ${task?.title || 'Unknown Task'}`, undefined, taskId);
-                  setActiveTab('chat');
+                  const newMsg: Message = {
+                    id: `msg_${Date.now()}`,
+                    sender: currentBranch,
+                    text: `📌 Shared Task: ${task?.title || 'Unknown Task'}`,
+                    timestamp: new Date().toISOString(),
+                    isRead: false,
+                    deletedBy: [],
+                    taskId
+                  };
+                  try {
+                    await saveMessage(newMsg);
+                    setActiveTab('chat');
+                  } catch (err) {
+                    console.error("Failed to share task", err);
+                  }
                 }}
              />
           </div>
@@ -938,4 +1058,3 @@ export const ChatWindow = ({
     </div>
   );
 };
-

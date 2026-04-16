@@ -24,6 +24,7 @@ import { DashboardWidgets } from './DashboardWidgets';
 
 interface MainViewRouterProps {
   mainView: 'inventory' | 'requests' | 'performance' | 'archive' | 'bin' | 'planogram' | 'reconciliation' | 'shared-stock' | 'supplier-management';
+  items: Product[];
   logic: StockLogicReturn;
   branchData: BranchData;
   currentBranch: BranchKey;
@@ -88,7 +89,7 @@ interface MainViewRouterProps {
 }
 
 export const MainViewRouter: React.FC<MainViewRouterProps> = ({
-  mainView, logic, branchData, currentBranch, setBranchData, pricingLogic, planogramLogic, noteLogic,
+  mainView, items, logic, branchData, currentBranch, setBranchData, pricingLogic, planogramLogic, noteLogic,
   effectiveSortConfig, sortedRequests, liveOrderTotal, manualRestockQtys, updateManualQty,
   requestSortConfig, setRequestSortConfig, requestTab, setRequestTab,
   selectedIds, toggleSelection, toggleAll, isAllSelected,
@@ -613,7 +614,8 @@ export const MainViewRouter: React.FC<MainViewRouterProps> = ({
               </div>
             )}
             
-            <InventoryTable 
+            <InventoryTable
+              items={items}
               sortConfig={effectiveSortConfig}
               onSort={(k: string, multi: boolean) => logic.handleSort(k, multi)}
               selectedIds={selectedIds}

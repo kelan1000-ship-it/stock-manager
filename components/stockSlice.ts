@@ -17,8 +17,16 @@ import {
 } from '../types';
 
 export interface StockState extends BranchData {
-  status: 'idle' | 'loading' | 'succeeded' | 'failed';
+  status: 'idle' | 'loading' | 'connected' | 'reconnecting' | 'offline' | 'failed';
   error: string | null;
+  lastSeenMessagesTimestamp: number;
+  unreadCounts: { messages: number; transfers: number };
+  currentBranch: BranchKey;
+  lastNotification?: {
+    type: 'message' | 'transfer';
+    count: number;
+    timestamp: number;
+  };
 }
 
 const initialState: StockState = {
@@ -43,19 +51,71 @@ const initialState: StockState = {
   screenshotHistory: [],
   sharedOrderDrafts: [],
   status: 'idle',
-  error: null
+  error: null,
+  lastSeenMessagesTimestamp: Number(localStorage.getItem('lastSeenMessagesTimestamp') || 0),
+  unreadCounts: { messages: 0, transfers: 0 },
+  currentBranch: 'bywood'
 };
 
 const stockSlice = createSlice({
   name: 'stock',
   initialState,
   reducers: {
+    setCurrentBranch: (state, action: PayloadAction<BranchKey>) => {
+      state.currentBranch = action.payload;
+    },
+    updateUnreadCounts: (state, action: PayloadAction<{messages: number, transfers: number}>) => {
+      state.unreadCounts = action.payload;
+    },
+    requestTransfer: (state, action: PayloadAction<{ product: Product, quantity: number, partQuantity: number, type: 'send' | 'request', note: string, sourceBranch: BranchKey, targetBranch: BranchKey }>) => {
+      // Handled by middleware
+    },
     setBranchData: (state, action: PayloadAction<Partial<BranchData>>) => {
-      console.log('Slice updating with setBranchData:', Object.keys(action.payload));
-      Object.assign(state, action.payload);
+      const updates = { ...action.payload };
+      
+      const parseTS = (ts: any): number => {
+        if (!ts) return 0;
+        if (typeof ts === 'number') return ts;
+        if (ts.toMillis) return ts.toMillis();
+        if (ts.seconds) return ts.seconds * 1000;
+        if (typeof ts === 'string') return new Date(ts).getTime();
+        return 0;
+      };
+
+      // Special handling for messages to sort by timestamp
+      if (updates.messages) {
+        state.messages = [...updates.messages]
+          .sort((a, b) => parseTS(a.timestamp) - parseTS(b.timestamp));
+        delete updates.messages;
+      }
+
+      // Merge other properties
+      Object.assign(state, updates);
+    },
+    setMessages: (state, action: PayloadAction<Message[]>) => {
+      const parseTS = (ts: any): number => {
+        if (!ts) return 0;
+        if (typeof ts === 'number') return ts;
+        if (ts.toMillis) return ts.toMillis();
+        if (ts.seconds) return ts.seconds * 1000;
+        if (typeof ts === 'string') return new Date(ts).getTime();
+        return 0;
+      };
+
+      state.messages = [...action.payload]
+        .sort((a, b) => parseTS(a.timestamp) - parseTS(b.timestamp));
+    },
+    setLastSeenMessages: (state, action: PayloadAction<number>) => {
+      state.lastSeenMessagesTimestamp = action.payload;
+      localStorage.setItem('lastSeenMessagesTimestamp', String(action.payload));
+    },
+    setTransfers: (state, action: PayloadAction<Transfer[]>) => {
+      state.transfers = action.payload;
+    },
+    triggerNotification: (state, action: PayloadAction<StockState['lastNotification']>) => {
+      state.lastNotification = action.payload;
     },
     setInventory: (state, action: PayloadAction<{ branch: BranchKey; products: Product[] }>) => {
-      console.log(`Slice updating with setInventory for ${action.payload.branch}:`, action.payload.products.length);
       if (action.payload.branch === 'bywood') {
         state.bywood = action.payload.products;
       } else {
@@ -103,6 +163,14 @@ export const {
   setBranchData, 
   setInventory, 
   setInventory: setStock,
+  setMessages,
+  setTransfers,
+  setLastSeenMessages,
+  setCurrentBranch,
+  setCurrentBranch: setCurrentBranchAction,
+  updateUnreadCounts,
+  requestTransfer,
+  triggerNotification,
   addStockItem,
   updateStockItem,
   removeStockItem,

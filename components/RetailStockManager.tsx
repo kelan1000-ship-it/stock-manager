@@ -1,8 +1,8 @@
 
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { Provider, useDispatch } from 'react-redux';
+import { Provider, useDispatch, useSelector } from 'react-redux';
 import { store } from './store';
-import { setStock, startInventoryListeners } from './stockSlice';
+import { setStock, startInventoryListeners, setLastSeenMessages, StockState } from './stockSlice';
 import { 
   Plus, LayoutDashboard, Database, ChevronDown, MessageSquare,
   BarChart3, ClipboardList, Layers, Handshake, Sparkles,
@@ -151,6 +151,8 @@ function RetailStockManagerInner() {
     ];
     return new Set(allSlow.map(x => x.product.id));
   }, [buckets]);
+
+  const unreadCounts = useSelector((state: { stock: StockState }) => state.stock.unreadCounts);
 
   const prevMsgCount = useRef(branchData.messages.length);
   const prevTrfCount = useRef(branchData.transfers.length);
@@ -524,11 +526,6 @@ function RetailStockManagerInner() {
     return sorted;
   }, [filteredItems, effectiveSortConfig]);
 
-  // Redux Sync Effect
-  useEffect(() => {
-    dispatch(setStock({ branch: currentBranch, products: sortedItems }));
-  }, [sortedItems, currentBranch, dispatch]);
-
   const liveOrderTotal = useMemo(() => {
     const orderKey = currentBranch === 'bywood' ? 'bywoodOrders' : 'broomOrders';
     const activeOrders = branchData[orderKey] || [];
@@ -722,6 +719,7 @@ function RetailStockManagerInner() {
                 branchData={branchData}
                 currentBranch={currentBranch}
                 syncStatus={logic.syncStatus}
+                onOpenChat={() => setIsChatOpen(true)}
               />
           </div>
 
@@ -750,15 +748,16 @@ function RetailStockManagerInner() {
               </button>
             </TooltipWrapper>
             <TooltipWrapper tooltip="Branch Communications">
-              <button 
-                onClick={() => setIsChatOpen(true)}
+              <button
+                onClick={() => {
+                  setIsChatOpen(true);
+                  dispatch(setLastSeenMessages(Date.now()));
+                }}
                 className="relative p-1.5 sm:p-2.5 rounded-xl border transition-colors border-indigo-500/30 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 shadow-lg shadow-indigo-900/20"
               >
                 <MessageSquare size={18} />
-                {branchData.messages.filter(m => m.sender !== currentBranch && !m.isRead).length > 0 && <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-indigo-500 rounded-full border-2 border-slate-900" />}
-              </button>
-            </TooltipWrapper>
-            <div className="relative" ref={settingsDropdownRef}>
+                {unreadCounts.messages > 0 && <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-indigo-500 rounded-full border-2 border-slate-900" />}              </button>
+            </TooltipWrapper>            <div className="relative" ref={settingsDropdownRef}>
               <TooltipWrapper tooltip="Settings">
                 <button
                   onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
@@ -893,18 +892,19 @@ function RetailStockManagerInner() {
            )}
         </div>
 
-                <MainViewRouter
-                  mainView={mainView}
-                  logic={logic}
-                  branchData={branchData}
-                  currentBranch={currentBranch}
-                  setBranchData={setBranchData}
-                  pricingLogic={pricingLogic}
-                  planogramLogic={planogramLogic}
-                  noteLogic={noteLogic}
-                            effectiveSortConfig={effectiveSortConfig}
-                            sortedRequests={sortedRequests}
-                            liveOrderTotal={liveOrderTotal}
+        <MainViewRouter
+          mainView={mainView}
+          items={sortedItems}
+          logic={logic}
+          branchData={branchData}
+          currentBranch={currentBranch}
+          setBranchData={setBranchData}
+          pricingLogic={pricingLogic}
+          planogramLogic={planogramLogic}
+          noteLogic={noteLogic}
+          effectiveSortConfig={effectiveSortConfig}
+          sortedRequests={sortedRequests}
+          liveOrderTotal={liveOrderTotal}
           manualRestockQtys={manualRestockQtys}
           updateManualQty={updateManualQty}
           requestSortConfig={requestSortConfig}
@@ -951,7 +951,8 @@ function RetailStockManagerInner() {
           supplierMenuRef={supplierMenuRef}
           locationMenuRef={locationMenuRef}
           statusMenuRef={statusMenuRef}
-          onOpenPriceChecker={onOpenPriceChecker}          columns={columns}
+          onOpenPriceChecker={onOpenPriceChecker}
+          columns={columns}
           toggleColumn={toggleColumn}
           onOpenReconciliation={() => setIsReconciliationOpen(true)}
           onOpenDuplicates={() => setIsLocalDuplicatesOpen(true)}
@@ -1001,7 +1002,6 @@ function RetailStockManagerInner() {
       <ModalManager
         logic={logic}
         branchData={branchData}
-        setBranchData={setBranchData}
         currentBranch={currentBranch}
         theme={theme}
         isChatOpen={isChatOpen}

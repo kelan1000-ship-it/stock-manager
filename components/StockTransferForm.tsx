@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, ArrowRightLeft, Package, AlertTriangle, CheckCircle2, Loader2, Target, History, Box, Pill, Send, Search, Notebook, ArrowRight, ArrowLeft, MoveRight, MoveLeft } from 'lucide-react';
+import { useDispatch } from 'react-redux';
 import { Product, Transfer, BranchKey, BranchData } from '../types';
 import { ProductThumbnail } from './ImageComponents';
 import { useStockTransfer } from '../hooks/useStockTransfer';
 import { findProductMatches } from '../utils/productMatching';
+import { requestTransfer } from './stockSlice';
 
 interface StockTransferFormProps {
   isOpen: boolean;
@@ -32,6 +34,7 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
   const [partQuantity, setPartQuantity] = useState<number>(0);
   const [note, setNote] = useState<string>('');
   const [localError, setLocalError] = useState<string | null>(null);
+  const dispatch = useDispatch();
   const { isSubmitting, error: apiError, success, sendTransferToSheets, resetStatus } = useStockTransfer();
 
   // Retrieve current branch stock (live Firestore data) to handle Global Search items correctly
@@ -88,6 +91,7 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
   };
 
   const handleTransfer = async () => {
+    if (!product) return;
     // Validation
     if (quantity < 0 || partQuantity < 0) {
       setLocalError("Quantities cannot be negative.");
@@ -120,31 +124,24 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
       }
     }
 
-    const transferData: Transfer = {
-      id: `tr_${Date.now()}`,
-      type: transferType,
-      sourceBranch: currentBranch,
-      targetBranch,
-      barcode: product.barcode,
-      name: product.name,
-      packSize: product.packSize,
-      quantity: quantity,
-      partQuantity: partQuantity,
-      timestamp: new Date().toISOString(),
-      status: 'pending',
-      note: note.trim()
-    };
+    try {
+      dispatch(requestTransfer({
+        product,
+        quantity,
+        partQuantity,
+        type: transferType,
+        note: note.trim(),
+        sourceBranch: currentBranch,
+        targetBranch
+      }));
 
-    // 1. Send to external log (Google Sheets)
-    await sendTransferToSheets(transferData);
-
-    // 2. Perform internal state update
-    onCompleteInternal(product, quantity, partQuantity, transferType, note.trim());
-
-    // Close after a brief delay if successful
-    setTimeout(() => {
-      onClose();
-    }, 1500);
+      // Close after a brief delay if successful
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const isDispensary = product.stockType === 'dispensary';

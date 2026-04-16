@@ -1,6 +1,5 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
 import { CheckSquare, Square, ChevronDown, ChevronRight, ChevronLeft, Layers, Box, Package } from 'lucide-react';
 import { Product, ColumnVisibility } from '../types';
 import { SortHeader } from './ManagerComponents';
@@ -11,6 +10,7 @@ import { TagStyle } from '../hooks/useInventoryTags';
 import { useAuth } from '../contexts/AuthContext';
 
 interface InventoryTableProps {
+  items: Product[];
   sortConfig: { key: string; direction: 'asc' | 'desc' }[];
   onSort: (key: string, multi: boolean) => void;
   selectedIds: Set<string>;
@@ -194,6 +194,7 @@ const ParentRowHeader: React.FC<ParentRowHeaderProps> = ({ row, isExpanded, togg
 };
 
 export const InventoryTable: React.FC<InventoryTableProps> = ({
+  items,
   sortConfig,
   onSort,
   selectedIds,
@@ -214,9 +215,6 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
   columns,
   isSortingDisabled = false
 }) => {
-  const items = useSelector((state: any) => 
-    (logic.currentBranch === 'bywood' ? state.stock.bywood : state.stock.broom) || []
-  );
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);

@@ -1,7 +1,7 @@
 
 import React, { useCallback, useRef, useEffect } from 'react';
 import { BranchData, BranchKey, Message, Product, Transfer } from '../types';
-import { saveTransfer } from '../services/firestoreService';
+import { saveTransfer, saveProduct, updateMessage, batchUpdateMessages } from '../services/firestoreService';
 import { findProductMatches } from '../utils/productMatching';
 
 export function useMessageTransfer(
@@ -10,17 +10,29 @@ export function useMessageTransfer(
 ) {
   // Queue for Firestore writes — kept outside the state updater to stay pure
   const pendingTransferWrites = useRef<Transfer[]>([]);
+  const pendingProductWrites = useRef<{ branch: BranchKey, product: Product }[]>([]);
 
   // Flush queued writes after React commits the render
   useEffect(() => {
-    const queue = pendingTransferWrites.current;
-    if (queue.length === 0) return;
-    pendingTransferWrites.current = [];
-    queue.forEach(transfer => {
-      saveTransfer(transfer).catch(err =>
-        console.error('Transfer write failed for', transfer.id, err)
-      );
-    });
+    const transferQueue = pendingTransferWrites.current;
+    if (transferQueue.length > 0) {
+      pendingTransferWrites.current = [];
+      transferQueue.forEach(transfer => {
+        saveTransfer(transfer).catch(err =>
+          console.error('Transfer write failed for', transfer.id, err)
+        );
+      });
+    }
+
+    const productQueue = pendingProductWrites.current;
+    if (productQueue.length > 0) {
+      pendingProductWrites.current = [];
+      productQueue.forEach(({ branch, product }) => {
+        saveProduct(branch, product).catch(err =>
+          console.error('Product sync failed during transfer', product.id, err)
+        );
+      });
+    }
   });
 
   // ─── Messaging ──────────────────────────────────────────────────
@@ -32,52 +44,19 @@ export function useMessageTransfer(
     }));
   }, [currentBranch, setBranchData]);
 
-  const updateMessageReadStatus = useCallback((messageIds: string[]) => {
-    setBranchData(prev => ({
-      ...prev,
-      messages: prev.messages.map(m => messageIds.includes(m.id) ? { ...m, isRead: true } : m)
-    }));
-  }, [setBranchData]);
-
-  const toggleMessageReadStatus = useCallback((messageId: string) => {
-    setBranchData(prev => {
-      const msg = prev.messages.find(m => m.id === messageId);
-      if (msg) {
-        const isCurrentlyRead = msg.isRead;
-        // If we are marking it as UNREAD (it was previously read)
-        if (isCurrentlyRead) {
-          try {
-            const stored = localStorage.getItem('manualUnreadMessages');
-            let overrides = JSON.parse(stored || '[]');
-            if (!Array.isArray(overrides)) overrides = [];
-            
-            if (!overrides.includes(messageId)) {
-              localStorage.setItem('manualUnreadMessages', JSON.stringify([...overrides, messageId]));
-            }
-          } catch (e) {
-            console.error("Failed to update manual unread storage", e);
-          }
-        } else {
-          // If we are marking it as READ (it was previously unread)
-          try {
-            const stored = localStorage.getItem('manualUnreadMessages');
-            let overrides = JSON.parse(stored || '[]');
-            if (Array.isArray(overrides)) {
-              localStorage.setItem('manualUnreadMessages', JSON.stringify(overrides.filter((id: string) => id !== messageId)));
-            }
-          } catch (e) {
-            console.error("Failed to update manual unread storage", e);
-          }
-        }
+  const updateMessageReadStatus = useCallback(async (messageIds: string[]) => {
+    try {
+      if (messageIds.length > 0) {
+        await batchUpdateMessages(messageIds, { isRead: true });
       }
+    } catch (e) {
+      console.error("Failed to batch update read status", e);
+    }
+  }, []);
 
-      return {
-        ...prev,
-        messages: prev.messages.map(m => m.id === messageId ? { ...m, isRead: !m.isRead } : m)
-      };
-    });
-  }, [setBranchData]);
-
+  const toggleMessageReadStatus = useCallback(async (messageId: string) => {
+    // handled by MessageCenter.tsx natively
+  }, []);
   const sendMessage = useCallback((
     text: string, 
     file?: { fileName: string; fileSize: number; fileType: string; fileData: string }, 
@@ -204,7 +183,7 @@ export function useMessageTransfer(
             if (p.id === product.id) {
               const newStock = Math.max(0, p.stockInHand - quantity);
               const newParts = Math.max(0, (p.partPacks || 0) - partQuantity);
-              return {
+              const updatedProduct = {
                 ...p,
                 stockInHand: newStock,
                 partPacks: newParts,
@@ -217,6 +196,8 @@ export function useMessageTransfer(
                   note: `Transfer to ${targetBranch === 'bywood' ? 'Bywood Ave' : 'Broom Rd'}`
                 }]
               };
+              pendingProductWrites.current.push({ branch: currentBranch, product: updatedProduct });
+              return updatedProduct;
             }
             return p;
           })
@@ -275,7 +256,7 @@ export function useMessageTransfer(
 
         if (existingIndex > -1) {
           const p = updatedInventory[existingIndex];
-          updatedInventory[existingIndex] = {
+          const updatedProduct = {
             ...p,
             location: p.location === 'Received' ? '' : p.location,
             stockInHand: p.stockInHand + transfer.quantity,
@@ -289,6 +270,8 @@ export function useMessageTransfer(
               note: `Transfer from ${sendingBranch === 'bywood' ? 'Bywood Ave' : 'Broom Rd'}`
             }]
           };
+          updatedInventory[existingIndex] = updatedProduct;
+          pendingProductWrites.current.push({ branch: receivingBranch, product: updatedProduct });
         } else {
           // Product doesn't exist at receiving branch — create it
           const sourceMatches = findProductMatches(prev[sendingBranch], targetProduct);
@@ -328,6 +311,7 @@ export function useMessageTransfer(
               } as Product;
 
           updatedInventory = [newProduct, ...updatedInventory];
+          pendingProductWrites.current.push({ branch: receivingBranch, product: newProduct });
         }
 
         return { ...prev, transfers: updatedTransfers, [receivingBranch]: updatedInventory };
@@ -343,7 +327,7 @@ export function useMessageTransfer(
         const updatedInventory = prev[fulfillingBranch].map(p => {
           if (matchId && p.id === matchId) {
             const newStock = Math.max(0, p.stockInHand - transfer.quantity);
-            return {
+            const updatedProduct = {
               ...p,
               stockInHand: newStock,
               partPacks: Math.max(0, (p.partPacks || 0) - (transfer.partQuantity || 0)),
@@ -356,6 +340,8 @@ export function useMessageTransfer(
                 note: `Fulfilling request from ${transfer.sourceBranch === 'bywood' ? 'Bywood Ave' : 'Broom Rd'}`
               }]
             };
+            pendingProductWrites.current.push({ branch: fulfillingBranch, product: updatedProduct });
+            return updatedProduct;
           }
           return p;
         });
@@ -372,7 +358,7 @@ export function useMessageTransfer(
 
         const updatedInventory = prev[sourceBranch].map(p => {
           if (matchId && p.id === matchId) {
-            return {
+            const updatedProduct = {
               ...p,
               stockInHand: p.stockInHand + transfer.quantity,
               partPacks: (p.partPacks || 0) + (transfer.partQuantity || 0),
@@ -385,6 +371,8 @@ export function useMessageTransfer(
                 note: `Refund: Cancelled transfer to ${transfer.targetBranch === 'bywood' ? 'Bywood Ave' : 'Broom Rd'}`
               }]
             };
+            pendingProductWrites.current.push({ branch: sourceBranch, product: updatedProduct });
+            return updatedProduct;
           }
           return p;
         });
@@ -401,7 +389,7 @@ export function useMessageTransfer(
 
         const updatedInventory = prev[fulfillingBranch].map(p => {
           if (matchId && p.id === matchId) {
-            return {
+            const updatedProduct = {
               ...p,
               stockInHand: p.stockInHand + transfer.quantity,
               partPacks: (p.partPacks || 0) + (transfer.partQuantity || 0),
@@ -414,6 +402,8 @@ export function useMessageTransfer(
                 note: `Refund: Cancelled confirmed request from ${transfer.sourceBranch === 'bywood' ? 'Bywood Ave' : 'Broom Rd'}`
               }]
             };
+            pendingProductWrites.current.push({ branch: fulfillingBranch, product: updatedProduct });
+            return updatedProduct;
           }
           return p;
         });

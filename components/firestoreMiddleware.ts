@@ -11,174 +11,237 @@ import {
   subscribeToSharedOrderDrafts,
   subscribeToMasterInventory,
   subscribeToPlanograms,
-  subscribeToFloorPlans
+  subscribeToFloorPlans,
+  saveProduct,
+  saveTransfer
 } from '../services/firestoreService';
-import { 
-  setInventory, 
+import {
+  setInventory,
   setBranchData,
-  setError, 
-  startInventoryListeners, 
+  setMessages,
+  setTransfers,
+  triggerNotification,
+  updateUnreadCounts,
+  requestTransfer,
+  setError,
+  startInventoryListeners,
   stopInventoryListeners,
-  setStatus
+  setStatus,
+  setCurrentBranch,
+  StockState
 } from './stockSlice';
 import { Unsubscribe } from 'firebase/firestore';
+import { Transfer, Product } from '../types';
 
 let globalUnsubscribes: Unsubscribe[] = [];
 
+const parseTS = (ts: any): number => {
+  if (!ts) return 0;
+  if (typeof ts === 'number') return ts;
+  if (ts.toMillis) return ts.toMillis();
+  if (ts.seconds) return ts.seconds * 1000;
+  if (typeof ts === 'string') return new Date(ts).getTime();
+  return 0;
+};
+
 export const firestoreMiddleware: Middleware = store => next => action => {
+  if (requestTransfer.match(action)) {
+    const { product, quantity, partQuantity, type, note, sourceBranch, targetBranch } = action.payload;
+    const now = new Date().toISOString();
+
+    const newTransfer: Transfer = {
+      id: `tr_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      type,
+      sourceBranch,
+      targetBranch,
+      barcode: product.barcode,
+      name: product.name,
+      packSize: product.packSize,
+      quantity,
+      partQuantity,
+      timestamp: now,
+      status: 'pending',
+      note
+    };
+
+    const handleTransferProcess = async () => {
+      try {
+        if (type === 'send') {
+          // Step A: Deduct stock from Firestore
+          const updatedProduct: Product = {
+            ...product,
+            stockInHand: Math.max(0, product.stockInHand - quantity),
+            partPacks: Math.max(0, (product.partPacks || 0) - partQuantity),
+            lastUpdated: now,
+            stockHistory: [...(product.stockHistory || []), {
+              date: now,
+              type: 'transfer_out',
+              change: -quantity,
+              newBalance: Math.max(0, product.stockInHand - quantity),
+              note: `Transfer to ${targetBranch === 'bywood' ? 'Bywood Ave' : 'Broom Rd'}`
+            }]
+          };
+          await saveProduct(sourceBranch, updatedProduct);
+        }
+
+        // Step B: Create Transfer Document
+        await saveTransfer(newTransfer);
+
+        // Step C: Implicit Success (handled by background listeners)
+      } catch (err: any) {
+        store.dispatch(setError(`Transfer failed: ${err.message}`));
+      }
+    };
+
+    handleTransferProcess();
+  }
+
   if (startInventoryListeners.match(action)) {
     // Clear any existing listeners first
     globalUnsubscribes.forEach(unsub => unsub());
     globalUnsubscribes = [];
 
     try {
-      console.log('Middleware: Initializing all listeners');
-
       // 1. Inventory Products
-      console.log('Middleware listening to: branches/bywood/products');
       const unsubBywood = subscribeToProducts('bywood', (products) => {
-        console.log('Middleware received data for: branches/bywood/products', products.length);
         store.dispatch(setInventory({ branch: 'bywood', products }));
-        store.dispatch(setStatus('succeeded'));
+        store.dispatch(setStatus('connected'));
       }, (error) => store.dispatch(setError(`Bywood products error: ${error.message}`)));
 
-      console.log('Middleware listening to: branches/broom/products');
       const unsubBroom = subscribeToProducts('broom', (products) => {
-        console.log('Middleware received data for: branches/broom/products', products.length);
         store.dispatch(setInventory({ branch: 'broom', products }));
-        store.dispatch(setStatus('succeeded'));
+        store.dispatch(setStatus('connected'));
       }, (error) => store.dispatch(setError(`Broom products error: ${error.message}`)));
 
       // 2. Shared Data Collections
-      console.log('Middleware listening to: shared/data/messages');
+      console.log('Middleware listening to: shared/data/messages (Global)');
       const unsubMessages = subscribeToMessages(
         (messages) => {
-          console.log('Middleware received data for: shared/data/messages', messages.length);
-          store.dispatch(setBranchData({ messages }));
+          console.log('Middleware snapshot: messages received', messages.length);
+          const currentState = store.getState() as { stock: StockState };
+          const prevMessages = currentState.stock.messages;
+          const currentBranch = currentState.stock.currentBranch;
+          const lastSeen = currentState.stock.lastSeenMessagesTimestamp;
+
+          store.dispatch(setMessages(messages));
+          
+          // Re-calculate unread count
+          const unreadMessagesCount = messages.filter(m =>
+            m.sender !== currentBranch &&
+            !m.isRead &&
+            !(m.deletedBy || []).includes(currentBranch)
+          ).length;
+          console.log('Middleware: Calculated unread messages:', unreadMessagesCount);
+          store.dispatch(updateUnreadCounts({ 
+            messages: unreadMessagesCount, 
+            transfers: currentState.stock.unreadCounts.transfers 
+          }));
+          
+          if (messages.length > prevMessages.length && prevMessages.length > 0) {
+            const latestMsg = [...messages].sort((a, b) => parseTS(b.timestamp) - parseTS(a.timestamp))[0];
+            if (latestMsg) {
+              const msgTime = parseTS(latestMsg.timestamp);
+              if (Date.now() - msgTime < 10000) {
+                store.dispatch(triggerNotification({ type: 'message', count: messages.length, timestamp: msgTime }));
+              }
+            }
+          }
         },
         (error) => store.dispatch(setError(`Messages error: ${error.message}`))
       );
       
-      console.log('Middleware listening to: shared/data/transfers');
       const unsubTransfers = subscribeToTransfers(
         (transfers) => {
-          console.log('Middleware received data for: shared/data/transfers', transfers.length);
-          store.dispatch(setBranchData({ transfers }));
+          const currentState = store.getState() as { stock: StockState };
+          const prevTransfers = currentState.stock.transfers;
+          const currentBranch = currentState.stock.currentBranch;
+
+          store.dispatch(setTransfers(transfers));
+
+          // Re-calculate pending transfers
+          const pendingTransfersCount = transfers.filter(t =>
+            !t.resolvedAt &&
+            ((t.targetBranch === currentBranch && t.status === 'pending') ||
+            (t.sourceBranch === currentBranch && t.status === 'confirmed' && t.type === 'request'))
+          ).length;
+
+          store.dispatch(updateUnreadCounts({ 
+            messages: currentState.stock.unreadCounts.messages, 
+            transfers: pendingTransfersCount 
+          }));
+
+          if (transfers.length > prevTransfers.length && prevTransfers.length > 0) {
+            const latestTrf = [...transfers].sort((a, b) => parseTS(b.createdAt || b.timestamp) - parseTS(a.createdAt || a.timestamp))[0];
+            if (latestTrf) {
+               const trfTime = parseTS(latestTrf.createdAt || latestTrf.timestamp);
+               if (Date.now() - trfTime < 10000) {
+                  store.dispatch(triggerNotification({ type: 'transfer', count: transfers.length, timestamp: trfTime }));
+               }
+            }
+          }
         },
         (error) => store.dispatch(setError(`Transfers error: ${error.message}`))
       );
 
-      console.log('Middleware listening to: shared/data/jointOrders');
       const unsubJointOrders = subscribeToJointOrders(
-        (jointOrders) => {
-          console.log('Middleware received data for: shared/data/jointOrders', jointOrders.length);
-          store.dispatch(setBranchData({ jointOrders }));
-        },
+        (jointOrders) => store.dispatch(setBranchData({ jointOrders })),
         (error) => store.dispatch(setError(`JointOrders error: ${error.message}`))
       );
 
-      console.log('Middleware listening to: shared/data/orderDrafts');
       const unsubSharedOrderDrafts = subscribeToSharedOrderDrafts(
-        (sharedOrderDrafts) => {
-          console.log('Middleware received data for: shared/data/orderDrafts', sharedOrderDrafts.length);
-          store.dispatch(setBranchData({ sharedOrderDrafts }));
-        },
+        (sharedOrderDrafts) => store.dispatch(setBranchData({ sharedOrderDrafts })),
         (error) => store.dispatch(setError(`SharedOrderDrafts error: ${error.message}`))
       );
 
-      console.log('Middleware listening to: shared/data/masterInventory');
       const unsubMasterInventory = subscribeToMasterInventory(
-        (masterInventory) => {
-          console.log('Middleware received data for: shared/data/masterInventory', masterInventory.length);
-          store.dispatch(setBranchData({ masterInventory }));
-        },
+        (masterInventory) => store.dispatch(setBranchData({ masterInventory })),
         (error) => store.dispatch(setError(`MasterInventory error: ${error.message}`))
       );
 
-      console.log('Middleware listening to: shared/data/suppliers');
       const unsubSuppliers = subscribeToSuppliers(
-        (suppliers) => {
-          console.log('Middleware received data for: shared/data/suppliers', suppliers.length);
-          store.dispatch(setBranchData({ suppliers }));
-        },
+        (suppliers) => store.dispatch(setBranchData({ suppliers })),
         (error) => store.dispatch(setError(`Suppliers error: ${error.message}`))
       );
 
-      console.log('Middleware listening to: shared/data/tasks');
       const unsubTasks = subscribeToTasks(
-        (tasks) => {
-          console.log('Middleware received data for: shared/data/tasks', tasks.length);
-          store.dispatch(setBranchData({ tasks }));
-        },
+        (tasks) => store.dispatch(setBranchData({ tasks })),
         (error) => store.dispatch(setError(`Tasks error: ${error.message}`))
       );
 
       // 3. Branch-specific Data Collections
-      console.log('Middleware listening to: branches/bywood/requests');
       const unsubBywoodRequests = subscribeToRequests('bywood',
-        (bywoodRequests) => {
-          console.log('Middleware received data for: branches/bywood/requests', bywoodRequests.length);
-          store.dispatch(setBranchData({ bywoodRequests }));
-        },
+        (bywoodRequests) => store.dispatch(setBranchData({ bywoodRequests })),
         (error) => store.dispatch(setError(`BywoodRequests error: ${error.message}`))
       );
-      console.log('Middleware listening to: branches/broom/requests');
       const unsubBroomRequests = subscribeToRequests('broom',
-        (broomRequests) => {
-          console.log('Middleware received data for: branches/broom/requests', broomRequests.length);
-          store.dispatch(setBranchData({ broomRequests }));
-        },
+        (broomRequests) => store.dispatch(setBranchData({ broomRequests })),
         (error) => store.dispatch(setError(`BroomRequests error: ${error.message}`))
       );
 
-      console.log('Middleware listening to: branches/bywood/orders');
       const unsubBywoodOrders = subscribeToOrders('bywood',
-        (bywoodOrders) => {
-          console.log('Middleware received data for: branches/bywood/orders', bywoodOrders.length);
-          store.dispatch(setBranchData({ bywoodOrders }));
-        },
+        (bywoodOrders) => store.dispatch(setBranchData({ bywoodOrders })),
         (error) => store.dispatch(setError(`BywoodOrders error: ${error.message}`))
       );
-      console.log('Middleware listening to: branches/broom/orders');
       const unsubBroomOrders = subscribeToOrders('broom',
-        (broomOrders) => {
-          console.log('Middleware received data for: branches/broom/orders', broomOrders.length);
-          store.dispatch(setBranchData({ broomOrders }));
-        },
+        (broomOrders) => store.dispatch(setBranchData({ broomOrders })),
         (error) => store.dispatch(setError(`BroomOrders error: ${error.message}`))
       );
 
-      console.log('Middleware listening to: branches/bywood/planograms');
       const unsubBywoodPlanograms = subscribeToPlanograms('bywood',
-        (bywoodPlanograms) => {
-          console.log('Middleware received data for: branches/bywood/planograms', bywoodPlanograms.length);
-          store.dispatch(setBranchData({ bywoodPlanograms }));
-        },
+        (bywoodPlanograms) => store.dispatch(setBranchData({ bywoodPlanograms })),
         (error) => store.dispatch(setError(`BywoodPlanograms error: ${error.message}`))
       );
-      console.log('Middleware listening to: branches/broom/planograms');
       const unsubBroomPlanograms = subscribeToPlanograms('broom',
-        (broomPlanograms) => {
-          console.log('Middleware received data for: branches/broom/planograms', broomPlanograms.length);
-          store.dispatch(setBranchData({ broomPlanograms }));
-        },
+        (broomPlanograms) => store.dispatch(setBranchData({ broomPlanograms })),
         (error) => store.dispatch(setError(`BroomPlanograms error: ${error.message}`))
       );
 
-      console.log('Middleware listening to: branches/bywood/floorPlans');
       const unsubBywoodFloorPlans = subscribeToFloorPlans('bywood',
-        (bywoodFloorPlans) => {
-          console.log('Middleware received data for: branches/bywood/floorPlans', bywoodFloorPlans.length);
-          store.dispatch(setBranchData({ bywoodFloorPlans }));
-        },
+        (bywoodFloorPlans) => store.dispatch(setBranchData({ bywoodFloorPlans })),
         (error) => store.dispatch(setError(`BywoodFloorPlans error: ${error.message}`))
       );
-      console.log('Middleware listening to: branches/broom/floorPlans');
       const unsubBroomFloorPlans = subscribeToFloorPlans('broom',
-        (broomFloorPlans) => {
-          console.log('Middleware received data for: branches/broom/floorPlans', broomFloorPlans.length);
-          store.dispatch(setBranchData({ broomFloorPlans }));
-        },
+        (broomFloorPlans) => store.dispatch(setBranchData({ broomFloorPlans })),
         (error) => store.dispatch(setError(`BroomFloorPlans error: ${error.message}`))
       );
 
@@ -197,6 +260,32 @@ export const firestoreMiddleware: Middleware = store => next => action => {
   if (stopInventoryListeners.match(action)) {
     globalUnsubscribes.forEach(unsub => unsub());
     globalUnsubscribes = [];
+  }
+
+  // Recompute unread counts when the user switches branches so the notification
+  // bar refreshes immediately rather than waiting for the next Firestore snapshot.
+  if (setCurrentBranch.match(action)) {
+    const result = next(action); // let the reducer apply the new branch first
+    const { stock } = store.getState() as { stock: StockState };
+    const newBranch = action.payload;
+
+    const unreadMessagesCount = stock.messages.filter(m =>
+      m.sender !== newBranch &&
+      !m.isRead &&
+      !(m.deletedBy || []).includes(newBranch)
+    ).length;
+
+    const pendingTransfersCount = stock.transfers.filter(t =>
+      !t.resolvedAt &&
+      ((t.targetBranch === newBranch && t.status === 'pending') ||
+       (t.sourceBranch === newBranch && t.status === 'confirmed' && t.type === 'request'))
+    ).length;
+
+    store.dispatch(updateUnreadCounts({
+      messages: unreadMessagesCount,
+      transfers: pendingTransfersCount
+    }));
+    return result;
   }
 
   return next(action);

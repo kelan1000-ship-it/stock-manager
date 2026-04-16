@@ -1,33 +1,28 @@
 import React, { useMemo, useEffect } from 'react';
-import { MessageSquare, ArrowRightLeft, Sparkles, WifiOff, RefreshCw, AlertTriangle } from 'lucide-react';
-import { BranchData, BranchKey } from '../types';
-import { SyncStatus } from '../hooks/useStockState';
+import { MessageSquare, ArrowRightLeft, WifiOff, RefreshCw, AlertTriangle } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
+import { BranchKey } from '../types';
+import { StockState, setLastSeenMessages } from './stockSlice';
 
 interface HeaderNotificationBarProps {
-  branchData: BranchData;
   currentBranch: BranchKey;
-  syncStatus?: SyncStatus;
+  syncStatus?: 'connected' | 'reconnecting' | 'offline' | 'error';
+  onOpenChat?: () => void;
 }
 
 export const HeaderNotificationBar: React.FC<HeaderNotificationBarProps> = ({
-  branchData,
-  currentBranch,
-  syncStatus
+  syncStatus,
+  onOpenChat
 }) => {
-  const unreadMessages = useMemo(() => 
-    branchData.messages.filter(m => m.sender !== currentBranch && !m.isRead).length
-  , [branchData.messages, currentBranch]);
+  const dispatch = useDispatch();
+  const unreadCounts = useSelector((state: { stock: StockState }) => state.stock.unreadCounts);
 
-  const pendingTransfers = useMemo(() =>
-    branchData.transfers.filter(t =>
-      !t.resolvedAt &&
-      ((t.targetBranch === currentBranch && t.status === 'pending') ||
-      (t.sourceBranch === currentBranch && t.status === 'confirmed' && t.type === 'request'))
-    ).length
-  , [branchData.transfers, currentBranch]);
+  const handleClearMessages = () => {
+    if (onOpenChat) onOpenChat();
+  };
 
   useEffect(() => {
-    const totalNotifications = unreadMessages + pendingTransfers;
+    const totalNotifications = unreadCounts.messages + unreadCounts.transfers;
 
     if (totalNotifications > 0) {
       document.title = `(${totalNotifications}) Stock Manager`;
@@ -105,14 +100,13 @@ export const HeaderNotificationBar: React.FC<HeaderNotificationBarProps> = ({
           link.rel = 'icon';
           document.head.appendChild(link);
         }
-        // Use empty favicon if no image and no notifications, or just badge
         link.href = canvas.toDataURL('image/png');
       };
     };
 
     updateFavicon();
 
-  }, [unreadMessages, pendingTransfers]);
+  }, [unreadCounts]);
 
   const syncPill = syncStatus && syncStatus !== 'connected' ? (
     <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${
@@ -126,7 +120,7 @@ export const HeaderNotificationBar: React.FC<HeaderNotificationBarProps> = ({
     </div>
   ) : null;
 
-  if (unreadMessages === 0 && pendingTransfers === 0) {
+  if (unreadCounts.messages === 0 && unreadCounts.transfers === 0) {
     return (
       <div className="hidden md:flex items-center gap-2">
         {syncPill}
@@ -142,27 +136,30 @@ export const HeaderNotificationBar: React.FC<HeaderNotificationBarProps> = ({
   return (
     <div className="hidden md:flex items-center gap-3 px-4 py-2 rounded-2xl bg-slate-950 border border-slate-800 shadow-inner">
       {syncPill}
-      {syncPill && (unreadMessages > 0 || pendingTransfers > 0) && (
+      {syncPill && (unreadCounts.messages > 0 || unreadCounts.transfers > 0) && (
         <div className="w-1 h-1 rounded-full bg-slate-700" />
       )}
-      {unreadMessages > 0 && (
-        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2">
+      {unreadCounts.messages > 0 && (
+        <div 
+          onClick={handleClearMessages}
+          className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 cursor-pointer hover:bg-white/5 px-2 py-1 rounded-lg transition-colors"
+        >
           <MessageSquare size={12} className="text-indigo-400" />
           <span className="text-[9px] font-black uppercase text-indigo-400 tracking-widest whitespace-nowrap">
-            {unreadMessages} New Message{unreadMessages !== 1 ? 's' : ''}
+            {unreadCounts.messages} New Message{unreadCounts.messages !== 1 ? 's' : ''}
           </span>
         </div>
       )}
       
-      {unreadMessages > 0 && pendingTransfers > 0 && (
+      {unreadCounts.messages > 0 && unreadCounts.transfers > 0 && (
         <div className="w-1 h-1 rounded-full bg-slate-700" />
       )}
 
-      {pendingTransfers > 0 && (
+      {unreadCounts.transfers > 0 && (
         <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2">
           <ArrowRightLeft size={12} className="text-amber-500" />
           <span className="text-[9px] font-black uppercase text-amber-500 tracking-widest whitespace-nowrap">
-            {pendingTransfers} Pending Transfer{pendingTransfers !== 1 ? 's' : ''}
+            {unreadCounts.transfers} Pending Transfer{unreadCounts.transfers !== 1 ? 's' : ''}
           </span>
         </div>
       )}
