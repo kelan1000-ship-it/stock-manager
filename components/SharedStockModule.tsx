@@ -1185,36 +1185,57 @@ export const SharedStockModule: React.FC<SharedStockModuleProps> = ({
           }
           onSendToOrder={activeTab === 'restock' ? () => {
             const selectedRestockItems = restockItems.filter(o => selectedIds.has(o.id));
+            const skippedItems: string[] = [];
             selectedRestockItems.forEach(order => {
-              const draft = restockDrafts[order.id] || { bywood: order.allocationBywood || 0, broom: order.allocationBroom || 0 };
+              const draft = restockDrafts[order.id] || {
+                bywood: Number(order.allocationBywood) || 0,
+                broom: Number(order.allocationBroom) || 0
+              };
               const total = draft.bywood + draft.broom;
               if (total > 0) {
                 logic.moveRestockToOrdered(order.id, draft.bywood, draft.broom);
+              } else {
+                skippedItems.push(order.name);
               }
             });
-            // Update restockDrafts to remove the processed ones
             setRestockDrafts(prev => {
               const next = { ...prev };
-              selectedRestockItems.forEach(o => delete next[o.id]);
+              selectedRestockItems.forEach(o => {
+                const draft = restockDrafts[o.id] || { bywood: Number(o.allocationBywood) || 0, broom: Number(o.allocationBroom) || 0 };
+                if (draft.bywood + draft.broom > 0) delete next[o.id];
+              });
               return next;
             });
+            if (skippedItems.length > 0) {
+              alert(
+                `${skippedItems.length} item${skippedItems.length > 1 ? 's were' : ' was'} skipped because no allocation quantities were set:\n\n` +
+                skippedItems.map(n => `• ${n}`).join('\n') +
+                '\n\nPlease enter Bywood / Broom quantities in the table first.'
+              );
+            }
             clearSelection();
           } : undefined}
           onDistribute={activeTab === 'orders' ? () => {
             const selectedActiveOrders = activeJointOrders.filter(o => selectedIds.has(o.id));
-            let invalidAllocations = false;
+            const failedItems: string[] = [];
             selectedActiveOrders.forEach(order => {
-              const draft = allocationDrafts[order.id] || { bywood: order.allocationBywood || 0, broom: order.allocationBroom || 0 };
-              const allocated = draft.bywood + draft.broom;
-              if (allocated === order.totalQuantity) {
-                logic.distributeJointOrder(order.id, draft.bywood, draft.broom);
+              const draft = allocationDrafts[order.id] || {
+                bywood: Number(order.allocationBywood) || 0,
+                broom: Number(order.allocationBroom) || 0
+              };
+              const allocated = Number(draft.bywood) + Number(draft.broom);
+              const target = Number(order.totalQuantity);
+              if (allocated === target) {
+                logic.distributeJointOrder(order.id, Number(draft.bywood), Number(draft.broom));
               } else {
-                invalidAllocations = true;
+                failedItems.push(`${order.name} (allocated ${allocated}, needs ${target})`);
               }
             });
-            
-            if (invalidAllocations) {
-              alert("Some items could not be distributed because their allocated total did not match the order target.");
+            if (failedItems.length > 0) {
+              alert(
+                `${failedItems.length} item${failedItems.length > 1 ? 's' : ''} could not be distributed — allocation total doesn't match order quantity:\n\n` +
+                failedItems.map(n => `• ${n}`).join('\n')
+              );
             }
             clearSelection();
           } : undefined}
