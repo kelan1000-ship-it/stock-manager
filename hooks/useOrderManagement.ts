@@ -329,6 +329,87 @@ export function useOrderManagement(
     });
   }, [setBranchData]);
 
+  // Bulk version: processes all items in one setBranchData call to avoid stale-closure
+  // overwrites that occur when the single version is called in a loop.
+  const bulkMoveRestockToOrdered = useCallback(
+    (items: Array<{ orderId: string; bywoodQty: number; broomQty: number }>) => {
+      setBranchData(prev => ({
+        ...prev,
+        jointOrders: prev.jointOrders.map(o => {
+          const item = items.find(i => i.orderId === o.id);
+          if (!item) return o;
+          return {
+            ...o,
+            status: 'pending_allocation' as const,
+            allocationBywood: item.bywoodQty,
+            allocationBroom: item.broomQty,
+            totalQuantity: item.bywoodQty + item.broomQty,
+          };
+        }),
+      }));
+    },
+    [setBranchData]
+  );
+
+  const bulkDistributeJointOrders = useCallback(
+    (items: Array<{ orderId: string; qtyBywood: number; qtyBroom: number }>) => {
+      setBranchData(prev => {
+        const now = new Date().toISOString();
+        let jointOrders = [...prev.jointOrders];
+        const newBywoodOrders = [...prev.bywoodOrders];
+        const newBroomOrders = [...prev.broomOrders];
+
+        items.forEach(({ orderId, qtyBywood, qtyBroom }) => {
+          const jointOrder = jointOrders.find(o => o.id === orderId);
+          if (!jointOrder) return;
+
+          jointOrders = jointOrders.map(o =>
+            o.id === orderId
+              ? { ...o, status: 'distributed' as const, allocationBywood: qtyBywood, allocationBroom: qtyBroom }
+              : o
+          );
+
+          if (qtyBywood > 0) {
+            newBywoodOrders.push({
+              id: `ord_dist_by_${Date.now()}_${orderId}`,
+              productId: jointOrder.productId,
+              name: jointOrder.name,
+              barcode: jointOrder.barcode,
+              packSize: jointOrder.packSize,
+              supplier: 'Joint Dist.',
+              quantity: qtyBywood,
+              status: 'ordered',
+              timestamp: now,
+            });
+          }
+
+          if (qtyBroom > 0) {
+            const broomProduct: Product | undefined = findMatchByKey(prev.broom as Product[], jointOrder) as Product | undefined;
+            newBroomOrders.push({
+              id: `ord_dist_br_${Date.now()}_${orderId}`,
+              productId: broomProduct ? broomProduct.id : jointOrder.productId,
+              name: jointOrder.name,
+              barcode: jointOrder.barcode,
+              packSize: jointOrder.packSize,
+              supplier: 'Joint Dist.',
+              quantity: qtyBroom,
+              status: 'ordered',
+              timestamp: now,
+            });
+          }
+        });
+
+        return {
+          ...prev,
+          jointOrders: jointOrders as JointOrder[],
+          bywoodOrders: newBywoodOrders,
+          broomOrders: newBroomOrders,
+        };
+      });
+    },
+    [setBranchData]
+  );
+
   return {
     removeOrder,
     markAsBackorder,
@@ -343,6 +424,8 @@ export function useOrderManagement(
     sendToRestock,
     sendToRestockWithQuantity,
     moveRestockToOrdered,
-    dismissRestock
+    dismissRestock,
+    bulkMoveRestockToOrdered,
+    bulkDistributeJointOrders,
   };
 }

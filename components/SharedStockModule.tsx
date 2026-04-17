@@ -1185,6 +1185,7 @@ export const SharedStockModule: React.FC<SharedStockModuleProps> = ({
           }
           onSendToOrder={activeTab === 'restock' ? () => {
             const selectedRestockItems = restockItems.filter(o => selectedIds.has(o.id));
+            const toMove: Array<{ orderId: string; bywoodQty: number; broomQty: number }> = [];
             const skippedItems: string[] = [];
             selectedRestockItems.forEach(order => {
               const draft = restockDrafts[order.id] || {
@@ -1193,17 +1194,17 @@ export const SharedStockModule: React.FC<SharedStockModuleProps> = ({
               };
               const total = draft.bywood + draft.broom;
               if (total > 0) {
-                logic.moveRestockToOrdered(order.id, draft.bywood, draft.broom);
+                toMove.push({ orderId: order.id, bywoodQty: draft.bywood, broomQty: draft.broom });
               } else {
                 skippedItems.push(order.name);
               }
             });
+            if (toMove.length > 0) {
+              logic.bulkMoveRestockToOrdered(toMove);
+            }
             setRestockDrafts(prev => {
               const next = { ...prev };
-              selectedRestockItems.forEach(o => {
-                const draft = restockDrafts[o.id] || { bywood: Number(o.allocationBywood) || 0, broom: Number(o.allocationBroom) || 0 };
-                if (draft.bywood + draft.broom > 0) delete next[o.id];
-              });
+              toMove.forEach(({ orderId }) => delete next[orderId]);
               return next;
             });
             if (skippedItems.length > 0) {
@@ -1217,6 +1218,7 @@ export const SharedStockModule: React.FC<SharedStockModuleProps> = ({
           } : undefined}
           onDistribute={activeTab === 'orders' ? () => {
             const selectedActiveOrders = activeJointOrders.filter(o => selectedIds.has(o.id));
+            const toDistribute: Array<{ orderId: string; qtyBywood: number; qtyBroom: number }> = [];
             const failedItems: string[] = [];
             selectedActiveOrders.forEach(order => {
               const draft = allocationDrafts[order.id] || {
@@ -1226,11 +1228,14 @@ export const SharedStockModule: React.FC<SharedStockModuleProps> = ({
               const allocated = Number(draft.bywood) + Number(draft.broom);
               const target = Number(order.totalQuantity);
               if (allocated === target) {
-                logic.distributeJointOrder(order.id, Number(draft.bywood), Number(draft.broom));
+                toDistribute.push({ orderId: order.id, qtyBywood: Number(draft.bywood), qtyBroom: Number(draft.broom) });
               } else {
                 failedItems.push(`${order.name} (allocated ${allocated}, needs ${target})`);
               }
             });
+            if (toDistribute.length > 0) {
+              logic.bulkDistributeJointOrders(toDistribute);
+            }
             if (failedItems.length > 0) {
               alert(
                 `${failedItems.length} item${failedItems.length > 1 ? 's' : ''} could not be distributed — allocation total doesn't match order quantity:\n\n` +

@@ -210,7 +210,9 @@ export function useStockLogic() {
     sendToRestock,
     sendToRestockWithQuantity,
     moveRestockToOrdered,
-    dismissRestock
+    dismissRestock,
+    bulkMoveRestockToOrdered,
+    bulkDistributeJointOrders,
   } = useOrderManagement(
     currentBranch,
     setBranchData
@@ -769,6 +771,8 @@ export function useStockLogic() {
     sendToRestockWithQuantity,
     moveRestockToOrdered,
     dismissRestock,
+    bulkMoveRestockToOrdered,
+    bulkDistributeJointOrders,
 
     // Suppliers
     addSupplier,
