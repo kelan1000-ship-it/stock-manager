@@ -52,6 +52,10 @@ export function useStockLogic() {
 
     // Duplicates
     pendingDuplicate, setPendingDuplicate,
+
+    // Status filter
+    selectedStatuses, setSelectedStatuses,
+    statusFilterMode, setStatusFilterMode,
   } = state;
 
   const {
@@ -777,7 +781,18 @@ export function useStockLogic() {
     uniqueSuppliers,
     uniquePackSizes,
     uniqueParentGroups,
-    recentlyAddedCount
+    recentlyAddedCount,
+
+    // Status filter actions
+    toggleStatusFilter: useCallback((status: string) => {
+      setSelectedStatuses((prev: string[]) =>
+        prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+      );
+    }, [setSelectedStatuses]),
+    clearStatusFilters: useCallback(() => setSelectedStatuses([]), [setSelectedStatuses]),
+    toggleStatusFilterMode: useCallback(() => {
+      setStatusFilterMode((prev: 'show' | 'hide') => prev === 'show' ? 'hide' : 'show');
+    }, [setStatusFilterMode]),
   };
 }
 

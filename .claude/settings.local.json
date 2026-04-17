@@ -9,7 +9,9 @@
       "Bash(xargs -I {} bash -c \"echo '=== {} ===' && head -20 {}\")",
       "Bash(grep -rn \"branchData={branchData}\" components/ModalManager.tsx components/MainViewRouter.tsx)",
       "Bash(grep -rn \"items={branchData\" components/)",
-      "Bash(grep -rn \"<PerformanceView\" components/)"
+      "Bash(grep -rn \"<PerformanceView\" components/)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx|js\\)$\")",
+      "Bash(find /c/Users/kelan/Desktop/greenchem-pharmacy-stock-manager/components -name \"*.tsx\" -exec grep -l \"BranchData\" {} \\\\;)"
     ]
   }
 }
