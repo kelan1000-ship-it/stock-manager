@@ -1,21 +1,23 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { BranchData, BranchKey, Product, CustomerRequest } from '../types';
+import { BranchData, BranchKey, Product, ProductFormData, RequestFormData } from '../types';
 import { StockState, setBranchData as setReduxBranchData, setCurrentBranch as setCurrentBranchAction } from '../components/stockSlice';
 import { useAuth } from '../contexts/AuthContext';
 
-export const initialFormData: Partial<Product> = {
+export const initialFormData: ProductFormData = {
   name: '',
   subheader: '',
   barcode: '',
   productCode: '',
   packSize: '',
-  price: 0,
-  costPrice: 0,
-  stockToKeep: 0,
-  looseStockToKeep: 0,
-  stockInHand: 0,
-  partPacks: 0,
+  price: '',
+  costPrice: '',
+  stockToKeep: '',
+  looseStockToKeep: '',
+  stockInHand: '',
+  partPacks: '',
+  looseUnitPrice: '',
+  parentGroup: '',
   location: '',
   supplier: '',
   productImage: '',
@@ -37,12 +39,19 @@ export const initialFormData: Partial<Product> = {
   skipStockCheck: false,
 };
 
-export const initialRequestFormData: Partial<CustomerRequest> = {
+export const initialRequestFormData: RequestFormData = {
   customerName: '',
-  productName: '',
-  contactDetails: '',
+  itemName: '',
+  contactNumber: '',
+  barcode: '',
+  productCode: '',
+  supplier: '',
+  quantity: 1,
+  priceToPay: 0,
+  isPaid: false,
+  urgency: 'low',
+  status: 'pending',
   notes: '',
-  status: 'pending'
 };
 
 export function useStockState() {
@@ -74,15 +83,17 @@ export function useStockState() {
 
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Partial<Product>>(initialFormData);
+  const [formData, setFormData] = useState<ProductFormData>(initialFormData);
   const [copyToBothBranches, setCopyToBothBranches] = useState(false);
 
   const [isAddingRequest, setIsAddingRequest] = useState(false);
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
-  const [requestFormData, setRequestFormData] = useState<Partial<CustomerRequest>>(initialRequestFormData);
+  const [requestFormData, setRequestFormData] = useState<RequestFormData>(initialRequestFormData);
 
   const [bulkItems, setBulkItems] = useState<Partial<Product>[]>([]);
   const [bulkScanningRowId, setBulkScanningRowId] = useState<number | null>(null);
+  const [isBulkCameraOpen, setIsBulkCameraOpen] = useState(false);
+  const [pendingDuplicate, setPendingDuplicate] = useState<Partial<Product> | null>(null);
 
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [statusFilterMode, setStatusFilterMode] = useState<'show' | 'hide'>('show');
@@ -159,6 +170,7 @@ export function useStockState() {
     // Bulk
     bulkItems, setBulkItems,
     bulkScanningRowId, setBulkScanningRowId,
+    isBulkCameraOpen, setIsBulkCameraOpen,
 
     // Status Filters
     selectedStatuses, setSelectedStatuses,
@@ -166,6 +178,7 @@ export function useStockState() {
 
     // Duplicates
     isDuplicatesModalOpen, setIsDuplicatesModalOpen,
+    pendingDuplicate, setPendingDuplicate,
 
   syncStatus: stock.status === 'connected' ? 'connected' : 
                 stock.status === 'loading' ? 'reconnecting' :
