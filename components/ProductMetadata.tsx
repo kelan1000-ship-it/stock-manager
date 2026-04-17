@@ -124,7 +124,7 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
             type="text" 
             list="supplier-list" 
             value={formData.supplier} 
-            onChange={e => setFormData({...formData, supplier: e.target.value})} 
+            onChange={e => setFormData(prev => ({...prev, supplier: e.target.value}))}
             className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-[10px] font-bold text-white focus:border-emerald-500 transition-all outline-none uppercase" 
             placeholder="Supplier" 
           />
@@ -136,7 +136,7 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
             type="text" 
             list="location-list" 
             value={formData.location} 
-            onChange={e => setFormData({...formData, location: toTitleCase(e.target.value)})} 
+            onChange={e => setFormData(prev => ({...prev, location: toTitleCase(e.target.value)}))}
             className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-[10px] font-black text-white focus:border-emerald-500 transition-all outline-none text-center" 
             placeholder="Shelf" 
           />
@@ -197,7 +197,7 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
           <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 h-[calc(100%-2.5rem)]">
             <textarea 
                 value={formData.keywords || ''} 
-                onChange={e => setFormData({...formData, keywords: e.target.value})} 
+                onChange={e => setFormData(prev => ({...prev, keywords: e.target.value}))}
                 className="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 text-xs font-bold text-white outline-none focus:border-indigo-500 transition-all placeholder-slate-700 h-full min-h-[120px] resize-none shadow-inner" 
                 placeholder="Enter backend search keywords (e.g. brand, alternate names, ingredients)..." 
             />
@@ -216,15 +216,10 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
                 description="Visible to partner branch"
                 icon={Handshake} 
                 active={formData.isShared} 
-                onClick={() => {
-                    const nextShared = !formData.isShared;
-                    setFormData({
-                        ...formData, 
-                        isShared: nextShared,
-                        // Automatically enable price sync when sharing is turned on
-                        isPriceSynced: nextShared ? true : formData.isPriceSynced
-                    });
-                }} 
+                onClick={() => setFormData(prev => {
+                    const nextShared = !prev.isShared;
+                    return { ...prev, isShared: nextShared, isPriceSynced: nextShared ? true : prev.isPriceSynced };
+                })}
                 colorClass="blue" 
             />
             <ToggleButton 
@@ -232,7 +227,7 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
                 description="Auto-match RRP changes"
                 icon={Link2} 
                 active={formData.isPriceSynced} 
-                onClick={() => setFormData({...formData, isPriceSynced: !formData.isPriceSynced})} 
+                onClick={() => setFormData(prev => ({...prev, isPriceSynced: !prev.isPriceSynced}))}
                 colorClass="indigo" 
             />
             <ToggleButton 
@@ -242,7 +237,7 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
                     : "Notify on low stock"}
                 icon={AlertCircle} 
                 active={formData.enableThresholdAlert} 
-                onClick={() => setFormData({...formData, enableThresholdAlert: !formData.enableThresholdAlert})} 
+                onClick={() => setFormData(prev => ({...prev, enableThresholdAlert: !prev.enableThresholdAlert}))}
                 colorClass="amber" 
             />
             <ToggleButton 
@@ -250,7 +245,7 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
                 description="Stock to be cleared"
                 icon={Ban} 
                 active={formData.isDiscontinued} 
-                onClick={() => setFormData({...formData, isDiscontinued: !formData.isDiscontinued})} 
+                onClick={() => setFormData(prev => ({...prev, isDiscontinued: !prev.isDiscontinued}))}
                 colorClass="rose" 
             />
             <ToggleButton 
@@ -258,7 +253,7 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
                 description="Blocks & flags as excess"
                 icon={Archive} 
                 active={formData.isExcessStock} 
-                onClick={() => setFormData({...formData, isExcessStock: !formData.isExcessStock})} 
+                onClick={() => setFormData(prev => ({...prev, isExcessStock: !prev.isExcessStock}))}
                 colorClass="orange" 
             />
             <ToggleButton 
@@ -266,7 +261,7 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
                 description="Allow 0 inv sales"
                 icon={BrainCircuit} 
                 active={formData.skipStockCheck} 
-                onClick={() => setFormData({...formData, skipStockCheck: !formData.skipStockCheck})} 
+                onClick={() => setFormData(prev => ({...prev, skipStockCheck: !prev.skipStockCheck}))}
                 colorClass="orange" 
             />
           </div>
@@ -277,7 +272,7 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
                 <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1 block">Threshold Type</label>
                 <select
                   value={formData.thresholdType || 'percentage'}
-                  onChange={e => setFormData({...formData, thresholdType: e.target.value as 'percentage' | 'quantity'})}
+                  onChange={e => setFormData(prev => ({...prev, thresholdType: e.target.value as 'percentage' | 'quantity'}))}
                   className="w-full p-2 rounded-lg bg-slate-900 border border-slate-700 text-xs font-bold text-white outline-none focus:border-amber-500 transition-colors"
                 >
                   <option value="percentage">Percentage of Stock to Keep</option>
@@ -291,7 +286,7 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
                     type="number"
                     min="0"
                     value={formData.thresholdValue !== undefined ? formData.thresholdValue : 25}
-                    onChange={e => setFormData({...formData, thresholdValue: parseInt(e.target.value) || 0})}
+                    onChange={e => setFormData(prev => ({...prev, thresholdValue: parseInt(e.target.value) || 0}))}
                     className="w-full p-2 rounded-lg bg-slate-900 border border-slate-700 text-xs font-bold text-white outline-none focus:border-amber-500 transition-colors"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase text-slate-500">
@@ -310,7 +305,7 @@ export const ProductMetadata: React.FC<ProductMetadataProps> = ({
         </div>
         <textarea 
             value={formData.notes || ''} 
-            onChange={e => setFormData({...formData, notes: e.target.value})} 
+            onChange={e => setFormData(prev => ({...prev, notes: e.target.value}))}
             className="w-full p-4 rounded-2xl bg-slate-900 border border-slate-800 text-xs font-bold text-white outline-none focus:border-indigo-500 transition-all placeholder-slate-700 min-h-[80px] resize-y shadow-inner" 
             placeholder="Add internal stock notes..." 
         />

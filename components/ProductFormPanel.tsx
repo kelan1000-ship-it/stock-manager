@@ -13,7 +13,7 @@ import { ProductPhotoCapture } from './ProductImageUploader';
 import { ProductThumbnail } from './ImageComponents';
 import { SafeImage } from './SafeImage';
 import { useProductForm } from '../hooks/useProductForm';
-import { ProductFormData, MasterProduct, Product } from '../types';
+import { ProductFormData, MasterProduct, Product, BranchKey } from '../types';
 import { TagStyle } from '../hooks/useInventoryTags';
 
 interface ProductFormPanelProps {
@@ -58,6 +58,21 @@ export const ProductFormPanel = ({
   const [isAICameraOpen, setIsAICameraOpen] = React.useState(false);
   const masterSearchRef = useRef<HTMLDivElement>(null);
 
+  // Local stockType state gives instant toggle feedback without waiting for the
+  // full parent re-render chain (useStockState → useStockLogic → RetailStockManager).
+  const [localStockType, setLocalStockType] = React.useState<'retail' | 'dispensary'>(
+    (formData.stockType as 'retail' | 'dispensary') ?? 'retail'
+  );
+  // Re-sync when the panel opens for a new/different product
+  useEffect(() => {
+    if (isOpen) setLocalStockType((formData.stockType as 'retail' | 'dispensary') ?? 'retail');
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleStockTypeChange = (type: 'retail' | 'dispensary') => {
+    setLocalStockType(type);
+    setFormData({ ...formData, stockType: type });
+  };
+
   const {
     newTagInput, setNewTagInput, activeSettingsTag, setActiveSettingsTag,
     masterQuery, setMasterQuery, isMasterSearchActive, setIsMasterSearchActive, isSelectingFromMaster,
@@ -93,7 +108,7 @@ export const ProductFormPanel = ({
   if (!isOpen) return null;
 
   const suggestions = masterQuery.length > 2 ? onSuggestMaster(masterQuery) : [];
-  const isRetail = formData.stockType === 'retail';
+  const isRetail = localStockType === 'retail';
   const headerBgClass = isRetail ? 'bg-emerald-700/20' : 'bg-indigo-700/20';
   const tagClass = isRetail ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400' : 'border-indigo-500 bg-indigo-500/20 text-indigo-400';
   const HeaderIcon = isRetail ? ShoppingBag : Pill;
@@ -124,8 +139,8 @@ export const ProductFormPanel = ({
                 {/* Top Controls: Department & Scan */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div className="p-1 rounded-2xl bg-[#111827] border border-slate-800 flex shadow-inner h-full">
-                        <button type="button" onClick={() => setFormData({...formData, stockType: 'retail'})} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isRetail ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}><ShoppingBag size={14} /> Retail</button>
-                        <button type="button" onClick={() => setFormData({...formData, stockType: 'dispensary'})} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!isRetail ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}><Pill size={14} /> Dispensary</button>
+                        <button type="button" onClick={() => handleStockTypeChange('retail')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isRetail ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}><ShoppingBag size={14} /> Retail</button>
+                        <button type="button" onClick={() => handleStockTypeChange('dispensary')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!isRetail ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}><Pill size={14} /> Dispensary</button>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
