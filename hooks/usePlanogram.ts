@@ -16,29 +16,12 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
     setActivePlanogramId(null);
   }, [currentBranch]);
 
-  // Initialize planograms and floor plans if they don't exist
+  // Sync active planogram selection and initialize floor plans if needed
   useEffect(() => {
     // Wait until planograms are loaded from Firestore (they start as undefined)
     if (branchData[branchPlanogramsKey] === undefined) return;
-    
-    let updates: Partial<BranchData> = {};
-    
-    if (currentPlanograms.length === 0) {
-      const defaultLayout: PlanogramLayout = {
-        id: `default-main-shelf-${currentBranch}`,
-        name: 'Main Retail Shelf',
-        branch: currentBranch,
-        cols: 4,
-        rows: 5,
-        location: 'Pharmacy Front',
-        description: 'Standard retail layout for essential medicines.',
-        slots: Array.from({ length: 20 }, (_, i) => ({ id: i, productId: null })),
-        realShelfImage: null,
-        aiVisualisation: null
-      };
-      updates[branchPlanogramsKey] = [defaultLayout] as any;
-      setActivePlanogramId(defaultLayout.id);
-    } else if (!activePlanogramId || !currentPlanograms.some(p => p.id === activePlanogramId)) {
+
+    if (currentPlanograms.length > 0 && (!activePlanogramId || !currentPlanograms.some(p => p.id === activePlanogramId))) {
       setActivePlanogramId(currentPlanograms[0]?.id || null);
     }
 
@@ -49,11 +32,7 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
         branch: currentBranch,
         items: []
       };
-      updates[branchFloorPlansKey] = [defaultFloor] as any;
-    }
-
-    if (Object.keys(updates).length > 0) {
-      setBranchData(prev => ({ ...prev, ...updates }));
+      setBranchData(prev => ({ ...prev, [branchFloorPlansKey]: [defaultFloor] as any }));
     }
   }, [branchData[branchPlanogramsKey], branchData[branchFloorPlansKey], currentBranch, setBranchData, activePlanogramId]);
 

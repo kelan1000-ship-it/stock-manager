@@ -76,7 +76,7 @@ interface PlanogramViewProps {
   const [isAllShelvesOpen, setIsAllShelvesOpen] = useState(false);
   const [aiFeedback, setAiFeedback] = useState<'none' | 'liked' | 'disliked'>('none');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [isLibraryVisible, setIsLibraryVisible] = useState(true);
+  const [isLibraryVisible, setIsLibraryVisible] = useState(false);
   const [isLocked, setIsLocked] = useState(true);
 
   // Hooks
