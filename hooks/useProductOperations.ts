@@ -1,7 +1,65 @@
 
 import React, { useCallback } from 'react';
-import { BranchData, BranchKey, Product, ProductFormData } from '../types';
+import { BranchData, BranchKey, Product, ProductFormData, StockMovement } from '../types';
 import { toTitleCase } from '../utils/stringUtils';
+
+/** Creates a stock-movement history entry. */
+function generateStockHistoryEntry(
+  type: StockMovement['type'],
+  change: number,
+  newBalance: number,
+  note: string,
+  now: string
+): StockMovement {
+  return { date: now, type, change, newBalance, note };
+}
+
+/**
+ * Returns the effective price for a product being saved.
+ * If it is newly joining an existing group it conforms to that group's current price
+ * rather than using the value from the form.
+ */
+function resolveGroupConformedPrice(
+  branchProducts: Product[],
+  editingId: string | null,
+  groupName: string | undefined,
+  requestedPrice: number
+): number {
+  if (!groupName?.trim()) return requestedPrice;
+  const existingItem = branchProducts.find(p => p.id === editingId);
+  if (existingItem?.parentGroup?.trim() === groupName) return requestedPrice; // already a member
+  const otherGroupMember = branchProducts.find(
+    p => p.parentGroup?.trim() === groupName && p.id !== editingId && !p.deletedAt
+  );
+  return otherGroupMember ? otherGroupMember.price : requestedPrice;
+}
+
+/**
+ * Syncs all OTHER group members (not the product being edited) to the saved price.
+ * Returns an updated copy of the products array.
+ */
+function determineGroupUpdates(
+  products: Product[],
+  editingId: string,
+  groupName: string,
+  priceValue: number,
+  now: string
+): Product[] {
+  return products.map(p => {
+    if (p.parentGroup?.trim() !== groupName || p.id === editingId || p.deletedAt) return p;
+    if (Math.abs(p.price - priceValue) < 0.001) return p;
+    return {
+      ...p,
+      price: priceValue,
+      lastUpdated: now,
+      priceHistory: [
+        ...(p.priceHistory || []),
+        { date: now, rrp: priceValue, costPrice: p.costPrice, margin: priceValue > 0 ? ((priceValue - p.costPrice) / priceValue * 100) : 0 }
+      ],
+      ignoredPriceAlertUntil: undefined
+    };
+  });
+}
 
 export function useProductOperations(
   currentBranch: BranchKey,
@@ -30,27 +88,11 @@ export function useProductOperations(
     
     setBranchData(prev => {
       let updated = { ...prev };
-      let priceValue = parseFloat(formData.price) || 0;
       const groupName = formData.parentGroup?.trim();
-      const isJoiningGroup = !!groupName && groupName !== '';
+      const isJoiningGroup = !!groupName;
 
-      // Determine if this is a member joining an existing group
-      // or an existing member updating the whole group.
-      if (isJoiningGroup) {
-        const existingItem = prev[currentBranch].find(p => p.id === editingId);
-        const wasInThisGroup = existingItem?.parentGroup?.trim() === groupName;
-        
-        const otherGroupMember = prev[currentBranch].find(p => 
-          p.parentGroup?.trim() === groupName && 
-          p.id !== editingId && 
-          !p.deletedAt
-        );
-
-        if (!wasInThisGroup && otherGroupMember) {
-          // RULE: Conform to existing group price if newly joining
-          priceValue = otherGroupMember.price;
-        }
-      }
+      // Step 1: Resolve effective price (conforms to group if newly joining one)
+      const priceValue = resolveGroupConformedPrice(prev[currentBranch], editingId, groupName, parseFloat(formData.price) || 0);
 
       // Helper to create product object
       const createProduct = (id: string): Product => ({
@@ -80,7 +122,7 @@ export function useProductOperations(
           margin: priceValue > 0 ? ((priceValue - (parseFloat(formData.costPrice) || 0)) / priceValue * 100) : 0 
         }],
         orderHistory: [],
-        stockHistory: [{ date: now, type: 'manual', change: parseInt(formData.stockInHand) || 0, newBalance: parseInt(formData.stockInHand) || 0, note: 'Initial creation' }],
+        stockHistory: [generateStockHistoryEntry('manual', parseInt(formData.stockInHand) || 0, parseInt(formData.stockInHand) || 0, 'Initial creation', now)],
         lastOrderedDate: null,
         lastUpdated: now,
         createdAt: now,
@@ -123,25 +165,13 @@ export function useProductOperations(
 
             const newStockInHand = parseInt(formData.stockInHand) || 0;
             const newPartPacks = parseInt(formData.partPacks) || 0;
-            let newStockHistory = p.stockHistory || [];
-            
+            const newStockHistory = [...(p.stockHistory || [])];
+
             if (newStockInHand !== p.stockInHand) {
-               newStockHistory = [...newStockHistory, {
-                  date: now,
-                  type: 'manual',
-                  change: newStockInHand - p.stockInHand,
-                  newBalance: newStockInHand,
-                  note: 'Manual stock adjustment (Edit Product)'
-               }];
+              newStockHistory.push(generateStockHistoryEntry('manual', newStockInHand - p.stockInHand, newStockInHand, 'Manual stock adjustment (Edit Product)', now));
             }
             if (newPartPacks !== (p.partPacks || 0)) {
-               newStockHistory = [...newStockHistory, {
-                  date: now,
-                  type: 'manual',
-                  change: newPartPacks - (p.partPacks || 0),
-                  newBalance: newStockInHand,
-                  note: `Manual loose stock adjustment (New Parts: ${newPartPacks})`
-               }];
+              newStockHistory.push(generateStockHistoryEntry('manual', newPartPacks - (p.partPacks || 0), newStockInHand, `Manual loose stock adjustment (New Parts: ${newPartPacks})`, now));
             }
 
             return {
@@ -166,27 +196,9 @@ export function useProductOperations(
           return p;
         });
 
-        // ENFORCE PARENT GROUP PRICE SYNC: Update all others to match the current item's (potentially conformed) price
-        if (isJoiningGroup) {
-           updated[currentBranch] = updated[currentBranch].map(p => {
-              if (p.parentGroup?.trim() === groupName && p.id !== editingId && !p.deletedAt) {
-                 const hasChanged = Math.abs(p.price - priceValue) > 0.001;
-                 if (!hasChanged) return p;
-
-                 const groupHistory = [
-                    ...(p.priceHistory || []),
-                    {
-                        date: now,
-                        rrp: priceValue,
-                        costPrice: p.costPrice,
-                        margin: priceValue > 0 ? ((priceValue - p.costPrice) / priceValue * 100) : 0
-                    }
-                 ];
-
-                 return { ...p, price: priceValue, lastUpdated: now, priceHistory: groupHistory, ignoredPriceAlertUntil: undefined };
-              }
-              return p;
-           });
+        // Step 2: Sync all other group members to the effective price
+        if (isJoiningGroup && editingId && groupName) {
+          updated[currentBranch] = determineGroupUpdates(updated[currentBranch], editingId, groupName, priceValue, now);
         }
 
         // Propagate Shared Stock & Price Sync to Partner Branch
@@ -249,27 +261,15 @@ export function useProductOperations(
       [currentBranch]: prev[currentBranch].map(p => {
         if (p.id !== id) return p;
 
-        let newStockHistory = p.stockHistory || [];
+        const newStockHistory = [...(p.stockHistory || [])];
         const now = new Date().toISOString();
 
         if (updates.stockInHand !== undefined && updates.stockInHand !== p.stockInHand) {
-           newStockHistory = [...newStockHistory, {
-              date: now,
-              type: 'manual',
-              change: updates.stockInHand - p.stockInHand,
-              newBalance: updates.stockInHand,
-              note: 'Manual stock adjustment'
-           }];
+          newStockHistory.push(generateStockHistoryEntry('manual', updates.stockInHand - p.stockInHand, updates.stockInHand, 'Manual stock adjustment', now));
         }
 
         if (updates.partPacks !== undefined && updates.partPacks !== (p.partPacks || 0)) {
-           newStockHistory = [...newStockHistory, {
-              date: now,
-              type: 'manual',
-              change: updates.partPacks - (p.partPacks || 0),
-              newBalance: updates.stockInHand !== undefined ? updates.stockInHand : p.stockInHand,
-              note: `Manual loose stock adjustment (New Parts: ${updates.partPacks})`
-           }];
+          newStockHistory.push(generateStockHistoryEntry('manual', updates.partPacks - (p.partPacks || 0), updates.stockInHand !== undefined ? updates.stockInHand : p.stockInHand, `Manual loose stock adjustment (New Parts: ${updates.partPacks})`, now));
         }
 
         return { 

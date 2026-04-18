@@ -14,6 +14,33 @@ import { usePlanogram, PlanogramReturn } from './usePlanogram';
 import { saveSupplier, deleteSupplierFromDb } from '../services/firestoreService';
 import { Supplier } from '../types';
 
+type Adjustment = { type: 'percent' | 'fixed'; value: number };
+
+/**
+ * Pure helper: applies a fixed or percent numeric adjustment to a single price field on each
+ * selected product. Accepts an optional `onChanged` callback that returns extra fields to
+ * merge in when the value actually changes (e.g. priceHistory, labelNeedsUpdate).
+ */
+function applyBulkAdjustment(
+  items: Product[],
+  ids: Set<string>,
+  field: 'price' | 'costPrice',
+  adjustment: Adjustment,
+  now: string,
+  onChanged?: (p: Product, newValue: number) => Partial<Product>
+): Product[] {
+  return items.map(p => {
+    if (!ids.has(p.id)) return p;
+    const current = Number(p[field]) || 0;
+    const next = Math.max(
+      0,
+      adjustment.type === 'fixed' ? adjustment.value : current + current * (adjustment.value / 100)
+    );
+    if (Math.abs(current - next) < 0.001) return p;
+    return { ...p, [field]: next, lastUpdated: now, ...(onChanged ? onChanged(p, next) : {}) } as Product;
+  });
+}
+
 export function useStockLogic() {
   const state = useStockState();
   const {
@@ -219,109 +246,57 @@ export function useStockLogic() {
   );
 
   // Bulk Operations (Selection based)
-  const bulkAdjustPrices = useCallback((ids: Set<string>, adjustment: { type: 'percent' | 'fixed', value: number }) => {
+  const bulkAdjustPrices = useCallback((ids: Set<string>, adjustment: Adjustment) => {
     const now = new Date().toISOString();
     setBranchData(prev => {
       const otherBranch = currentBranch === 'bywood' ? 'broom' : 'bywood';
 
-      // 1. Update Local
-      const updatedLocal = prev[currentBranch].map(p => {
-        if (!ids.has(p.id)) return p;
-        
-        // Ensure price is treated as a number to prevent string concatenation bugs
-        const currentPrice = typeof p.price === 'string' ? parseFloat(p.price) : p.price;
-        let newPrice = currentPrice;
-        
-        if (adjustment.type === 'fixed') {
-            newPrice = adjustment.value;
-        } else {
-            // Percent adjustment
-            newPrice += currentPrice * (adjustment.value / 100);
-        }
-        
-        newPrice = Math.max(0, newPrice);
-
-        // Check if price actually changed
-        if (Math.abs(currentPrice - newPrice) < 0.001) return p;
-
-        const newHistory = [
+      // 1. Update local branch (with price history attached via onChanged callback)
+      const updatedLocal = applyBulkAdjustment(prev[currentBranch], ids, 'price', adjustment, now,
+        (p, newPrice) => ({
+          priceHistory: [
             ...(p.priceHistory || []),
-            {
-                date: now,
-                rrp: newPrice,
-                costPrice: p.costPrice,
-                margin: newPrice > 0 ? ((newPrice - p.costPrice) / newPrice * 100) : 0
-            }
-        ];
+            { date: now, rrp: newPrice, costPrice: p.costPrice, margin: newPrice > 0 ? ((newPrice - p.costPrice) / newPrice * 100) : 0 }
+          ],
+          ignoredPriceAlertUntil: undefined,
+          labelNeedsUpdate: true,
+        })
+      );
 
-        return {
-            ...p,
-            price: newPrice,
-            lastUpdated: now,
-            priceHistory: newHistory,
-            ignoredPriceAlertUntil: undefined,
-            labelNeedsUpdate: true
+      // 2. Propagate to partner branch for synced items
+      let updatedPartner = [...prev[otherBranch]];
+      const syncedItems = updatedLocal.filter(p => ids.has(p.id) && p.isPriceSynced && p.barcode);
+
+      syncedItems.forEach(localItem => {
+        const partnerIndex = updatedPartner.findIndex(op => op.barcode === localItem.barcode && !op.deletedAt);
+        if (partnerIndex === -1) return;
+        const partnerItem = updatedPartner[partnerIndex];
+        const partnerCurrentPrice = typeof partnerItem.price === 'string' ? parseFloat(partnerItem.price) : partnerItem.price;
+        const newPrice = localItem.price;
+        if (Math.abs(partnerCurrentPrice - newPrice) <= 0.001) return;
+        updatedPartner[partnerIndex] = {
+          ...partnerItem,
+          price: newPrice,
+          pendingPriceUpdate: true,
+          priceChangeOrigin: currentBranch,
+          ignoredPriceAlertUntil: undefined,
+          lastUpdated: now,
+          priceHistory: [
+            ...(partnerItem.priceHistory || []),
+            { date: now, rrp: newPrice, costPrice: partnerItem.costPrice, margin: newPrice > 0 ? ((newPrice - partnerItem.costPrice) / newPrice * 100) : 0 }
+          ]
         };
       });
 
-      // 2. Propagate to Partner
-      let updatedPartner = [...prev[otherBranch]];
-      const syncedItems = updatedLocal.filter(p => ids.has(p.id) && p.isPriceSynced && p.barcode);
-      
-      syncedItems.forEach(localItem => {
-          const partnerIndex = updatedPartner.findIndex(op => op.barcode === localItem.barcode && !op.deletedAt);
-          if (partnerIndex !== -1) {
-              const partnerItem = updatedPartner[partnerIndex];
-              const partnerCurrentPrice = typeof partnerItem.price === 'string' ? parseFloat(partnerItem.price) : partnerItem.price;
-              const newPrice = localItem.price;
-               
-              if (Math.abs(partnerCurrentPrice - newPrice) > 0.001) {
-                  updatedPartner[partnerIndex] = {
-                      ...partnerItem,
-                      price: newPrice,
-                      pendingPriceUpdate: true,
-                      priceChangeOrigin: currentBranch,
-                      ignoredPriceAlertUntil: undefined,
-                      lastUpdated: now,
-                      priceHistory: [
-                          ...(partnerItem.priceHistory || []),
-                          {
-                              date: now,
-                              rrp: newPrice,
-                              costPrice: partnerItem.costPrice,
-                              margin: newPrice > 0 ? ((newPrice - partnerItem.costPrice) / newPrice * 100) : 0
-                          }
-                      ]
-                  };
-              }
-          }
-      });
-
-      return {
-          ...prev,
-          [currentBranch]: updatedLocal,
-          [otherBranch]: updatedPartner
-      };
+      return { ...prev, [currentBranch]: updatedLocal, [otherBranch]: updatedPartner };
     });
   }, [currentBranch, setBranchData]);
 
-  const bulkAdjustCostPrices = useCallback((ids: Set<string>, adjustment: { type: 'percent' | 'fixed', value: number }) => {
+  const bulkAdjustCostPrices = useCallback((ids: Set<string>, adjustment: Adjustment) => {
     const now = new Date().toISOString();
     setBranchData(prev => ({
       ...prev,
-      [currentBranch]: prev[currentBranch].map(p => {
-        if (!ids.has(p.id)) return p;
-        const currentCost = typeof p.costPrice === 'string' ? parseFloat(p.costPrice) : (p.costPrice || 0);
-        let newCost = currentCost;
-        if (adjustment.type === 'fixed') {
-          newCost = adjustment.value;
-        } else {
-          newCost += currentCost * (adjustment.value / 100);
-        }
-        newCost = Math.max(0, newCost);
-        if (Math.abs(currentCost - newCost) < 0.001) return p;
-        return { ...p, costPrice: newCost, lastUpdated: now };
-      })
+      [currentBranch]: applyBulkAdjustment(prev[currentBranch], ids, 'costPrice', adjustment, now)
     }));
   }, [currentBranch, setBranchData]);
 
@@ -424,60 +399,52 @@ export function useStockLogic() {
             if (!localItem.barcode) return;
 
             const partnerIndex = updatedPartner.findIndex(op => op.barcode === localItem.barcode && !op.deletedAt);
-            if (partnerIndex !== -1) {
-                const partnerItem = updatedPartner[partnerIndex];
-                let partnerUpdates: Partial<typeof partnerItem> = { lastUpdated: now };
-                let hasChanges = false;
+            if (partnerIndex === -1) return;
 
-                // Sync 'isShared'
-                if (updates.isShared !== 'keep') {
-                    const newShared = updates.isShared === 'on';
-                    if (partnerItem.isShared !== newShared) {
-                        partnerUpdates.isShared = newShared;
-                        hasChanges = true;
-                    }
-                }
+            const partnerItem = updatedPartner[partnerIndex];
+            let partnerUpdates: Partial<typeof partnerItem> = { lastUpdated: now };
+            let hasChanges = false;
 
-                // Sync 'isPriceSynced' logic (mirroring local logic)
-                let newPriceSynced = partnerItem.isPriceSynced;
-                if (updates.isShared === 'on' && updates.isPriceSynced === 'keep') {
-                     newPriceSynced = true;
-                }
-                if (updates.isPriceSynced !== 'keep') {
-                    newPriceSynced = updates.isPriceSynced === 'on';
-                }
-                
-                if (partnerItem.isPriceSynced !== newPriceSynced) {
-                    partnerUpdates.isPriceSynced = newPriceSynced;
+            // Sync 'isShared'
+            if (updates.isShared !== 'keep') {
+                const newShared = updates.isShared === 'on';
+                if (partnerItem.isShared !== newShared) {
+                    partnerUpdates.isShared = newShared;
                     hasChanges = true;
                 }
+            }
 
-                // If Price Sync is active, synchronize prices if different
-                if (partnerUpdates.isPriceSynced ?? partnerItem.isPriceSynced) {
-                     const localPrice = localItem.price;
-                     const partnerPrice = partnerItem.price;
+            // Sync 'isPriceSynced' (mirrors local logic)
+            let newPriceSynced = partnerItem.isPriceSynced;
+            if (updates.isShared === 'on' && updates.isPriceSynced === 'keep') newPriceSynced = true;
+            if (updates.isPriceSynced !== 'keep') newPriceSynced = updates.isPriceSynced === 'on';
 
-                     if (Math.abs(localPrice - partnerPrice) > 0.001) {
-                         partnerUpdates.price = localPrice;
-                         partnerUpdates.pendingPriceUpdate = true;
-                         partnerUpdates.priceChangeOrigin = currentBranch;
-                         partnerUpdates.ignoredPriceAlertUntil = undefined;
-                         partnerUpdates.priceHistory = [
-                              ...(partnerItem.priceHistory || []),
-                              {
-                                  date: now,
-                                  rrp: localPrice,
-                                  costPrice: partnerItem.costPrice,
-                                  margin: localPrice > 0 ? ((localPrice - partnerItem.costPrice) / localPrice * 100) : 0
-                              }
-                         ];
-                         hasChanges = true;
-                     }
-                }
+            if (partnerItem.isPriceSynced !== newPriceSynced) {
+                partnerUpdates.isPriceSynced = newPriceSynced;
+                hasChanges = true;
+            }
 
-                if (hasChanges) {
-                    updatedPartner[partnerIndex] = { ...partnerItem, ...partnerUpdates };
-                }
+            // Sync prices if price sync is active and values diverge
+            const effectivePriceSynced = partnerUpdates.isPriceSynced ?? partnerItem.isPriceSynced;
+            if (effectivePriceSynced && Math.abs(localItem.price - partnerItem.price) > 0.001) {
+                partnerUpdates.price = localItem.price;
+                partnerUpdates.pendingPriceUpdate = true;
+                partnerUpdates.priceChangeOrigin = currentBranch;
+                partnerUpdates.ignoredPriceAlertUntil = undefined;
+                partnerUpdates.priceHistory = [
+                    ...(partnerItem.priceHistory || []),
+                    {
+                        date: now,
+                        rrp: localItem.price,
+                        costPrice: partnerItem.costPrice,
+                        margin: localItem.price > 0 ? ((localItem.price - partnerItem.costPrice) / localItem.price * 100) : 0
+                    }
+                ];
+                hasChanges = true;
+            }
+
+            if (hasChanges) {
+                updatedPartner[partnerIndex] = { ...partnerItem, ...partnerUpdates };
             }
         });
 
