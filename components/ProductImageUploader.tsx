@@ -317,12 +317,18 @@ const ProductImageUploader: React.FC<ProductImageUploaderProps> = ({
 
   const uploadImage = async (base64OrUrl: string) => {
     setIsUploading(true);
-    setStatusMessage('Pushing to Corporate Drive...');
+    setStatusMessage('Pushing to Cloud Storage...');
     setStatusType(null);
     
     try {
-      const { uploadToGoogleDrive } = await import('../services/googleDriveService');
-      const finalUrl = await uploadToGoogleDrive(base64OrUrl, productName);
+      const { uploadProductImage } = await import('../services/storageService');
+      
+      // Convert data URL or remote URL to Blob for Firebase Storage
+      const response = await fetch(base64OrUrl);
+      const blob = await response.blob();
+      
+      const safeProductId = (productId && productId !== 'new_mode' && productId !== 'edit_mode') ? productId : 'temp';
+      const finalUrl = await uploadProductImage(blob, safeProductId);
 
       // Safe update: Only update master DB if we have a real product ID (not creating new or editing pending)
       if (productId && productId !== 'new_mode' && productId !== 'edit_mode') {

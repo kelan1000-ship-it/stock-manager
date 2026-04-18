@@ -150,10 +150,30 @@ export const deleteImage = async (path: string): Promise<void> => {
   }
 };
 
+/**
+ * Uploads a product image with a standardized path structure.
+ * 
+ * @param file The blob of the image to upload
+ * @param productId The ID of the product
+ * @returns The permanent download URL
+ */
+export const uploadProductImage = async (file: Blob, productId: string): Promise<string> => {
+  try {
+    const path = `products/${productId}/${Date.now()}.jpg`;
+    const storageRef = ref(storage, path);
+    const snapshot = await uploadBytes(storageRef, file);
+    return await getDownloadURL(snapshot.ref);
+  } catch (error) {
+    console.error(`[StorageService] Upload product image failed for ${productId}`, error);
+    throw new StorageUploadError(`Failed to upload product image to Firebase Storage`, error);
+  }
+};
+
 export const storageService = {
   uploadImage,
   uploadFileResumable,
   getImageUrl,
   listImages,
-  deleteImage
+  deleteImage,
+  uploadProductImage
 };

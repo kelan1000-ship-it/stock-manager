@@ -15,12 +15,22 @@ import { Loader2 } from 'lucide-react';
 import Logo from './Logo';
 import { GlobalTooltip } from './components/GlobalTooltip';
 import { subscribeToStockManagerConfig } from './services/firestoreService';
+import { runMigration } from './scripts/migrateToFirebase';
 
 /**
  * Inner component that reads auth state from context.
  */
 const AppContent: React.FC = () => {
   const { firebaseUser, appUser, loading, error, signOut } = useAuth();
+
+  useEffect(() => {
+    // Expose migration script to browser console for administrative use
+    (window as any).runMigration = runMigration;
+    
+    return () => {
+      delete (window as any).runMigration;
+    };
+  }, []);
 
   useEffect(() => {
     return subscribeToStockManagerConfig((config) => {
