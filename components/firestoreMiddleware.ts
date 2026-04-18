@@ -23,6 +23,7 @@ import {
   saveTask,
   deleteTaskFromDb,
   savePlanogram,
+  deletePlanogramFromDb,
   saveFloorPlan,
   saveJointOrder,
   saveSharedOrderDraft,
@@ -258,8 +259,8 @@ export const firestoreMiddleware: Middleware = store => next => action => {
     if (p.tasks) syncArray<BranchTask>(p.tasks, prev.tasks, t => saveTask(t), id => deleteTaskFromDb(id), dispatchError);
 
     // Planograms
-    if (p.bywoodPlanograms) syncArray<PlanogramLayout>(p.bywoodPlanograms, prev.bywoodPlanograms, pl => savePlanogram('bywood', pl), undefined, dispatchError);
-    if (p.broomPlanograms) syncArray<PlanogramLayout>(p.broomPlanograms, prev.broomPlanograms, pl => savePlanogram('broom', pl), undefined, dispatchError);
+    if (p.bywoodPlanograms) syncArray<PlanogramLayout>(p.bywoodPlanograms, prev.bywoodPlanograms, pl => savePlanogram('bywood', pl), id => deletePlanogramFromDb('bywood', id), dispatchError);
+    if (p.broomPlanograms) syncArray<PlanogramLayout>(p.broomPlanograms, prev.broomPlanograms, pl => savePlanogram('broom', pl), id => deletePlanogramFromDb('broom', id), dispatchError);
 
     // Floor plans
     if (p.bywoodFloorPlans) syncArray<ShopFloor>(p.bywoodFloorPlans, prev.bywoodFloorPlans, fp => saveFloorPlan('bywood', fp), undefined, dispatchError);
