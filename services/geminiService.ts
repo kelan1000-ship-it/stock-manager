@@ -2,6 +2,24 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ExtractedProductInfo, OrderHistoryEntry, OrderSuggestion, PlanogramLayout, PlanogramSlot, Product, ShopFloor } from "../types";
 
+interface GeminiImageData {
+  imageBytes?: string;
+  bytes?: string;
+  data?: string;
+}
+
+interface GeminiGeneratedImage {
+  image?: GeminiImageData;
+  imageBytes?: string;
+  bytes?: string;
+}
+
+/** Extracts the base64 image bytes from a Gemini GeneratedImage response. */
+function extractImageBytes(img: unknown): string | null {
+  const g = img as GeminiGeneratedImage;
+  return g?.image?.imageBytes ?? g?.image?.bytes ?? g?.image?.data ?? g?.imageBytes ?? g?.bytes ?? null;
+}
+
 /**
  * Validates the presence of the Gemini API key and returns an AI client instance.
  */
@@ -86,7 +104,7 @@ export const searchAndGenerateOptions = async (productName: string, packSize: st
     });
 
     return (generationResponse.generatedImages || []).map(img => {
-      const imgData = (img.image as any)?.imageBytes || (img.image as any)?.bytes || (img as any).imageBytes || (img as any).bytes;
+      const imgData = extractImageBytes(img);
       return imgData ? `data:image/jpeg;base64,${imgData}` : '';
     }).filter(Boolean);
   } catch (error) {
@@ -235,12 +253,12 @@ export const visualizePlanogram = async (
     if (imageResponse.generatedImages && imageResponse.generatedImages.length > 0) {
       const img = imageResponse.generatedImages[0];
       // Robust extraction: try every possible path for the bytes
-      const imgData = (img.image as any)?.imageBytes || (img.image as any)?.bytes || (img as any).imageBytes || (img as any).bytes || (img.image as any)?.data;
+      const imgData = extractImageBytes(img);
       if (imgData) {
         return `data:image/jpeg;base64,${imgData}`;
       }
     }
-    
+
     return compositeBase || null; // Fallback to composite if AI render fails
   } catch (error) {
     console.error("[visualizePlanogram] Inference failed:", error);
@@ -280,7 +298,7 @@ export const visualizeShopFloor = async (floorPlan: ShopFloor, planograms: Plano
 
     if (response.generatedImages && response.generatedImages.length > 0) {
       const img = response.generatedImages[0];
-      const imgData = (img.image as any)?.imageBytes || (img.image as any)?.bytes || (img as any).imageBytes || (img as any).bytes || (img.image as any)?.data;
+      const imgData = extractImageBytes(img);
       if (imgData) {
         return `data:image/jpeg;base64,${imgData}`;
       }

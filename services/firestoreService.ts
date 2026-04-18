@@ -99,7 +99,7 @@ export async function batchUpdateMessages(messageIds: string[], updates: Partial
   for (let i = 0; i < messageIds.length; i += 450) {
     const batch = writeBatch(db);
     messageIds.slice(i, i + 450).forEach(id => {
-      batch.update(doc(db, 'shared', 'data', 'messages', id), updates as any);
+      batch.update(doc(db, 'shared', 'data', 'messages', id), updates);
     });
     await batch.commit();
   }
@@ -204,7 +204,7 @@ export function subscribeToPlanograms(branch: BranchKey, callback: (l: Planogram
 }
 
 export async function savePlanogram(branch: BranchKey, layout: PlanogramLayout) {
-  await setDoc(doc(db, 'branches', branch, 'planograms', layout.id), layout as any);
+  await setDoc(doc(db, 'branches', branch, 'planograms', layout.id), layout);
 }
 
 export async function deletePlanogramFromDb(branch: BranchKey, layoutId: string) {
@@ -220,7 +220,7 @@ export function subscribeToFloorPlans(branch: BranchKey, callback: (f: ShopFloor
 }
 
 export async function saveFloorPlan(branch: BranchKey, floor: ShopFloor) {
-  await setDoc(doc(db, 'branches', branch, 'floorPlans', floor.id), floor as any);
+  await setDoc(doc(db, 'branches', branch, 'floorPlans', floor.id), floor);
 }
 
 // ═══ EPOS TRANSACTIONS ═══

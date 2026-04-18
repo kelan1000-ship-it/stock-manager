@@ -5,8 +5,10 @@ import { useDispatch } from 'react-redux';
 import { Product, Transfer, BranchKey, BranchData } from '../types';
 import { ProductThumbnail } from './ImageComponents';
 import { useStockTransfer } from '../hooks/useStockTransfer';
-import { findProductMatches } from '../utils/productMatching';
 import { requestTransfer } from './stockSlice';
+import { useAppSelector } from './store';
+import { BranchStockSummary } from '../selectors/stockSelectors';
+import { findProductMatches } from '../utils/productMatching';
 
 interface StockTransferFormProps {
   isOpen: boolean;
@@ -37,39 +39,32 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
   const dispatch = useDispatch();
   const { isSubmitting, error: apiError, success, sendTransferToSheets, resetStatus } = useStockTransfer();
 
-  // Retrieve current branch stock (live Firestore data) to handle Global Search items correctly
-  const currentBranchStockData = useMemo(() => {
-    if (!isOpen || !product || !branchData) return { full: 0, parts: 0 };
+  const otherBranch: BranchKey = currentBranch === 'bywood' ? 'broom' : 'bywood';
+
+  const currentInventory = useAppSelector((state) => state.stock[currentBranch]);
+  const otherInventory = useAppSelector((state) => state.stock[otherBranch]);
+
+  const currentBranchStockData: BranchStockSummary = useMemo(() => {
+    if (!product) return { full: 0, parts: 0 };
     try {
-      const currentInventory: Product[] = branchData[currentBranch] || [];
       const matches = findProductMatches(currentInventory, product);
       return {
         full: matches.reduce((acc, m) => acc + m.stockInHand, 0),
-        parts: matches.reduce((acc, m) => acc + (m.partPacks || 0), 0)
+        parts: matches.reduce((acc, m) => acc + (m.partPacks || 0), 0),
       };
-    } catch (e) {
-      console.error("Error accessing current branch data", e);
-      return { full: 0, parts: 0 };
-    }
-  }, [isOpen, product, currentBranch, branchData]);
+    } catch { return { full: 0, parts: 0 }; }
+  }, [currentInventory, product]);
 
-  // Retrieve other branch stock from branchData (live Firestore data)
-  const otherBranchStockData = useMemo(() => {
-    if (!isOpen || !product) return { full: 0, parts: 0 };
+  const otherBranchStockData: BranchStockSummary = useMemo(() => {
+    if (!product) return { full: 0, parts: 0 };
     try {
-      if (!branchData) return { full: 0, parts: 0 };
-      const otherBranchKey: BranchKey = currentBranch === 'bywood' ? 'broom' : 'bywood';
-      const otherInventory: Product[] = branchData[otherBranchKey] || [];
       const matches = findProductMatches(otherInventory, product);
       return {
         full: matches.reduce((acc, m) => acc + m.stockInHand, 0),
-        parts: matches.reduce((acc, m) => acc + (m.partPacks || 0), 0)
+        parts: matches.reduce((acc, m) => acc + (m.partPacks || 0), 0),
       };
-    } catch (e) {
-      console.error("Error accessing other branch data", e);
-      return { full: 0, parts: 0 };
-    }
-  }, [isOpen, product, currentBranch, branchData]);
+    } catch { return { full: 0, parts: 0 }; }
+  }, [otherInventory, product]);
 
   useEffect(() => {
     if (isOpen) {
@@ -84,7 +79,6 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
 
   if (!isOpen || !product) return null;
 
-  const targetBranch: BranchKey = currentBranch === 'bywood' ? 'broom' : 'bywood';
   const branchLabels = {
     bywood: 'Bywood Ave',
     broom: 'Broom Rd'
@@ -132,7 +126,7 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
         type: transferType,
         note: note.trim(),
         sourceBranch: currentBranch,
-        targetBranch
+        targetBranch: otherBranch,
       }));
 
       // Close after a brief delay if successful
@@ -234,7 +228,7 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
 
               {/* Target Branch Card */}
               <div className={`flex-1 p-4 rounded-xl bg-slate-950/50 border transition-all duration-300 ${transferType === 'request' ? 'border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-slate-800'}`}>
-                <p className="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2 text-right">{branchLabels[targetBranch]}</p>
+                <p className="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2 text-right">{branchLabels[otherBranch]}</p>
                 <div className="space-y-1 text-right">
                   <p className={`text-3xl font-black leading-none transition-colors ${transferType === 'request' ? 'text-emerald-400 animate-pulse' : 'text-white'}`}>
                     <span className={`text-[9px] mr-1 font-bold tracking-tighter align-middle ${transferType === 'request' ? 'text-emerald-600' : 'text-slate-600'}`}>Full</span> {otherBranchStockData.full}

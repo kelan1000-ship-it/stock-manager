@@ -1,7 +1,7 @@
 
 // contexts/AuthContext.tsx
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { User } from 'firebase/auth';
 import { AppUser, BranchId, BRANCH_DISPLAY_NAMES } from '../types/auth';
 import { onAuthChange, getUserProfile, subscribeToUserProfile, logout } from '../services/authService';
@@ -39,6 +39,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [currentBranch, setCurrentBranchRaw] = useState<BranchId>('bywood');
   const [error, setError] = useState<string | null>(null);
+  const currentBranchRef = useRef(currentBranch);
+
+  useEffect(() => { currentBranchRef.current = currentBranch; }, [currentBranch]);
 
   // ─── Listen to Firebase Auth state ──────────────────────────────
   useEffect(() => {
@@ -98,13 +101,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAppUser(safeProfile);
 
       // Only override branch if current one was revoked by admin
-      if (branches.length > 0 && !branches.includes(currentBranch)) {
+      if (branches.length > 0 && !branches.includes(currentBranchRef.current)) {
         setCurrentBranchRaw(branches[0]);
       }
     });
 
     return unsub;
-  }, [firebaseUser, loading, currentBranch]);
+  }, [firebaseUser, loading]);
 
   // ─── Branch switching ───────────────────────────────────────────
   const setCurrentBranch = useCallback((branch: BranchId) => {
