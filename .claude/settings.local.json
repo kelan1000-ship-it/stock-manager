@@ -12,7 +12,8 @@
       "Bash(grep -rn \"<PerformanceView\" components/)",
       "Bash(grep -E \"\\\\.\\(ts|tsx|js\\)$\")",
       "Bash(find /c/Users/kelan/Desktop/greenchem-pharmacy-stock-manager/components -name \"*.tsx\" -exec grep -l \"BranchData\" {} \\\\;)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(xargs grep *)"
     ]
   }
 }

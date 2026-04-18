@@ -98,7 +98,8 @@ export function useProductOperations(
         tags: formData.tags,
         noVat: formData.noVat,
         reducedVat: formData.reducedVat,
-        skipStockCheck: formData.skipStockCheck
+        skipStockCheck: formData.skipStockCheck,
+        isExcessStock: formData.isExcessStock
       });
 
       if (editingId) {
