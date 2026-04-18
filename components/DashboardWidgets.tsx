@@ -1,8 +1,8 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
 import { History, Truck, TrendingUp, Package, Star, AlertCircle, X, RefreshCw, Copy, GripHorizontal, ListChecks } from 'lucide-react';
-import { Product } from '../types';
+import { Product, BranchKey } from '../types';
+import { useAppSelector } from './store';
 import { StockLogicReturn } from '../hooks/useStockLogic';
 import { useSlowMoverInsights } from '../hooks/useSlowMoverInsights';
 import { useInventoryReconciliation } from '../hooks/useInventoryReconciliation';
@@ -25,17 +25,15 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
   onOpenDuplicates,
   currentBranch
 }) => {
-  const items = useSelector((state: any) => 
-    (currentBranch === 'bywood' ? state.stock.bywood : state.stock.broom) || []
-  );
+  const items = useAppSelector((state) => state.stock[currentBranch as BranchKey] ?? []);
 
   const activeMainInventory = useMemo(() => {
     return items.filter((p: Product) => !p.isArchived && !p.deletedAt);
   }, [items]);
 
-  const activeOrders = useSelector((state: any) => {
+  const activeOrders = useAppSelector((state) => {
     const orderKey = currentBranch === 'bywood' ? 'bywoodOrders' : 'broomOrders';
-    return (state.stock[orderKey] || []) as any[];
+    return state.stock[orderKey] ?? [];
   });
 
   const activeOrdersCount = useMemo(() => {

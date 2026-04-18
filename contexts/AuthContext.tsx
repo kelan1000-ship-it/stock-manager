@@ -93,18 +93,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!firebaseUser || loading) return;
 
-    const unsub = subscribeToUserProfile(firebaseUser.uid, (profile) => {
-      if (!profile) return;
+    const unsub = subscribeToUserProfile(
+      firebaseUser.uid,
+      (profile) => {
+        if (!profile) return;
 
-      const branches = Array.isArray(profile.assignedBranches) ? profile.assignedBranches : [];
-      const safeProfile: AppUser = { ...profile, assignedBranches: branches };
-      setAppUser(safeProfile);
+        const branches = Array.isArray(profile.assignedBranches) ? profile.assignedBranches : [];
+        const safeProfile: AppUser = { ...profile, assignedBranches: branches };
+        setAppUser(safeProfile);
 
-      // Only override branch if current one was revoked by admin
-      if (branches.length > 0 && !branches.includes(currentBranchRef.current)) {
-        setCurrentBranchRaw(branches[0]);
-      }
-    });
+        // Only override branch if current one was revoked by admin
+        if (branches.length > 0 && !branches.includes(currentBranchRef.current)) {
+          setCurrentBranchRaw(branches[0]);
+        }
+      },
+      (err) => console.error('[AuthContext] Profile listener error:', err)
+    );
 
     return unsub;
   }, [firebaseUser, loading]);

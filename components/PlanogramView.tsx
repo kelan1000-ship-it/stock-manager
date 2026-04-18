@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useSelector } from 'react-redux';
+import { useAppSelector } from './store';
 import { storageService } from '../services/storageService';
 import { 
   Layers, Plus, Save, Download, ShoppingCart, Filter, X, Search,
@@ -49,9 +49,7 @@ interface PlanogramViewProps {
   addShelfToFloor, updateFloorItem, removeFloorItem, onUpdateProduct, onAddFace, onRemoveFace, onDeletePlanogram,
   onSaveConfiguration, onLoadConfiguration, onDeleteConfiguration, onRenameConfiguration, onOpenProductEdit
   }) => {
-  const inventory = useSelector((state: any) => 
-    (currentBranch === 'bywood' ? state.stock.bywood : state.stock.broom) || []
-  );
+  const inventory = useAppSelector((state) => state.stock[currentBranch] ?? []);
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
   const [activeTab, setActiveTab] = useState<'picker' | 'shelves' | 'floor' | 'config'>('shelf');
 

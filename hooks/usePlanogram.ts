@@ -2,6 +2,25 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { PlanogramLayout, PlanogramSlot, BranchKey, BranchData, Product, ShopFloor, ShopFloorItem, PlanogramFace, SavedPlanogramConfiguration } from '../types';
 
+function applySlotPurpose(
+  slots: PlanogramSlot[],
+  slotId: number,
+  purpose: 'product' | 'gap' | 'shelf_end' | undefined,
+  cols: number
+): PlanogramSlot[] {
+  if (purpose !== 'shelf_end') {
+    return slots.map(s =>
+      s.id === slotId ? { ...s, productId: purpose === 'gap' ? null : s.productId, purpose } : s
+    );
+  }
+  const targetRow = Math.floor(slotId / cols);
+  const targetCol = slotId % cols;
+  return slots.map(s => {
+    if (Math.floor(s.id / cols) !== targetRow || s.id % cols < targetCol) return s;
+    return { ...s, productId: null, purpose: 'shelf_end' };
+  });
+}
+
 export function usePlanogram(branchData: BranchData, setBranchData: React.Dispatch<React.SetStateAction<BranchData>>, currentBranch: BranchKey) {
   const [activePlanogramId, setActivePlanogramId] = useState<string | null>(null);
 
@@ -83,36 +102,16 @@ export function usePlanogram(branchData: BranchData, setBranchData: React.Dispat
         ...prev,
         [branchPlanogramsKey]: planograms.map(p => {
           if (p.id !== activePlanogramId) return p;
-
-          const applyPurpose = (slots: PlanogramSlot[], rows: number, cols: number) => {
-             if (purpose !== 'shelf_end') {
-                 return slots.map(s => s.id === slotId ? { ...s, productId: purpose === 'gap' ? null : s.productId, purpose } : s);
-             }
-             
-             // Shelf End logic: fill to the right
-             const row = Math.floor(slotId / cols);
-             const col = slotId % cols;
-             return slots.map(s => {
-                const sRow = Math.floor(s.id / cols);
-                const sCol = s.id % cols;
-                if (sRow === row && sCol >= col) {
-                   return { ...s, productId: null, purpose: 'shelf_end' };
-                }
-                return s;
-             });
-          };
-
           if (faceId && p.faces) {
-            const newFaces = p.faces.map(f => {
-              if (f.id === faceId) {
-                return { ...f, slots: applyPurpose(f.slots, f.rows, f.cols) };
-              }
-              return f;
-            });
-            return { ...p, faces: newFaces };
-          } else {
-            return { ...p, slots: applyPurpose(p.slots, p.rows, p.cols) };
+            return {
+              ...p,
+              faces: p.faces.map(f => {
+                if (f.id !== faceId) return f;
+                return { ...f, slots: applySlotPurpose(f.slots, slotId, purpose, f.cols) };
+              })
+            };
           }
+          return { ...p, slots: applySlotPurpose(p.slots, slotId, purpose, p.cols) };
         })
       };
     });

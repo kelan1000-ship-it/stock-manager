@@ -15,7 +15,6 @@ export const LiveVisionScanner = ({ theme, onDetected, onClose }: { theme: strin
 
   // Check for native BarcodeDetector support
   useEffect(() => {
-    // @ts-ignore
     if ('BarcodeDetector' in window) {
       setHasNativeSupport(true);
     }
@@ -63,11 +62,9 @@ export const LiveVisionScanner = ({ theme, onDetected, onClose }: { theme: strin
         
         try {
             // Priority 1: Native BarcodeDetector (Fastest)
-            // @ts-ignore
             if (window.BarcodeDetector) {
                 try {
-                    // @ts-ignore
-                    const barcodeDetector = new BarcodeDetector({ 
+                    const barcodeDetector = new BarcodeDetector({
                         formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'qr_code', 'data_matrix'] 
                     });
                     const barcodes = await barcodeDetector.detect(videoRef.current);

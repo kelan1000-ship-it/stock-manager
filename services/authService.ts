@@ -45,12 +45,17 @@ export async function getUserProfile(uid: string): Promise<AppUser | null> {
 // Watch a user's profile for real-time changes (e.g., branch reassignment)
 export function subscribeToUserProfile(
   uid: string,
-  callback: (user: AppUser | null) => void
+  callback: (user: AppUser | null) => void,
+  onError?: (error: Error) => void
 ): Unsubscribe {
-  return onSnapshot(doc(db, 'users', uid), (snap) => {
-    if (!snap.exists()) { callback(null); return; }
-    callback({ uid, ...snap.data() } as AppUser);
-  });
+  return onSnapshot(
+    doc(db, 'users', uid),
+    (snap) => {
+      if (!snap.exists()) { callback(null); return; }
+      callback({ uid, ...snap.data() } as AppUser);
+    },
+    onError
+  );
 }
 
 // Admin: create a new user

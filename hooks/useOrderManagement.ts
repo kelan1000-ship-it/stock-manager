@@ -8,35 +8,19 @@ export function useOrderManagement(
   setBranchData: React.Dispatch<React.SetStateAction<BranchData>>
 ) {
   // Standard Order Logic
-  const removeOrder = useCallback((orderId: string) => {
+  const updateOrderStatus = useCallback((orderId: string, status: OrderItem['status']) => {
     const orderKey = currentBranch === 'bywood' ? 'bywoodOrders' : 'broomOrders';
     setBranchData(prev => ({
       ...prev,
-      [orderKey]: prev[orderKey].map((o: OrderItem) => 
-        o.id === orderId ? { ...o, status: 'cancelled' } : o
+      [orderKey]: prev[orderKey].map((o: OrderItem) =>
+        o.id === orderId ? { ...o, status } : o
       )
     }));
   }, [currentBranch, setBranchData]);
 
-  const markAsBackorder = useCallback((orderId: string) => {
-    const orderKey = currentBranch === 'bywood' ? 'bywoodOrders' : 'broomOrders';
-    setBranchData(prev => ({
-      ...prev,
-      [orderKey]: prev[orderKey].map((o: OrderItem) => 
-        o.id === orderId ? { ...o, status: 'backorder' } : o
-      )
-    }));
-  }, [currentBranch, setBranchData]);
-
-  const markAsActiveOrder = useCallback((orderId: string) => {
-    const orderKey = currentBranch === 'bywood' ? 'bywoodOrders' : 'broomOrders';
-    setBranchData(prev => ({
-      ...prev,
-      [orderKey]: prev[orderKey].map((o: OrderItem) => 
-        o.id === orderId ? { ...o, status: 'ordered' } : o
-      )
-    }));
-  }, [currentBranch, setBranchData]);
+  const removeOrder = useCallback((orderId: string) => updateOrderStatus(orderId, 'cancelled'), [updateOrderStatus]);
+  const markAsBackorder = useCallback((orderId: string) => updateOrderStatus(orderId, 'backorder'), [updateOrderStatus]);
+  const markAsActiveOrder = useCallback((orderId: string) => updateOrderStatus(orderId, 'ordered'), [updateOrderStatus]);
 
   const receiveOrder = useCallback((order: OrderItem) => {
     const now = new Date().toISOString();
@@ -52,32 +36,31 @@ export function useOrderManagement(
 
         // Update product stock
         const updatedProducts = prev[currentBranch].map(p => {
-            if (p.id === order.productId) {
-                let currentStock = p.stockInHand;
-                let newOrderHistory = [...(p.orderHistory || [])];
-                let newStockHistory = [...(p.stockHistory || [])];
+            if (p.id !== order.productId) return p;
 
-                activeOrders.forEach(activeOrder => {
-                    currentStock += activeOrder.quantity;
-                    newOrderHistory.push({ date: now, quantity: activeOrder.quantity });
-                    newStockHistory.push({ 
-                        date: now, 
-                        type: 'order', 
-                        change: activeOrder.quantity, 
-                        newBalance: currentStock, 
-                        note: 'Order Received' 
-                    });
+            let currentStock = p.stockInHand;
+            const newOrderHistory = [...(p.orderHistory || [])];
+            const newStockHistory = [...(p.stockHistory || [])];
+
+            activeOrders.forEach(activeOrder => {
+                currentStock += activeOrder.quantity;
+                newOrderHistory.push({ date: now, quantity: activeOrder.quantity });
+                newStockHistory.push({
+                    date: now,
+                    type: 'order',
+                    change: activeOrder.quantity,
+                    newBalance: currentStock,
+                    note: 'Order Received'
                 });
+            });
 
-                return {
-                    ...p,
-                    stockInHand: currentStock,
-                    lastOrderedDate: now,
-                    orderHistory: newOrderHistory,
-                    stockHistory: newStockHistory
-                };
-            }
-            return p;
+            return {
+                ...p,
+                stockInHand: currentStock,
+                lastOrderedDate: now,
+                orderHistory: newOrderHistory,
+                stockHistory: newStockHistory
+            };
         });
 
         // Update order statuses
