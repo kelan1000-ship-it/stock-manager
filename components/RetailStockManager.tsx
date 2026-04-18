@@ -2,11 +2,11 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { store } from './store';
-import { setStock, startInventoryListeners, setLastSeenMessages, StockState } from './stockSlice';
+import { setStock, startInventoryListeners, setLastSeenMessages, setError, StockState } from './stockSlice';
 import { 
   Plus, LayoutDashboard, Database, ChevronDown, MessageSquare,
   BarChart3, ClipboardList, Layers, Handshake, Sparkles,
-  ArrowRightLeft, Volume2, VolumeX, LogOut, Users, Bell, Settings
+  ArrowRightLeft, Volume2, VolumeX, LogOut, Users, Bell, Settings, X
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { BranchSelector } from './BranchSelector';
@@ -153,6 +153,13 @@ function RetailStockManagerInner() {
   }, [buckets]);
 
   const unreadCounts = useSelector((state: { stock: StockState }) => state.stock.unreadCounts);
+  const firestoreError = useSelector((state: { stock: StockState }) => state.stock.error);
+
+  useEffect(() => {
+    if (!firestoreError) return;
+    const t = setTimeout(() => dispatch(setError(null)), 6000);
+    return () => clearTimeout(t);
+  }, [firestoreError, dispatch]);
 
   const prevMsgCount = useRef(branchData.messages.length);
   const prevTrfCount = useRef(branchData.transfers.length);
@@ -667,6 +674,12 @@ function RetailStockManagerInner() {
 
   return (
     <div className={`min-h-screen transition-colors duration-300 pb-20 font-sans ${appMode === 'epos' ? 'bg-gray-100 text-gray-900' : 'bg-black text-slate-100'}`}>
+      {firestoreError && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 bg-red-900/95 border border-red-600 text-red-100 text-sm px-4 py-3 rounded-xl shadow-2xl backdrop-blur-sm max-w-lg w-full mx-4">
+          <span className="flex-1">{firestoreError}</span>
+          <button onClick={() => dispatch(setError(null))} className="text-red-300 hover:text-red-100 shrink-0"><X size={14} /></button>
+        </div>
+      )}
       <header className="border-b sticky top-0 z-40 shadow-sm bg-slate-950 border-slate-800">
         <div className="w-full max-w-[99%] mx-auto px-2 sm:px-4 h-20 flex items-center justify-between gap-4">
           {/* Left: Branding & Branch Toggle */}

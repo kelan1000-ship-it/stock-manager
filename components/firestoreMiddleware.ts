@@ -87,19 +87,26 @@ function syncArray<T extends { id: string }>(
   current: T[],
   save: (item: T) => Promise<void>,
   del?: (id: string) => Promise<void>,
+  onError?: (msg: string) => void,
 ) {
   const currentMap = new Map(current.map(x => [x.id, x]));
   for (const item of incoming) {
     const prev = currentMap.get(item.id);
     if (!prev || isDirty(prev, item)) {
-      save(item).catch(err => console.error('[Middleware] save failed:', err));
+      save(item).catch(err => {
+        console.error('[Middleware] save failed:', err);
+        onError?.(`Save failed: ${err.message}`);
+      });
     }
   }
   if (del) {
     const incomingIds = new Set(incoming.map(x => x.id));
     for (const item of current) {
       if (!incomingIds.has(item.id)) {
-        del(item.id).catch(err => console.error('[Middleware] delete failed:', err));
+        del(item.id).catch(err => {
+          console.error('[Middleware] delete failed:', err);
+          onError?.(`Delete failed: ${err.message}`);
+        });
       }
     }
   }
@@ -162,9 +169,10 @@ export const firestoreMiddleware: Middleware = store => next => action => {
   if (addStockItem.match(action)) {
     const { branch, product } = action.payload;
     console.log('[Middleware] addStockItem — saving to Firestore', product.id);
-    saveProduct(branch, product).catch(err =>
-      console.error('[Middleware] addStockItem failed:', err)
-    );
+    saveProduct(branch, product).catch(err => {
+      console.error('[Middleware] addStockItem failed:', err);
+      store.dispatch(setError(`Failed to save product "${product.name}": ${err.message}`));
+    });
   }
 
   // ── updateStockItem → merge with pre-reducer state and write ─────────────────
@@ -175,9 +183,10 @@ export const firestoreMiddleware: Middleware = store => next => action => {
     if (existing) {
       const merged: Product = { ...existing, ...partial };
       console.log('[Middleware] updateStockItem — saving to Firestore', merged.id);
-      saveProduct(branch, merged).catch(err =>
-        console.error('[Middleware] updateStockItem failed:', err)
-      );
+      saveProduct(branch, merged).catch(err => {
+        console.error('[Middleware] updateStockItem failed:', err);
+        store.dispatch(setError(`Failed to update product "${merged.name}": ${err.message}`));
+      });
     }
   }
 
@@ -185,9 +194,10 @@ export const firestoreMiddleware: Middleware = store => next => action => {
   if (removeStockItem.match(action)) {
     const { branch, productId } = action.payload;
     console.log('[Middleware] removeStockItem — deleting from Firestore', productId);
-    deleteProductFromDb(branch, productId).catch(err =>
-      console.error('[Middleware] removeStockItem failed:', err)
-    );
+    deleteProductFromDb(branch, productId).catch(err => {
+      console.error('[Middleware] removeStockItem failed:', err);
+      store.dispatch(setError(`Failed to delete product: ${err.message}`));
+    });
   }
 
   // ── setBranchData → full write-back for user-originated mutations ─────────────
@@ -199,6 +209,7 @@ export const firestoreMiddleware: Middleware = store => next => action => {
   if (setBranchData.match(action) && action.payload.bywood !== undefined) {
     const prev = (store.getState() as { stock: StockState }).stock;
     const p = action.payload;
+    const dispatchError = (msg: string) => store.dispatch(setError(msg));
 
     console.log('[Middleware] setBranchData — persisting to Firestore');
 
@@ -214,49 +225,51 @@ export const firestoreMiddleware: Middleware = store => next => action => {
       for (const product of incoming) {
         const existing = currentMap.get(product.id);
         if (!existing || productDirty(existing, product)) {
-          saveProduct(branch, product).catch(err =>
-            console.error(`[Middleware] saveProduct(${branch}) failed:`, err)
-          );
+          saveProduct(branch, product).catch(err => {
+            console.error(`[Middleware] saveProduct(${branch}) failed:`, err);
+            dispatchError(`Failed to save product "${product.name}": ${err.message}`);
+          });
         }
       }
       // Hard-deletes (product removed from array entirely)
       const incomingIds = new Set(incoming.map(x => x.id));
       for (const product of prev[branch] as Product[]) {
         if (!incomingIds.has(product.id)) {
-          deleteProductFromDb(branch, product.id).catch(err =>
-            console.error(`[Middleware] deleteProduct(${branch}) failed:`, err)
-          );
+          deleteProductFromDb(branch, product.id).catch(err => {
+            console.error(`[Middleware] deleteProduct(${branch}) failed:`, err);
+            dispatchError(`Failed to delete product: ${err.message}`);
+          });
         }
       }
     });
 
     // Requests
-    if (p.bywoodRequests) syncArray<CustomerRequest>(p.bywoodRequests, prev.bywoodRequests, r => saveRequest('bywood', r), id => deleteRequestFromDb('bywood', id));
-    if (p.broomRequests) syncArray<CustomerRequest>(p.broomRequests, prev.broomRequests, r => saveRequest('broom', r), id => deleteRequestFromDb('broom', id));
+    if (p.bywoodRequests) syncArray<CustomerRequest>(p.bywoodRequests, prev.bywoodRequests, r => saveRequest('bywood', r), id => deleteRequestFromDb('bywood', id), dispatchError);
+    if (p.broomRequests) syncArray<CustomerRequest>(p.broomRequests, prev.broomRequests, r => saveRequest('broom', r), id => deleteRequestFromDb('broom', id), dispatchError);
 
     // Orders
-    if (p.bywoodOrders) syncArray<OrderItem>(p.bywoodOrders, prev.bywoodOrders, o => saveOrder('bywood', o));
-    if (p.broomOrders) syncArray<OrderItem>(p.broomOrders, prev.broomOrders, o => saveOrder('broom', o));
+    if (p.bywoodOrders) syncArray<OrderItem>(p.bywoodOrders, prev.bywoodOrders, o => saveOrder('bywood', o), undefined, dispatchError);
+    if (p.broomOrders) syncArray<OrderItem>(p.broomOrders, prev.broomOrders, o => saveOrder('broom', o), undefined, dispatchError);
 
     // Master inventory
-    if (p.masterInventory) syncArray<MasterProduct>(p.masterInventory, prev.masterInventory, m => saveMasterProduct(m), id => deleteMasterProductFromDb(id));
+    if (p.masterInventory) syncArray<MasterProduct>(p.masterInventory, prev.masterInventory, m => saveMasterProduct(m), id => deleteMasterProductFromDb(id), dispatchError);
 
     // Tasks
-    if (p.tasks) syncArray<BranchTask>(p.tasks, prev.tasks, t => saveTask(t), id => deleteTaskFromDb(id));
+    if (p.tasks) syncArray<BranchTask>(p.tasks, prev.tasks, t => saveTask(t), id => deleteTaskFromDb(id), dispatchError);
 
     // Planograms
-    if (p.bywoodPlanograms) syncArray<PlanogramLayout>(p.bywoodPlanograms, prev.bywoodPlanograms, pl => savePlanogram('bywood', pl));
-    if (p.broomPlanograms) syncArray<PlanogramLayout>(p.broomPlanograms, prev.broomPlanograms, pl => savePlanogram('broom', pl));
+    if (p.bywoodPlanograms) syncArray<PlanogramLayout>(p.bywoodPlanograms, prev.bywoodPlanograms, pl => savePlanogram('bywood', pl), undefined, dispatchError);
+    if (p.broomPlanograms) syncArray<PlanogramLayout>(p.broomPlanograms, prev.broomPlanograms, pl => savePlanogram('broom', pl), undefined, dispatchError);
 
     // Floor plans
-    if (p.bywoodFloorPlans) syncArray<ShopFloor>(p.bywoodFloorPlans, prev.bywoodFloorPlans, fp => saveFloorPlan('bywood', fp));
-    if (p.broomFloorPlans) syncArray<ShopFloor>(p.broomFloorPlans, prev.broomFloorPlans, fp => saveFloorPlan('broom', fp));
+    if (p.bywoodFloorPlans) syncArray<ShopFloor>(p.bywoodFloorPlans, prev.bywoodFloorPlans, fp => saveFloorPlan('bywood', fp), undefined, dispatchError);
+    if (p.broomFloorPlans) syncArray<ShopFloor>(p.broomFloorPlans, prev.broomFloorPlans, fp => saveFloorPlan('broom', fp), undefined, dispatchError);
 
     // Joint orders
-    if (p.jointOrders) syncArray<JointOrder>(p.jointOrders, prev.jointOrders, jo => saveJointOrder(jo));
+    if (p.jointOrders) syncArray<JointOrder>(p.jointOrders, prev.jointOrders, jo => saveJointOrder(jo), undefined, dispatchError);
 
     // Shared order drafts
-    if (p.sharedOrderDrafts) syncArray<SharedOrderDraft>(p.sharedOrderDrafts, prev.sharedOrderDrafts, d => saveSharedOrderDraft(d), id => deleteSharedOrderDraft(id));
+    if (p.sharedOrderDrafts) syncArray<SharedOrderDraft>(p.sharedOrderDrafts, prev.sharedOrderDrafts, d => saveSharedOrderDraft(d), id => deleteSharedOrderDraft(id), dispatchError);
   }
 
   // ── startInventoryListeners ───────────────────────────────────────────────────
