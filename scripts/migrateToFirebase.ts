@@ -22,10 +22,13 @@ export async function runMigration() {
     ];
 
     // 2. Filter for legacy drive links
-    const toMigrate = allDocs.filter(d => {
-      const img = d.data.productImage || d.data.image || d.data.imageUrl;
-      return typeof img === 'string' && img.includes('drive.google.com');
+    const toMigrateRaw = allDocs.map(d => {
+      const { productImage, image, imageUrl } = d.data;
+      const targetUrl = [productImage, image, imageUrl].find(url => typeof url === 'string' && url.includes('googleusercontent.com'));
+      return { ...d, oldUrl: targetUrl };
     });
+
+    const toMigrate = toMigrateRaw.filter(d => !!d.oldUrl);
 
     console.log(`📊 Found ${toMigrate.length} items to migrate.`);
 
@@ -34,26 +37,79 @@ export async function runMigration() {
       return;
     }
 
-    // 3. Process in batches of 20
-    const BATCH_SIZE = 20;
+    // 3. Process in batches of 10
+    const BATCH_SIZE = 10;
     let completed = 0;
     let errors = 0;
+
+    // Deduplication tracking
+    const migrationPromises = new Map<string, Promise<string>>();
+    let uploadedCount = 0;
+    let deduplicatedCount = 0;
 
     for (let i = 0; i < toMigrate.length; i += BATCH_SIZE) {
       const batch = toMigrate.slice(i, i + BATCH_SIZE);
       console.log(`📦 Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(toMigrate.length / BATCH_SIZE)}...`);
 
-      const results = await Promise.allSettled(batch.map(async (item) => {
-        const oldUrl = item.data.productImage || item.data.image || item.data.imageUrl;
+      // Pre-calculate randomized cumulative delays (1 to 3 seconds) for realistic staggering
+      let currentDelay = 0;
+      const staggerDelays = batch.map(() => {
+        const delay = currentDelay;
+        currentDelay += Math.floor(Math.random() * 2000) + 1000;
+        return delay;
+      });
+
+      const results = await Promise.allSettled(batch.map(async (item, index) => {
+        const oldUrl = item.oldUrl as string;
         
         try {
-          // Download image
-          const response = await fetch(oldUrl);
-          if (!response.ok) throw new Error(`Fetch failed with status ${response.status}`);
-          const blob = await response.blob();
+          let newUrl: string;
 
-          // Upload to Firebase
-          const newUrl = await uploadProductImage(blob, item.id);
+          if (migrationPromises.has(oldUrl)) {
+            console.log(`⏩ Skipping ${item.id} - already migrated`);
+            // Wait for existing upload of this exact image to finish
+            newUrl = await migrationPromises.get(oldUrl)!;
+            deduplicatedCount++;
+          } else {
+            // First time seeing this image URL, start the upload process
+            const uploadTask = (async () => {
+              // Wait for our randomized stagger delay before fetching
+              if (staggerDelays[index] > 0) {
+                await new Promise(resolve => setTimeout(resolve, staggerDelays[index]));
+              }
+
+              let blob: Blob;
+
+              const attemptFetch = async () => {
+                const response = await fetch(oldUrl, { 
+                  mode: 'cors', 
+                  credentials: 'omit' 
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
+                return await response.blob();
+              };
+
+              try {
+                blob = await attemptFetch();
+              } catch (err: any) {
+                const retryDelay = 5000;
+                console.warn(`⚠️ First attempt failed for ${item.id} (${err.message}). Retrying in 5s...`);
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                try {
+                  blob = await attemptFetch();
+                } catch (retryErr: any) {
+                  throw new Error(`Final fetch failed: ${retryErr.message}`);
+                }
+              }
+
+              // Upload to Firebase
+              return await uploadProductImage(blob, item.id);
+            })();
+
+            migrationPromises.set(oldUrl, uploadTask);
+            newUrl = await uploadTask;
+            uploadedCount++;
+          }
 
           // Update Firestore
           const updates: any = {
@@ -61,14 +117,14 @@ export async function runMigration() {
           };
 
           // Update whichever field was originally used
-          if (item.data.productImage !== undefined) updates.productImage = newUrl;
-          if (item.data.image !== undefined) updates.image = newUrl;
-          if (item.data.imageUrl !== undefined) updates.imageUrl = newUrl;
+          if (item.data.productImage === oldUrl) updates.productImage = newUrl;
+          if (item.data.image === oldUrl) updates.image = newUrl;
+          if (item.data.imageUrl === oldUrl) updates.imageUrl = newUrl;
 
           await updateDoc(item.ref, updates);
           return item.id;
-        } catch (err) {
-          console.error(`❌ Failed to migrate ${item.id}:`, err);
+        } catch (err: any) {
+          console.error(`❌ Failed to migrate ${item.id}:`, err.message || err, `| Original URL: ${oldUrl}`);
           throw err;
         }
       }));
@@ -79,11 +135,19 @@ export async function runMigration() {
       });
 
       console.log(`✨ Batch complete. Progress: ${completed} / ${toMigrate.length} (Errors: ${errors})`);
+
+      // Add a 10-second cooldown delay after every batch (except the last one)
+      if (i + BATCH_SIZE < toMigrate.length) {
+        console.log('⏳ Cooling down for 10 seconds to avoid Google rate limits...');
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      }
     }
 
     console.log('🏁 Migration finished!');
     console.log(`✅ Success: ${completed}`);
     console.log(`❌ Failed: ${errors}`);
+    console.log(`☁️ Unique Images Uploaded: ${uploadedCount}`);
+    console.log(`♻️ Duplicate Links Updated (Deduplicated): ${deduplicatedCount}`);
 
   } catch (globalError) {
     console.error('🔥 Critical migration failure:', globalError);

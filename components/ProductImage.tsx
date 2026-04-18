@@ -33,7 +33,7 @@ export const ProductImage: React.FC<ProductImageProps> = ({
     if (!imageUrl) return null;
 
     // Firebase Storage or Google Drive - append timestamp to bypass cache and force fresh load
-    if (imageUrl.includes('firebasestorage.app') || imageUrl.includes('drive.google.com')) {
+    if (imageUrl.includes('firebasestorage.app') || imageUrl.includes('drive.google.com') || imageUrl.includes('googleusercontent.com')) {
       return imageUrl.includes('?') ? `${imageUrl}&t=${Date.now()}` : `${imageUrl}?t=${Date.now()}`;
     }
 
