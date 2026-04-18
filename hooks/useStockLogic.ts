@@ -489,11 +489,9 @@ export function useStockLogic() {
 
   // AI Form Scan (Image)
   const handleFullAIScan = useCallback(async (base64: string, mimeType: string) => {
-    console.log(`[handleFullAIScan] Starting AI scan. Base64 length: ${base64.length}`);
     setIsAILoading(true);
     try {
         const result = await extractProductInfoFromImage(base64, mimeType);
-        console.log(`[handleFullAIScan] Result received:`, result);
         setFormData((prev) => ({
             ...prev,
             // Only fill fields that are currently empty; protect any pre-existing values

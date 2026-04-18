@@ -5,17 +5,17 @@ import {
   Mail, ClipboardList, Camera, History, ExternalLink,
   AlertTriangle, Loader2, CornerUpLeft
 } from 'lucide-react';
-import { useSelector, useDispatch } from 'react-redux';
 import { Message, BranchKey, BranchTask, ScreenshotPersistenceMethod } from '../types';
 import { TooltipWrapper } from './SharedUI';
 import { TaskManager } from './TaskManager';
-import { 
-  saveScreenshot, getScreenshots, deleteScreenshotFromDB, clearScreenshotsFromDB, ScreenshotEntry 
+import {
+  saveScreenshot, getScreenshots, deleteScreenshotFromDB, clearScreenshotsFromDB, ScreenshotEntry
 } from '../services/screenshotService';
-import { uploadImage, uploadFileResumable } from '../services/storageService';
+import { uploadFileResumable } from '../services/storageService';
 import { formatFileSize } from '../utils/stringUtils';
 import { saveMessage, updateMessage } from '../services/firestoreService';
-import { StockState } from './stockSlice';
+import { useAppSelector } from './store';
+import { selectMessages } from '../selectors/stockSelectors';
 
 // Memoized Message Item to prevent unnecessary re-renders
 const MessageItem = React.memo(({ 
@@ -211,9 +211,8 @@ export const ChatWindow = ({
   onUpdateTask?: (id: string, updates: Partial<BranchTask>) => void;
   onDeleteTask?: (id: string) => void;
 }) => {
-  const dispatch = useDispatch();
-  const currentBranch = useSelector((state: { stock: StockState }) => state.stock.currentBranch);
-  const allMessages = useSelector((state: { stock: StockState }) => state.stock.messages);
+  const currentBranch = useAppSelector((state) => state.stock.currentBranch);
+  const allMessages = useAppSelector(selectMessages);
   
   const dragCounter = useRef(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);

@@ -159,17 +159,18 @@ export const firestoreMiddleware: Middleware = store => next => action => {
           await saveProduct(sourceBranch, updatedProduct);
         }
         await saveTransfer(newTransfer);
+        store.dispatch(setStatus('connected'));
       } catch (err: any) {
         store.dispatch(setError(`Transfer failed: ${err.message}`));
       }
     };
+    store.dispatch(setStatus('loading'));
     handleTransferProcess();
   }
 
   // ── addStockItem → write new product ─────────────────────────────────────────
   if (addStockItem.match(action)) {
     const { branch, product } = action.payload;
-    console.log('[Middleware] addStockItem — saving to Firestore', product.id);
     saveProduct(branch, product).catch(err => {
       console.error('[Middleware] addStockItem failed:', err);
       store.dispatch(setError(`Failed to save product "${product.name}": ${err.message}`));
@@ -183,7 +184,6 @@ export const firestoreMiddleware: Middleware = store => next => action => {
     const existing = prevState[branch].find((p: Product) => p.id === partial.id);
     if (existing) {
       const merged: Product = { ...existing, ...partial };
-      console.log('[Middleware] updateStockItem — saving to Firestore', merged.id);
       saveProduct(branch, merged).catch(err => {
         console.error('[Middleware] updateStockItem failed:', err);
         store.dispatch(setError(`Failed to update product "${merged.name}": ${err.message}`));
@@ -194,7 +194,6 @@ export const firestoreMiddleware: Middleware = store => next => action => {
   // ── removeStockItem → delete from Firestore ───────────────────────────────────
   if (removeStockItem.match(action)) {
     const { branch, productId } = action.payload;
-    console.log('[Middleware] removeStockItem — deleting from Firestore', productId);
     deleteProductFromDb(branch, productId).catch(err => {
       console.error('[Middleware] removeStockItem failed:', err);
       store.dispatch(setError(`Failed to delete product: ${err.message}`));
@@ -211,8 +210,6 @@ export const firestoreMiddleware: Middleware = store => next => action => {
     const prev = (store.getState() as { stock: StockState }).stock;
     const p = action.payload;
     const dispatchError = (msg: string) => store.dispatch(setError(msg));
-
-    console.log('[Middleware] setBranchData — persisting to Firestore');
 
     // Products (bywood / broom) — diff by lastUpdated + stockInHand for efficiency
     const productDirty = (a: Product, b: Product) =>

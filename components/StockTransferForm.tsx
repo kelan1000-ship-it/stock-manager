@@ -133,8 +133,8 @@ export const StockTransferForm: React.FC<StockTransferFormProps> = ({
       setTimeout(() => {
         onClose();
       }, 1500);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // dispatch is synchronous; errors from the async transfer are handled in the middleware
     }
   };
 
