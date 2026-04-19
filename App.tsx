@@ -1,12 +1,3 @@
-
-// App.tsx
-//
-// Updated root component with authentication gating.
-// - Shows LoginScreen if not authenticated
-// - Shows loading spinner while checking auth
-// - Wraps the app in AuthProvider for global auth state
-// - Shows error screen if user has no Firestore profile
-
 import React, { useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import RetailStockManager from './components/RetailStockManager';
@@ -15,22 +6,12 @@ import { Loader2 } from 'lucide-react';
 import Logo from './Logo';
 import { GlobalTooltip } from './components/GlobalTooltip';
 import { subscribeToStockManagerConfig } from './services/firestoreService';
-import { runMigration } from './scripts/migrateToFirebase';
 
 /**
  * Inner component that reads auth state from context.
  */
 const AppContent: React.FC = () => {
   const { firebaseUser, appUser, loading, error, signOut } = useAuth();
-
-  useEffect(() => {
-    // Expose migration script to browser console for administrative use
-    (window as any).runMigration = runMigration;
-    
-    return () => {
-      delete (window as any).runMigration;
-    };
-  }, []);
 
   useEffect(() => {
     return subscribeToStockManagerConfig((config) => {
@@ -58,8 +39,6 @@ const AppContent: React.FC = () => {
   }
 
   // ─── Logged in but no Firestore profile ───────────────────────
-  // This happens if someone creates an Auth account but the admin
-  // hasn't set up their Firestore profile yet.
   if (!appUser) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center">

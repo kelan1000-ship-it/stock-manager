@@ -32,14 +32,14 @@ export const ProductImage: React.FC<ProductImageProps> = ({
   const processedSrc = useMemo(() => {
     if (!imageUrl) return null;
 
-    // Firebase Storage or Google Drive - append timestamp to bypass cache and force fresh load
-    if (imageUrl.includes('firebasestorage.app') || imageUrl.includes('drive.google.com') || imageUrl.includes('googleusercontent.com')) {
+    // Firebase Storage - append timestamp to bypass cache if needed
+    if (imageUrl.includes('firebasestorage.app')) {
       return imageUrl.includes('?') ? `${imageUrl}&t=${Date.now()}` : `${imageUrl}?t=${Date.now()}`;
     }
 
-    // Generic HTTP web links
+    // Standard HTTP web links (e.g. supplier sites, external images)
     if (imageUrl.startsWith('http')) {
-      return imageUrl.includes('?') ? `${imageUrl}&t=${Date.now()}` : `${imageUrl}?t=${Date.now()}`;
+      return imageUrl;
     }
     
     // Data URIs can be used as-is
@@ -47,7 +47,7 @@ export const ProductImage: React.FC<ProductImageProps> = ({
       return imageUrl;
     }
 
-    // Default to treating it as a raw base64 string if it doesn't match above patterns
+    // Default to treating it as a raw base64 string
     return `data:image/jpeg;base64,${imageUrl}`;
   }, [imageUrl]);
 

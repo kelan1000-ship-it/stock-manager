@@ -4,9 +4,21 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     
-    // Helper function to check if user is authenticated
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Product Images: All staff can view, only admins can upload/delete
+    match /products/{productId}/{imageId=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     // Branch Communications: Authenticated users can read/write

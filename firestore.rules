@@ -71,14 +71,22 @@ service cloud.firestore {
     }
 
     match /branches/{branchId}/config/{docId} {
-      allow read, write: if isAuth();
+      allow read: if isAuth();
+      allow write: if isAdmin();
     }
 
     match /branches/{branchId}/dayOverrides/{docId} {
-      allow read, write: if isAuth();
+      allow read: if isAuth();
+      allow write: if isAdmin();
     }
 
-    // All shared data (messages, transfers, orders, etc.)
+    // Master Inventory — restricted to Admin writes
+    match /shared/data/masterInventory/{docId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // All other shared data
     match /shared/{document=**} {
       allow read, write: if isAuth();
     }
